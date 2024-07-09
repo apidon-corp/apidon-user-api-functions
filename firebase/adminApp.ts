@@ -12,7 +12,6 @@ if (!admin.apps.length) {
 
 export const auth = admin.auth();
 export const firestore = admin.firestore();
-export const fieldValue = admin.firestore.FieldValue;
 
 const storageBucketId = keys.STORAGE_BUCKET_ID;
 
