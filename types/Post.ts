@@ -27,3 +27,13 @@ export type CommentDataV2 = {
   message: string;
   ts: number;
 };
+
+export type CommentInteractionData = {
+  postDocPath: string;
+  creationTime: number;
+};
+
+export type UploadedPostArrayObject = {
+  timestamp: number;
+  postDocPath: string;
+};
