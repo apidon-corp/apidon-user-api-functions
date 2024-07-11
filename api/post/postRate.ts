@@ -4,7 +4,7 @@ import { PostServerDataV3, RateData } from "../../types/Post";
 import { firestore } from "../../firebase/adminApp";
 import { FieldValue } from "firebase-admin/firestore";
 import { NotificationData } from "../../types/Notifications";
-import { internalAPIRoutes } from "../../config";
+import { internalAPIRoutes, keys } from "../../config";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -166,7 +166,7 @@ async function sendNotification(
     timestamp
   );
 
-  const notificationAPIKey = process.env.NOTIFICATION_API_KEY;
+  const notificationAPIKey = keys.NOTIFICATION_API_KEY;
 
   if (!notificationAPIKey) {
     console.error("Notification API key is undefined from config file.");
@@ -220,7 +220,7 @@ async function deleteNotification(
     previousRatingResult.ts
   );
 
-  const notificationAPIKey = process.env.NOTIFICATION_API_KEY;
+  const notificationAPIKey = keys.NOTIFICATION_API_KEY;
 
   if (!notificationAPIKey) {
     console.error("Notification API key is undefined fron config file.");
