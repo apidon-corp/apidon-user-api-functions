@@ -7,6 +7,8 @@ import { NotificationData } from "../../../types/Notifications";
 import { internalAPIRoutes, keys } from "../../../config";
 import AsyncLock = require("async-lock");
 
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendReply API.");
@@ -293,83 +295,85 @@ async function deleteNotification(
 
 const lock = new AsyncLock();
 
-export const follow = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { operationTo: operationToUsername, opCode } = req.body;
+export const follow = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { operationTo: operationToUsername, opCode } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
-
-  const checkPropsResult = checkProps(operationToUsername, opCode);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  try {
-    await lock.acquire(username, async () => {
-      const followStatus = await checkFollowStatus(
-        username,
-        operationToUsername
-      );
-      if (!followStatus) {
-        res.status(500).send("Internal Server Error");
-        return;
-      }
-
-      const checkRequestValidResult = checkRequestValid(
-        opCode,
-        followStatus.followStatus
-      );
-      if (!checkRequestValidResult) {
-        res.status(400).send("Invalid Request");
-        return;
-      }
-
-      const ts = Date.now();
-
-      const [
-        updateRequesterFollowingsResult,
-        updateOperationToFollowersResult,
-        updateRequesterFollowingCountResult,
-        updateOperationToFollowerCountResult,
-        sendNotificationResult,
-      ] = await Promise.all([
-        updateRequesterFollowings(username, operationToUsername, opCode, ts),
-        updateOperationToFollowers(operationToUsername, username, opCode, ts),
-        updateRequesterFollowingCount(username, opCode),
-        updateOperationToFollowerCount(operationToUsername, opCode),
-        handleNotification(
-          username,
-          operationToUsername,
-          opCode,
-          ts,
-          followStatus.followDocData
-        ),
-      ]);
-
-      if (
-        !updateRequesterFollowingsResult ||
-        !updateOperationToFollowersResult ||
-        !updateRequesterFollowingCountResult ||
-        !updateOperationToFollowerCountResult ||
-        !sendNotificationResult
-      ) {
-        res.status(500).send("Internal Server Error");
-        return;
-      }
-
-      res.status(200).send("OK");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
       return;
-    });
-  } catch (error) {
-    res.status(500).send("Internal Server Error");
-    return console.error(
-      "Error on acquiring lock for follow operation: \n",
-      error
-    );
-  }
-});
+    }
+
+    const checkPropsResult = checkProps(operationToUsername, opCode);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    try {
+      await lock.acquire(username, async () => {
+        const followStatus = await checkFollowStatus(
+          username,
+          operationToUsername
+        );
+        if (!followStatus) {
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+
+        const checkRequestValidResult = checkRequestValid(
+          opCode,
+          followStatus.followStatus
+        );
+        if (!checkRequestValidResult) {
+          res.status(400).send("Invalid Request");
+          return;
+        }
+
+        const ts = Date.now();
+
+        const [
+          updateRequesterFollowingsResult,
+          updateOperationToFollowersResult,
+          updateRequesterFollowingCountResult,
+          updateOperationToFollowerCountResult,
+          sendNotificationResult,
+        ] = await Promise.all([
+          updateRequesterFollowings(username, operationToUsername, opCode, ts),
+          updateOperationToFollowers(operationToUsername, username, opCode, ts),
+          updateRequesterFollowingCount(username, opCode),
+          updateOperationToFollowerCount(operationToUsername, opCode),
+          handleNotification(
+            username,
+            operationToUsername,
+            opCode,
+            ts,
+            followStatus.followDocData
+          ),
+        ]);
+
+        if (
+          !updateRequesterFollowingsResult ||
+          !updateOperationToFollowersResult ||
+          !updateRequesterFollowingCountResult ||
+          !updateOperationToFollowerCountResult ||
+          !sendNotificationResult
+        ) {
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+
+        res.status(200).send("OK");
+        return;
+      });
+    } catch (error) {
+      res.status(500).send("Internal Server Error");
+      return console.error(
+        "Error on acquiring lock for follow operation: \n",
+        error
+      );
+    }
+  })
+);

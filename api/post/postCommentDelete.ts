@@ -10,6 +10,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { NotificationData } from "../../types/Notifications";
 import { internalAPIRoutes, keys } from "../../config";
 
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendReply API.");
@@ -200,67 +202,69 @@ async function deleteNotification(
   }
 }
 
-export const postCommentDelete = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { postDocPath, commentObject } = req.body;
+export const postCommentDelete = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { postDocPath, commentObject } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
 
-  const checkPropsResult = checkProps(postDocPath, commentObject);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
+    const checkPropsResult = checkProps(postDocPath, commentObject);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
 
-  const checkCanDeleteCommentResult = await checkCanDeleteComment(
-    username,
-    postDocPath,
-    commentObject
-  );
-  if (!checkCanDeleteCommentResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  if (!checkCanDeleteCommentResult.canDeleteComment) {
-    res.status(403).send("Forbidden");
-    return;
-  }
-
-  const [
-    deleteCommentFromPostResult,
-    decreaseCommentCountResult,
-    deleteCommentFromInteractionsResult,
-    deleteNotificationResult,
-  ] = await Promise.all([
-    deleteCommentFromPost(postDocPath, commentObject),
-    decreaseCommentCount(postDocPath),
-    deleteCommentFromInteractions(
+    const checkCanDeleteCommentResult = await checkCanDeleteComment(
       username,
-      commentObject,
-      `/users/${checkCanDeleteCommentResult.postDocData.senderUsername}/posts/${checkCanDeleteCommentResult.postDocData.id}`
-    ),
-    deleteNotification(
-      checkCanDeleteCommentResult.postDocData.senderUsername,
-      commentObject,
-      postDocPath
-    ),
-  ]);
+      postDocPath,
+      commentObject
+    );
+    if (!checkCanDeleteCommentResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
 
-  if (
-    !deleteCommentFromPostResult ||
-    !deleteCommentFromInteractionsResult ||
-    !deleteNotificationResult ||
-    !decreaseCommentCountResult
-  ) {
-    res.status(500).send("Internal Server Error");
+    if (!checkCanDeleteCommentResult.canDeleteComment) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
+    const [
+      deleteCommentFromPostResult,
+      decreaseCommentCountResult,
+      deleteCommentFromInteractionsResult,
+      deleteNotificationResult,
+    ] = await Promise.all([
+      deleteCommentFromPost(postDocPath, commentObject),
+      decreaseCommentCount(postDocPath),
+      deleteCommentFromInteractions(
+        username,
+        commentObject,
+        `/users/${checkCanDeleteCommentResult.postDocData.senderUsername}/posts/${checkCanDeleteCommentResult.postDocData.id}`
+      ),
+      deleteNotification(
+        checkCanDeleteCommentResult.postDocData.senderUsername,
+        commentObject,
+        postDocPath
+      ),
+    ]);
+
+    if (
+      !deleteCommentFromPostResult ||
+      !deleteCommentFromInteractionsResult ||
+      !deleteNotificationResult ||
+      !decreaseCommentCountResult
+    ) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("Success");
     return;
-  }
-
-  res.status(200).send("Success");
-  return;
-});
+  })
+);

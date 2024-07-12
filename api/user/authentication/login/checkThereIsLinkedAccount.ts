@@ -1,9 +1,10 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../../../firebase/adminApp";
-import { auth } from "../../../../firebase/adminApp";
+import { auth, firestore } from "../../../../firebase/adminApp";
 import { UserInServer } from "../../../../types/User";
 
 import * as express from "express";
+
+import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
 
 function checkProps(eu: string) {
   if (!eu) {
@@ -125,31 +126,33 @@ async function emailHandle(emailReqeuested: string, res: express.Response) {
   return;
 }
 
-export const checkThereIsLinkedAccount = onRequest(async (req, res) => {
-  const { eu } = req.body;
+export const checkThereIsLinkedAccount = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { eu } = req.body;
 
-  const checkPropsResult = checkProps(eu);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Props.");
-    return;
-  }
+    const checkPropsResult = checkProps(eu);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Props.");
+      return;
+    }
 
-  const checkTypeOfEuResult = checkTypeOfEu(eu);
-  if (!checkTypeOfEuResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
+    const checkTypeOfEuResult = checkTypeOfEu(eu);
+    if (!checkTypeOfEuResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
 
-  if (checkTypeOfEuResult === "username") {
-    await usernameHandle(eu, res);
-    return;
-  }
+    if (checkTypeOfEuResult === "username") {
+      await usernameHandle(eu, res);
+      return;
+    }
 
-  if (checkTypeOfEuResult === "email") {
-    await emailHandle(eu, res);
-    return;
-  }
+    if (checkTypeOfEuResult === "email") {
+      await emailHandle(eu, res);
+      return;
+    }
 
-  // Normally below code shouldn't work. We should have covered all catches then added return statements. But I couldn't find what is missing.
-  res.status(500).send("Internal Server Error");
-});
+    // Normally below code shouldn't work. We should have covered all catches then added return statements. But I couldn't find what is missing.
+    res.status(500).send("Internal Server Error");
+  })
+);

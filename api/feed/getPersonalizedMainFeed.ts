@@ -5,6 +5,7 @@ import { firestore } from "../../firebase/adminApp";
 import { keys } from "../../config";
 
 import { CurrentProviderDocData } from "../../types/Provider";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -126,40 +127,42 @@ async function getPostPredictionsFromProvider(
   }
 }
 
-export const getPersonalizedFeed = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+export const getPersonalizedFeed = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const followingsOfUser = await getFollowingsOfUser(username);
+    if (!followingsOfUser) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const providerData = await getProviderInformation(username);
+    if (!providerData) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const getPostPredictionsFromProviderResult =
+      await getPostPredictionsFromProvider(
+        username,
+        providerData.providerId,
+        providerData.clientId
+      );
+    if (!getPostPredictionsFromProviderResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).json({
+      postDocPathArray: getPostPredictionsFromProviderResult.postDocPathArray,
+    });
     return;
-  }
-
-  const followingsOfUser = await getFollowingsOfUser(username);
-  if (!followingsOfUser) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const providerData = await getProviderInformation(username);
-  if (!providerData) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const getPostPredictionsFromProviderResult =
-    await getPostPredictionsFromProvider(
-      username,
-      providerData.providerId,
-      providerData.clientId
-    );
-  if (!getPostPredictionsFromProviderResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).json({
-    postDocPathArray: getPostPredictionsFromProviderResult.postDocPathArray,
-  });
-  return;
-});
+  })
+);

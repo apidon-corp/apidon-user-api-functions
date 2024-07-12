@@ -9,6 +9,8 @@ import { NotificationData } from "../../types/Notifications";
 
 import { internalAPIRoutes, keys } from "../../config";
 
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to integrateModel API.");
@@ -231,54 +233,56 @@ async function deleteNotification(
   return receiverSendResult && senderSendResult;
 }
 
-export const deleteReplet = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { frenletDocPath, replet } = req.body;
+export const deleteReplet = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { frenletDocPath, replet } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(frenletDocPath, replet);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const checkCanDeleteRepletResult = await checkCanDeleteReplet(
+      username,
+      frenletDocPath,
+      replet
+    );
+    if (!checkCanDeleteRepletResult) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
+    const deleteRepletResult = await deleteRepletMethod(
+      checkCanDeleteRepletResult.frenletDocData,
+      checkCanDeleteRepletResult.repletToBeDeleted
+    );
+    if (!deleteRepletResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const deleteNotificationResult = await deleteNotification(
+      username,
+      checkCanDeleteRepletResult.frenletDocData.frenletReceiver,
+      checkCanDeleteRepletResult.frenletDocData.frenletSender,
+      checkCanDeleteRepletResult.frenletDocData.frenletDocId,
+      replet.message,
+      replet.ts
+    );
+    if (!deleteNotificationResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
     return;
-  }
-
-  const checkPropsResult = checkProps(frenletDocPath, replet);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const checkCanDeleteRepletResult = await checkCanDeleteReplet(
-    username,
-    frenletDocPath,
-    replet
-  );
-  if (!checkCanDeleteRepletResult) {
-    res.status(403).send("Forbidden");
-    return;
-  }
-
-  const deleteRepletResult = await deleteRepletMethod(
-    checkCanDeleteRepletResult.frenletDocData,
-    checkCanDeleteRepletResult.repletToBeDeleted
-  );
-  if (!deleteRepletResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const deleteNotificationResult = await deleteNotification(
-    username,
-    checkCanDeleteRepletResult.frenletDocData.frenletReceiver,
-    checkCanDeleteRepletResult.frenletDocData.frenletSender,
-    checkCanDeleteRepletResult.frenletDocData.frenletDocId,
-    replet.message,
-    replet.ts
-  );
-  if (!deleteNotificationResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-  return;
-});
+  })
+);

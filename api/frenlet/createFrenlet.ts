@@ -9,6 +9,8 @@ import { NotificationData } from "../../types/Notifications";
 
 import { internalAPIRoutes, keys } from "../../config";
 
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to integrateModel API.");
@@ -293,60 +295,62 @@ async function rollback(
   }
 }
 
-export const createFrenlet = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { fren, message, tag } = req.body;
+export const createFrenlet = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { fren, message, tag } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
 
-  const checkPropsResult = checkProps(fren, message, tag);
-  if (!checkPropsResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const frenStatus = await checkFrenStatus(fren, username);
-  if (!frenStatus) {
-    res.status(400).send("Bad Request");
-    return;
-  }
-
-  const ts = Date.now();
-
-  const frenletObject = createFrenletObject(username, fren, message, tag, ts);
-
-  const [createFrenletResult, sendNotificationResult, updateFrenScoreResult] =
-    await Promise.all([
-      createFrenletMethod(frenletObject),
-      sendNotification(frenletObject),
-      updateFrenScore(fren),
-    ]);
-
-  if (
-    !createFrenletResult ||
-    !sendNotificationResult ||
-    !updateFrenScoreResult
-  ) {
-    await rollback(
-      frenletObject,
-      createFrenletResult ? createFrenletResult.frenletDocData : false,
-      sendNotificationResult,
-      updateFrenScoreResult,
-      fren
-    );
-    {
+    const checkPropsResult = checkProps(fren, message, tag);
+    if (!checkPropsResult) {
       res.status(500).send("Internal Server Error");
       return;
     }
-  }
 
-  res.status(200).json({
-    frenletDocPath: createFrenletResult.path,
-  });
+    const frenStatus = await checkFrenStatus(fren, username);
+    if (!frenStatus) {
+      res.status(400).send("Bad Request");
+      return;
+    }
 
-  return;
-});
+    const ts = Date.now();
+
+    const frenletObject = createFrenletObject(username, fren, message, tag, ts);
+
+    const [createFrenletResult, sendNotificationResult, updateFrenScoreResult] =
+      await Promise.all([
+        createFrenletMethod(frenletObject),
+        sendNotification(frenletObject),
+        updateFrenScore(fren),
+      ]);
+
+    if (
+      !createFrenletResult ||
+      !sendNotificationResult ||
+      !updateFrenScoreResult
+    ) {
+      await rollback(
+        frenletObject,
+        createFrenletResult ? createFrenletResult.frenletDocData : false,
+        sendNotificationResult,
+        updateFrenScoreResult,
+        fren
+      );
+      {
+        res.status(500).send("Internal Server Error");
+        return;
+      }
+    }
+
+    res.status(200).json({
+      frenletDocPath: createFrenletResult.path,
+    });
+
+    return;
+  })
+);

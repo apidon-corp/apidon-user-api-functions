@@ -7,6 +7,7 @@ import {
   OldProviderDocData,
 } from "../../types/Provider";
 import { externalAPIRoutes, keys } from "../../config";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -182,65 +183,67 @@ async function createNewCurrentProviderDoc(
   }
 }
 
-export const selectProvider = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { providerName } = req.body;
+export const selectProvider = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { providerName } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(providerName);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const currentProviderDoc = await getActiveProviderDocFromUserSide(username);
+
+    const choosingSameProvider = checkChoosingSameProvider(
+      providerName,
+      currentProviderDoc ? currentProviderDoc.providerId : ""
+    );
+    if (choosingSameProvider) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const createOldProviderDocForUserResult = await createOldProviderDocForUser(
+      currentProviderDoc,
+      username
+    );
+    if (!createOldProviderDocForUserResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const postInteractionsData = await getPostInteractionData(username);
+
+    const sendRequestToProviderServerResult = await sendRequestToProviderServer(
+      username,
+      providerName,
+      postInteractionsData,
+      currentProviderDoc ? currentProviderDoc.providerId : "",
+      currentProviderDoc ? currentProviderDoc.clientId : ""
+    );
+    if (!sendRequestToProviderServerResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const createNewCurrentProviderDocResult = await createNewCurrentProviderDoc(
+      username,
+      sendRequestToProviderServerResult
+    );
+    if (!createNewCurrentProviderDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
     return;
-  }
-
-  const checkPropsResult = checkProps(providerName);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const currentProviderDoc = await getActiveProviderDocFromUserSide(username);
-
-  const choosingSameProvider = checkChoosingSameProvider(
-    providerName,
-    currentProviderDoc ? currentProviderDoc.providerId : ""
-  );
-  if (choosingSameProvider) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const createOldProviderDocForUserResult = await createOldProviderDocForUser(
-    currentProviderDoc,
-    username
-  );
-  if (!createOldProviderDocForUserResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const postInteractionsData = await getPostInteractionData(username);
-
-  const sendRequestToProviderServerResult = await sendRequestToProviderServer(
-    username,
-    providerName,
-    postInteractionsData,
-    currentProviderDoc ? currentProviderDoc.providerId : "",
-    currentProviderDoc ? currentProviderDoc.clientId : ""
-  );
-  if (!sendRequestToProviderServerResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const createNewCurrentProviderDocResult = await createNewCurrentProviderDoc(
-    username,
-    sendRequestToProviderServerResult
-  );
-  if (!createNewCurrentProviderDocResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-  return;
-});
+  })
+);

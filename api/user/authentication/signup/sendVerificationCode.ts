@@ -3,6 +3,7 @@ import { firestore, auth } from "../../../../firebase/adminApp";
 import { keys } from "../../../../config";
 
 import * as sg from "@sendgrid/mail";
+import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
 
 function checkProps(
   referralCode: string,
@@ -61,58 +62,139 @@ const quickRegexCheck = (
   return true;
 };
 
-export const sendVerificationCode = onRequest(async (req, res) => {
-  const { referralCode, email, password, username, fullname } = req.body;
+export const sendVerificationCode = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { referralCode, email, password, username, fullname } = req.body;
 
-  const checkPropsResult = checkProps(
-    referralCode,
-    email,
-    password,
-    username,
-    fullname
-  );
+    const checkPropsResult = checkProps(
+      referralCode,
+      email,
+      password,
+      username,
+      fullname
+    );
 
-  if (!checkPropsResult) {
-    res.status(422).json({
-      cause: "server",
-      message: "Invalid props.",
-    });
-    return;
-  }
-
-  const regexTestResult = quickRegexCheck(email, password, username, fullname);
-  if (regexTestResult !== true) {
-    res.status(422).json({
-      cause: regexTestResult,
-      message: "Invalid Prop",
-    });
-    return;
-  }
-
-  if (!regexTestResult) {
-    res.status(422).json({
-      cause: "email",
-      message: "Invalid Email.",
-    });
-    return;
-  }
-
-  try {
-    const referralCodeDocSnapshot = await firestore
-      .doc(`/references/${referralCode}`)
-      .get();
-    if (!referralCodeDocSnapshot.exists) {
+    if (!checkPropsResult) {
       res.status(422).json({
-        cause: "referralCode",
-        message: "Referral code is invalid.",
+        cause: "server",
+        message: "Invalid props.",
       });
       return;
     }
 
-    const data = referralCodeDocSnapshot.data();
+    const regexTestResult = quickRegexCheck(
+      email,
+      password,
+      username,
+      fullname
+    );
+    if (regexTestResult !== true) {
+      res.status(422).json({
+        cause: regexTestResult,
+        message: "Invalid Prop",
+      });
+      return;
+    }
 
-    if (data === undefined) {
-      console.error("Refferal code exists but its data is undefined.");
+    if (!regexTestResult) {
+      res.status(422).json({
+        cause: "email",
+        message: "Invalid Email.",
+      });
+      return;
+    }
+
+    try {
+      const referralCodeDocSnapshot = await firestore
+        .doc(`/references/${referralCode}`)
+        .get();
+      if (!referralCodeDocSnapshot.exists) {
+        res.status(422).json({
+          cause: "referralCode",
+          message: "Referral code is invalid.",
+        });
+        return;
+      }
+
+      const data = referralCodeDocSnapshot.data();
+
+      if (data === undefined) {
+        console.error("Refferal code exists but its data is undefined.");
+        res.status(500).json({
+          cause: "server",
+          message: "Internal Server Error",
+        });
+        return;
+      }
+
+      const inProcess = data.inProcess;
+      const isUsed = data.isUsed;
+
+      if (isUsed || inProcess) {
+        res.status(422).json({
+          cause: "referralCode",
+          message: "Referral code has already been used.",
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("Error on checking referral code: \n", error);
+      res.status(422).json({
+        cause: "server",
+        message: "Internal server error.",
+      });
+      return;
+    }
+
+    // Check if this email used before.
+    try {
+      await auth.getUserByEmail(email);
+      res.status(422).json({
+        cause: "email",
+        message: "This email is used by another account.",
+      });
+      return;
+    } catch (error) {
+      // Normal Situation
+      // There is no account linked with requested email.
+    }
+
+    // username validity check (If it is taken or not.)
+    try {
+      const userDocSnapshot = await firestore
+        .doc(`usernames/${username}`)
+        .get();
+      if (userDocSnapshot.exists) {
+        res.status(422).json({
+          cause: "username",
+          message: "Username is taken.",
+        });
+        return;
+      }
+      // So If there is no doc, no problem.
+    } catch (error) {
+      console.error(
+        "Error on checking username validity: (If it is valid or not.): \n",
+        error
+      );
+      res.status(500).json({
+        cause: "server",
+        message: "Internal server error.",
+      });
+      return;
+    }
+
+    // Creating verification code...
+    const verificationCode = generateSixDigitNumber();
+    try {
+      await firestore.doc(`emailVerifications/${email}`).set({
+        code: verificationCode,
+      });
+    } catch (error) {
+      console.error(
+        "Error while creating verificationCode doc in firestore: \n",
+        error
+      );
       res.status(500).json({
         cause: "server",
         message: "Internal Server Error",
@@ -120,97 +202,24 @@ export const sendVerificationCode = onRequest(async (req, res) => {
       return;
     }
 
-    const inProcess = data.inProcess;
-    const isUsed = data.isUsed;
-
-    if (isUsed || inProcess) {
-      res.status(422).json({
-        cause: "referralCode",
-        message: "Referral code has already been used.",
+    // Send Email Verification Code
+    const sgApiKey = keys.SENDGRID_EMAIL_SERVICE_API_KEY;
+    if (!sgApiKey) {
+      res.status(500).json({
+        cause: "server",
+        message: "Internal Server Error",
       });
-      return;
+      return console.error("Error on getting email verification api key: \n");
     }
-  } catch (error) {
-    console.error("Error on checking referral code: \n", error);
-    res.status(422).json({
-      cause: "server",
-      message: "Internal server error.",
-    });
-    return;
-  }
 
-  // Check if this email used before.
-  try {
-    await auth.getUserByEmail(email);
-    res.status(422).json({
-      cause: "email",
-      message: "This email is used by another account.",
-    });
-    return;
-  } catch (error) {
-    // Normal Situation
-    // There is no account linked with requested email.
-  }
-
-  // username validity check (If it is taken or not.)
-  try {
-    const userDocSnapshot = await firestore.doc(`usernames/${username}`).get();
-    if (userDocSnapshot.exists) {
-      res.status(422).json({
-        cause: "username",
-        message: "Username is taken.",
-      });
-      return;
-    }
-    // So If there is no doc, no problem.
-  } catch (error) {
-    console.error(
-      "Error on checking username validity: (If it is valid or not.): \n",
-      error
-    );
-    res.status(500).json({
-      cause: "server",
-      message: "Internal server error.",
-    });
-    return;
-  }
-
-  // Creating verification code...
-  const verificationCode = generateSixDigitNumber();
-  try {
-    await firestore.doc(`emailVerifications/${email}`).set({
-      code: verificationCode,
-    });
-  } catch (error) {
-    console.error(
-      "Error while creating verificationCode doc in firestore: \n",
-      error
-    );
-    res.status(500).json({
-      cause: "server",
-      message: "Internal Server Error",
-    });
-    return;
-  }
-
-  // Send Email Verification Code
-  const sgApiKey = keys.SENDGRID_EMAIL_SERVICE_API_KEY;
-  if (!sgApiKey) {
-    res.status(500).json({
-      cause: "server",
-      message: "Internal Server Error",
-    });
-    return console.error("Error on getting email verification api key: \n");
-  }
-
-  try {
-    sg.setApiKey(sgApiKey);
-    const message = {
-      to: email,
-      from: "auth@apidon.com",
-      subject: `Verification Code for Apidon: ${verificationCode}`,
-      text: `Hello, your verification code is: ${verificationCode}`,
-      html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    try {
+      sg.setApiKey(sgApiKey);
+      const message = {
+        to: email,
+        from: "auth@apidon.com",
+        subject: `Verification Code for Apidon: ${verificationCode}`,
+        text: `Hello, your verification code is: ${verificationCode}`,
+        html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
       <html xmlns="http://www.w3.org/1999/xhtml">
       <head>
           <title>Verify Your Email Address</title>
@@ -305,20 +314,21 @@ export const sendVerificationCode = onRequest(async (req, res) => {
       
       </html>
       `,
-    };
+      };
 
-    await sg.send(message);
-  } catch (error) {
-    console.error("Error on sending verification code: \n", error);
-    // @ts-ignore
-    console.error(error.response.body.errors);
-    res.status(500).json({
-      cause: "server",
-      message: "Internal Server Error",
-    });
+      await sg.send(message);
+    } catch (error) {
+      console.error("Error on sending verification code: \n", error);
+      // @ts-ignore
+      console.error(error.response.body.errors);
+      res.status(500).json({
+        cause: "server",
+        message: "Internal Server Error",
+      });
+      return;
+    }
+
+    res.status(200).send("Success");
     return;
-  }
-
-  res.status(200).send("Success");
-  return;
-});
+  })
+);

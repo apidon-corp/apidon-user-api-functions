@@ -5,6 +5,7 @@ import { firestore } from "../../firebase/adminApp";
 import { FieldValue } from "firebase-admin/firestore";
 import { NotificationData } from "../../types/Notifications";
 import { internalAPIRoutes, keys } from "../../config";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -278,58 +279,63 @@ async function handleNotification(
   return sendNotificationResult && removeNotificationResult;
 }
 
-export const postRate = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { rating, postDocPath } = req.body;
+export const postRate = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { rating, postDocPath } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(rating, postDocPath);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const previousRatingResult = await checkPreviousRating(
+      username,
+      postDocPath
+    );
+    if (previousRatingResult === false) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const ts = Date.now();
+
+    const updatePostDocResult = await updatePostDoc(
+      username,
+      postDocPath,
+      rating,
+      previousRatingResult.previousRateObject,
+      ts
+    );
+
+    if (!updatePostDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const notificationResult = await handleNotification(
+      rating,
+      postDocPath,
+      username,
+      previousRatingResult.postDocData.senderUsername,
+      ts,
+      previousRatingResult.previousRateObject
+    );
+
+    if (!notificationResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("Success");
+
     return;
-  }
-
-  const checkPropsResult = checkProps(rating, postDocPath);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const previousRatingResult = await checkPreviousRating(username, postDocPath);
-  if (previousRatingResult === false) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const ts = Date.now();
-
-  const updatePostDocResult = await updatePostDoc(
-    username,
-    postDocPath,
-    rating,
-    previousRatingResult.previousRateObject,
-    ts
-  );
-
-  if (!updatePostDocResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const notificationResult = await handleNotification(
-    rating,
-    postDocPath,
-    username,
-    previousRatingResult.postDocData.senderUsername,
-    ts,
-    previousRatingResult.previousRateObject
-  );
-
-  if (!notificationResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("Success");
-
-  return;
-});
+  })
+);

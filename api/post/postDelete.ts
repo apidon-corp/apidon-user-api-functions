@@ -4,6 +4,8 @@ import getDisplayName from "../../helpers/getDisplayName";
 import { PostServerDataV3 } from "../../types/Post";
 import { onRequest } from "firebase-functions/v2/https";
 
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to integrateModel API.");
@@ -117,56 +119,61 @@ async function deletePostDoc(postDocPath: string) {
   }
 }
 
-export const postDelete = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { postDocPath } = req.body;
+export const postDelete = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("UnAuthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("UnAuthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(postDocPath);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid prop");
+      return;
+    }
+
+    const checkCanDeleteResult = await checkCanDeletePost(
+      postDocPath,
+      username
+    );
+    if (!checkCanDeleteResult) {
+      res.status(401).send("UnAuthorized");
+      return;
+    }
+    if (!checkCanDeleteResult.canDelete) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
+    const postData = checkCanDeleteResult.postServerData;
+
+    const [
+      deleteStoredFilesResult,
+      decreaseNFTCountResult,
+      deleteNFTDocResult,
+      deletePostDocResult,
+    ] = await Promise.all([
+      deleteStoredFiles(postData.id, username, postData),
+      decreaseNFTCount(username, postData),
+      deleteNFTDoc(postData),
+      deletePostDoc(`/users/${username}/posts/${postData.id}`),
+    ]);
+
+    if (
+      !deleteStoredFilesResult ||
+      !decreaseNFTCountResult ||
+      !deleteNFTDocResult ||
+      !deletePostDocResult
+    ) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
     return;
-  }
-
-  const checkPropsResult = checkProps(postDocPath);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid prop");
-    return;
-  }
-
-  const checkCanDeleteResult = await checkCanDeletePost(postDocPath, username);
-  if (!checkCanDeleteResult) {
-    res.status(401).send("UnAuthorized");
-    return;
-  }
-  if (!checkCanDeleteResult.canDelete) {
-    res.status(403).send("Forbidden");
-    return;
-  }
-
-  const postData = checkCanDeleteResult.postServerData;
-
-  const [
-    deleteStoredFilesResult,
-    decreaseNFTCountResult,
-    deleteNFTDocResult,
-    deletePostDocResult,
-  ] = await Promise.all([
-    deleteStoredFiles(postData.id, username, postData),
-    decreaseNFTCount(username, postData),
-    deleteNFTDoc(postData),
-    deletePostDoc(`/users/${username}/posts/${postData.id}`),
-  ]);
-
-  if (
-    !deleteStoredFilesResult ||
-    !decreaseNFTCountResult ||
-    !deleteNFTDocResult ||
-    !deletePostDocResult
-  ) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-  return;
-});
+  })
+);

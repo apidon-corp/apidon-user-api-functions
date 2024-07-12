@@ -11,6 +11,8 @@ import { NotificationData } from "../../types/Notifications";
 
 import { keys, internalAPIRoutes } from "../../config";
 
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to integrateModel API.");
@@ -194,39 +196,41 @@ async function deleteFrenletMethod(frenletDocData: FrenletServerData) {
   return true;
 }
 
-export const deleteFrenlet = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { frenletDocPath } = req.body;
+export const deleteFrenlet = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { frenletDocPath } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("UnAuthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("UnAuthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(frenletDocPath);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid prop");
+      return;
+    }
+
+    const checkCanDeleteFrenletResult = await checkCanDeleteFrenlet(
+      frenletDocPath,
+      username
+    );
+    if (!checkCanDeleteFrenletResult) {
+      res.status(401).send("UnAuthorized");
+      return;
+    }
+
+    const deleteFrenletResult = await deleteFrenletMethod(
+      checkCanDeleteFrenletResult
+    );
+    if (!deleteFrenletResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
     return;
-  }
-
-  const checkPropsResult = checkProps(frenletDocPath);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid prop");
-    return;
-  }
-
-  const checkCanDeleteFrenletResult = await checkCanDeleteFrenlet(
-    frenletDocPath,
-    username
-  );
-  if (!checkCanDeleteFrenletResult) {
-    res.status(401).send("UnAuthorized");
-    return;
-  }
-
-  const deleteFrenletResult = await deleteFrenletMethod(
-    checkCanDeleteFrenletResult
-  );
-  if (!deleteFrenletResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-  return;
-});
+  })
+);

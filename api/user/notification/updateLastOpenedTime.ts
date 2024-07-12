@@ -3,6 +3,8 @@ import { onRequest } from "firebase-functions/v2/https";
 import { firestore } from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
 
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendReply API.");
@@ -32,22 +34,26 @@ async function updateLastOpenedTimeMethod(username: string) {
   }
 }
 
-export const updateLastOpenedTime = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+export const updateLastOpenedTime = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const updateLastOpenedTimeResult = await updateLastOpenedTimeMethod(
+      username
+    );
+    if (!updateLastOpenedTimeResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
+
     return;
-  }
-
-  const updateLastOpenedTimeResult = await updateLastOpenedTimeMethod(username);
-  if (!updateLastOpenedTimeResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-
-  return;
-});
+  })
+);

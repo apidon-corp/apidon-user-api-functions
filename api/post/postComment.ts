@@ -12,6 +12,8 @@ import { NotificationData } from "../../types/Notifications";
 import { CurrentProviderDocData } from "../../types/Provider";
 import { externalAPIRoutes, internalAPIRoutes, keys } from "../../config";
 
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendReply API.");
@@ -266,68 +268,70 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const postComment = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { message, postDocPath } = req.body;
+export const postComment = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { message, postDocPath } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
 
-  const checkPropsResult = checkProps(postDocPath, message);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
+    const checkPropsResult = checkProps(postDocPath, message);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
 
-  const commendData = createCommentData(message, username, Date.now());
-  const commentInteractionData = createCommentInteractionData(
-    postDocPath,
-    commendData.ts
-  );
-
-  const [
-    changeCommentsArrayResult,
-    increaseCommentCountResult,
-    updateInteractionsResult,
-    providerData,
-    sendNotificationResult,
-  ] = await Promise.all([
-    changeCommentsArray(postDocPath, commendData),
-    increaseCommentCount(postDocPath),
-    updateInteractions(commentInteractionData, username),
-    getProviderData(username),
-    sendNotification(
-      username,
+    const commendData = createCommentData(message, username, Date.now());
+    const commentInteractionData = createCommentInteractionData(
       postDocPath,
-      commendData.message,
       commendData.ts
-    ),
-  ]);
+    );
 
-  if (
-    !changeCommentsArrayResult ||
-    !increaseCommentCountResult ||
-    !updateInteractionsResult ||
-    !providerData ||
-    !sendNotificationResult
-  ) {
-    res.status(500).send("Internal Server Error");
+    const [
+      changeCommentsArrayResult,
+      increaseCommentCountResult,
+      updateInteractionsResult,
+      providerData,
+      sendNotificationResult,
+    ] = await Promise.all([
+      changeCommentsArray(postDocPath, commendData),
+      increaseCommentCount(postDocPath),
+      updateInteractions(commentInteractionData, username),
+      getProviderData(username),
+      sendNotification(
+        username,
+        postDocPath,
+        commendData.message,
+        commendData.ts
+      ),
+    ]);
+
+    if (
+      !changeCommentsArrayResult ||
+      !increaseCommentCountResult ||
+      !updateInteractionsResult ||
+      !providerData ||
+      !sendNotificationResult
+    ) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    sendCommentToProvider(
+      providerData.clientId,
+      providerData.providerId,
+      postDocPath
+    );
+
+    await delay(500);
+
+    res.status(200).json({
+      commentData: commendData,
+    });
     return;
-  }
-
-  sendCommentToProvider(
-    providerData.clientId,
-    providerData.providerId,
-    postDocPath
-  );
-
-  await delay(500);
-
-  res.status(200).json({
-    commentData: commendData,
-  });
-  return;
-});
+  })
+);

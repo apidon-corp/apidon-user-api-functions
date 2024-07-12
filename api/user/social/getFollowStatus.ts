@@ -3,6 +3,8 @@ import { onRequest } from "firebase-functions/v2/https";
 import getDisplayName from "../../../helpers/getDisplayName";
 import { firestore } from "../../../firebase/adminApp";
 
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendReply API.");
@@ -62,33 +64,35 @@ function getFollowStatusMethod(
   };
 }
 
-export const getFollowStatus = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { suspectUsername } = req.body;
+export const getFollowStatus = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { suspectUsername } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(suspectUsername);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const [followers, followings] = await Promise.all([
+      getFollowers(username),
+      getFollowings(username),
+    ]);
+
+    const followStatus = getFollowStatusMethod(
+      suspectUsername,
+      followers,
+      followings
+    );
+
+    res.status(200).json({ ...followStatus });
     return;
-  }
-
-  const checkPropsResult = checkProps(suspectUsername);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const [followers, followings] = await Promise.all([
-    getFollowers(username),
-    getFollowings(username),
-  ]);
-
-  const followStatus = getFollowStatusMethod(
-    suspectUsername,
-    followers,
-    followings
-  );
-
-  res.status(200).json({ ...followStatus });
-  return;
-});
+  })
+);

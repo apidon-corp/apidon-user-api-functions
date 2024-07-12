@@ -8,6 +8,7 @@ import {
   PostUploadActionRequestBody,
 } from "../../types/Provider";
 import { externalAPIRoutes, keys } from "../../config";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -206,77 +207,79 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const postUpload = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { description, tempImageLocation } = req.body;
+export const postUpload = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { description, tempImageLocation } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
 
-  const checkPropsResult = checkProps(description, tempImageLocation);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
+    const checkPropsResult = checkProps(description, tempImageLocation);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
 
-  let postServerData = createPostServerData(description, username);
+    let postServerData = createPostServerData(description, username);
 
-  if (tempImageLocation) {
-    const imageUploadResult = await changeLocationOfTempImage(
-      username,
-      tempImageLocation
-    );
-    if (!imageUploadResult) {
+    if (tempImageLocation) {
+      const imageUploadResult = await changeLocationOfTempImage(
+        username,
+        tempImageLocation
+      );
+      if (!imageUploadResult) {
+        res.status(500).send("Internal Server Error");
+        return;
+      }
+
+      postServerData = {
+        ...postServerData,
+        id: imageUploadResult.postDocId,
+        image: imageUploadResult.postImagePublicURL,
+      };
+    }
+
+    const [
+      createPostOnFirestoreResult,
+      updateUploadedPostArrayResult,
+      currentProviderData,
+    ] = await Promise.all([
+      createPostOnFirestore(postServerData, username),
+      updateUploadedPostArray(
+        username,
+        `/users/${username}/posts/${postServerData.id}`
+      ),
+      getProviderData(username),
+    ]);
+
+    if (
+      !createPostOnFirestoreResult ||
+      !updateUploadedPostArrayResult ||
+      !currentProviderData
+    ) {
       res.status(500).send("Internal Server Error");
       return;
     }
 
-    postServerData = {
-      ...postServerData,
-      id: imageUploadResult.postDocId,
-      image: imageUploadResult.postImagePublicURL,
-    };
-  }
-
-  const [
-    createPostOnFirestoreResult,
-    updateUploadedPostArrayResult,
-    currentProviderData,
-  ] = await Promise.all([
-    createPostOnFirestore(postServerData, username),
-    updateUploadedPostArray(
+    sendPostForClassification(
       username,
-      `/users/${username}/posts/${postServerData.id}`
-    ),
-    getProviderData(username),
-  ]);
+      postServerData.image,
+      `/users/${username}/posts/${postServerData.id}`,
+      currentProviderData.providerId,
+      currentProviderData.clientId
+    );
 
-  if (
-    !createPostOnFirestoreResult ||
-    !updateUploadedPostArrayResult ||
-    !currentProviderData
-  ) {
-    res.status(500).send("Internal Server Error");
+    await delay(1000);
+
+    res.status(200).json({
+      newPostData: postServerData,
+      newPostDocId: postServerData.id,
+    });
+
     return;
-  }
-
-  sendPostForClassification(
-    username,
-    postServerData.image,
-    `/users/${username}/posts/${postServerData.id}`,
-    currentProviderData.providerId,
-    currentProviderData.clientId
-  );
-
-  await delay(1000);
-
-  res.status(200).json({
-    newPostData: postServerData,
-    newPostDocId: postServerData.id,
-  });
-
-  return;
-});
+  })
+);

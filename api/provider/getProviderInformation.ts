@@ -9,6 +9,7 @@ import {
 } from "../../types/Provider";
 import { externalAPIRoutes, keys } from "../../config";
 import { firestore } from "../../firebase/adminApp";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -122,47 +123,49 @@ async function getDetailedProviderDataFromProviderSide(
   }
 }
 
-export const getProviderInformation = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+export const getProviderInformation = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
 
-  const providerOptions = await getProviderOptions();
-  if (!providerOptions) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
+    const providerOptions = await getProviderOptions();
+    if (!providerOptions) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
 
-  const activeProviderData = await getActiveProviderDocFromUserSide(username);
-  if (!activeProviderData) {
+    const activeProviderData = await getActiveProviderDocFromUserSide(username);
+    if (!activeProviderData) {
+      const providerInformation: ProviderInformation = {
+        isThereActiveProvider: false,
+        providerOptions: providerOptions,
+      };
+
+      res.status(200).json({ ...providerInformation });
+      return;
+    }
+
+    const detailedProviderData = await getDetailedProviderDataFromProviderSide(
+      activeProviderData.providerId,
+      activeProviderData.clientId
+    );
+    if (!detailedProviderData) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
     const providerInformation: ProviderInformation = {
-      isThereActiveProvider: false,
+      isThereActiveProvider: true,
       providerOptions: providerOptions,
+      activeProviderInformation: detailedProviderData,
     };
 
     res.status(200).json({ ...providerInformation });
     return;
-  }
-
-  const detailedProviderData = await getDetailedProviderDataFromProviderSide(
-    activeProviderData.providerId,
-    activeProviderData.clientId
-  );
-  if (!detailedProviderData) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const providerInformation: ProviderInformation = {
-    isThereActiveProvider: true,
-    providerOptions: providerOptions,
-    activeProviderInformation: detailedProviderData,
-  };
-
-  res.status(200).json({ ...providerInformation });
-  return;
-});
+  })
+);

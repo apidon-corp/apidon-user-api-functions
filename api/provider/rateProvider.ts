@@ -4,6 +4,7 @@ import { firestore } from "../../firebase/adminApp";
 import { CurrentProviderDocData, RatingsDocData } from "../../types/Provider";
 import { FieldValue } from "firebase-admin/firestore";
 import { externalAPIRoutes, keys } from "../../config";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -133,48 +134,50 @@ async function sendRateToProviderSide(
   }
 }
 
-export const rateProvider = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { score } = req.body;
+export const rateProvider = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { score } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(score);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const getCurrentProviderResult = await getCurrentProvider(username);
+    if (!getCurrentProviderResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const updateRatingsDocResult = await updateRatingsDoc(
+      username,
+      getCurrentProviderResult,
+      score
+    );
+    if (!updateRatingsDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const sendRateToProviderSideResult = await sendRateToProviderSide(
+      username,
+      getCurrentProviderResult.providerId,
+      score
+    );
+    if (!sendRateToProviderSideResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("Success");
     return;
-  }
-
-  const checkPropsResult = checkProps(score);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const getCurrentProviderResult = await getCurrentProvider(username);
-  if (!getCurrentProviderResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const updateRatingsDocResult = await updateRatingsDoc(
-    username,
-    getCurrentProviderResult,
-    score
-  );
-  if (!updateRatingsDocResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const sendRateToProviderSideResult = await sendRateToProviderSide(
-    username,
-    getCurrentProviderResult.providerId,
-    score
-  );
-  if (!sendRateToProviderSideResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("Success");
-  return;
-});
+  })
+);

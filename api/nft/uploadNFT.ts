@@ -10,6 +10,8 @@ import { keys } from "../../config";
 
 import { FieldValue as fieldValue } from "firebase-admin/firestore";
 
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendReply API.");
@@ -225,86 +227,88 @@ async function updatePostDoc(postDocPath: string, nftDocPath: string) {
   }
 }
 
-export const uploadNFT = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { postDocPath, title, description } = req.body;
+export const uploadNFT = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { postDocPath, title, description } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(postDocPath, title, description);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const postData = await getPostData(postDocPath);
+    if (!postData) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const validForNFTConversion = checkPostForNFT(postData);
+    if (!validForNFTConversion) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const metadata = createNFTMetadataObject(postData, title);
+
+    const metadataURL = await uploadNFTMetadata(metadata, postData);
+    if (!metadataURL) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const transaction = await mintNFT(metadataURL);
+    if (!transaction) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const transactionReceipt = await createTransactionReceipt(transaction, 1);
+    if (!transactionReceipt) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const tokenId = getTokenId(transactionReceipt);
+    const openseaUrl = createOpenseaLink(tokenId);
+
+    const updateUserDocResult = await updateUserDoc(username);
+    if (!updateUserDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const createdNftDocPath = await createNFTDoc(
+      metadata,
+      metadataURL,
+      postDocPath,
+      tokenId,
+      openseaUrl
+    );
+    if (!createdNftDocPath) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const updatePostDocResult = await updatePostDoc(
+      postDocPath,
+      createdNftDocPath
+    );
+    if (!updatePostDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).json({
+      nftDocPath: createdNftDocPath,
+    });
     return;
-  }
-
-  const checkPropsResult = checkProps(postDocPath, title, description);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const postData = await getPostData(postDocPath);
-  if (!postData) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const validForNFTConversion = checkPostForNFT(postData);
-  if (!validForNFTConversion) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const metadata = createNFTMetadataObject(postData, title);
-
-  const metadataURL = await uploadNFTMetadata(metadata, postData);
-  if (!metadataURL) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const transaction = await mintNFT(metadataURL);
-  if (!transaction) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const transactionReceipt = await createTransactionReceipt(transaction, 1);
-  if (!transactionReceipt) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const tokenId = getTokenId(transactionReceipt);
-  const openseaUrl = createOpenseaLink(tokenId);
-
-  const updateUserDocResult = await updateUserDoc(username);
-  if (!updateUserDocResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const createdNftDocPath = await createNFTDoc(
-    metadata,
-    metadataURL,
-    postDocPath,
-    tokenId,
-    openseaUrl
-  );
-  if (!createdNftDocPath) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const updatePostDocResult = await updatePostDoc(
-    postDocPath,
-    createdNftDocPath
-  );
-  if (!updatePostDocResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).json({
-    nftDocPath: createdNftDocPath,
-  });
-  return;
-});
+  })
+);

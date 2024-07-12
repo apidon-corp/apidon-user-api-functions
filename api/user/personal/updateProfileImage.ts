@@ -2,6 +2,7 @@ import { onRequest } from "firebase-functions/v2/https";
 
 import { firestore } from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -36,27 +37,29 @@ async function updateUserDoc(imageURL: string, username: string) {
   }
 }
 
-export const updateProfileImage = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { image: imageURL } = req.body;
+export const updateProfileImage = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { image: imageURL } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
 
-  const checkPropsResult = checkProps(imageURL);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
+    const checkPropsResult = checkProps(imageURL);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
 
-  const updateUserDocResult = await updateUserDoc(imageURL, username);
-  if (!updateUserDocResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
+    const updateUserDocResult = await updateUserDoc(imageURL, username);
+    if (!updateUserDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
 
-  res.status(200).send("OK");
-});
+    res.status(200).send("OK");
+  })
+);

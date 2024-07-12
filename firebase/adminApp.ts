@@ -13,6 +13,8 @@ if (!admin.apps.length) {
 export const auth = admin.auth();
 export const firestore = admin.firestore();
 
+export const appCheck = admin.appCheck();
+
 const storageBucketId = keys.STORAGE_BUCKET_ID;
 
 export const bucket = admin.storage().bucket(storageBucketId);

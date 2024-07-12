@@ -1,6 +1,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { firestore } from "../../../../firebase/adminApp";
 import * as express from "express";
+import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
 
 function checkProps(referralCode: string) {
   if (!referralCode) {
@@ -39,20 +40,22 @@ async function checkRefferal(referralCode: string, res: express.Response) {
   }
 }
 
-export const checkReferralCode = onRequest(async (req, res) => {
-  const { referralCode } = req.body;
+export const checkReferralCode = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { referralCode } = req.body;
 
-  if (req.method !== "POST") {
-    res.status(405).send("Method not allowed!");
+    if (req.method !== "POST") {
+      res.status(405).send("Method not allowed!");
+      return;
+    }
+
+    const checkPropsResult = checkProps(referralCode);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    await checkRefferal(referralCode, res);
     return;
-  }
-
-  const checkPropsResult = checkProps(referralCode);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  await checkRefferal(referralCode, res);
-  return;
-});
+  })
+);

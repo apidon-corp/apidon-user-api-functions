@@ -3,6 +3,8 @@ import { onRequest } from "firebase-functions/v2/https";
 import getDisplayName from "../../../helpers/getDisplayName";
 import { firestore } from "../../../firebase/adminApp";
 
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendReply API.");
@@ -45,33 +47,35 @@ async function updateNotificationDoc(
   }
 }
 
-export const updateNotificationToken = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { notificationToken } = req.body;
+export const updateNotificationToken = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { notificationToken } = req.body;
 
-  const username = await handleAuthorization(authorization);
-  if (!username) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(notificationToken);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const updateNotificationDocResult = await updateNotificationDoc(
+      username,
+      notificationToken
+    );
+
+    if (!updateNotificationDocResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    res.status(200).send("OK");
+
     return;
-  }
-
-  const checkPropsResult = checkProps(notificationToken);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const updateNotificationDocResult = await updateNotificationDoc(
-    username,
-    notificationToken
-  );
-
-  if (!updateNotificationDocResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  res.status(200).send("OK");
-
-  return;
-});
+  })
+);
