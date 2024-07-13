@@ -41,7 +41,8 @@ export type NftDocDataInServer = {
   postDocPath: string;
   listStatus: {
     buyer?: string;
-    currency?: "dollar" | "matic";
+    currency?: "USD" | "TL";
+    stock?: number;
     isListed: boolean;
     price?: number;
     sold?: boolean;
