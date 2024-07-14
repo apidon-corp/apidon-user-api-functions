@@ -11,6 +11,4 @@ export type UserInServer = {
 
   email: string;
   uid: string;
-
-  stripeCustomerId?: string;
 };

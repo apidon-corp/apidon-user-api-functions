@@ -6,7 +6,8 @@ import { firestore } from "../../firebase/adminApp";
 import { PostServerDataV3 } from "../../types/Post";
 import { NftDocDataInServer } from "../../types/NFT";
 import { internalAPIRoutes, keys } from "../../config";
-import { UserInServer } from "../../types/User";
+
+import { NFTTradeDocData, PaymentIntentDocData } from "../../types/Trade";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -90,22 +91,24 @@ function checkStockStatus(nftDocData: NftDocDataInServer) {
 
 async function getStripeCustomerId(username: string) {
   try {
-    const userDocSnapshot = await firestore.doc(`/users/${username}`).get();
+    const nftTradeDocSnapshot = await firestore
+      .doc(`/users/${username}/nftTrade/nftTrade`)
+      .get();
 
-    if (!userDocSnapshot.exists) {
-      console.error("User doc does not exist.");
+    if (!nftTradeDocSnapshot.exists) {
+      console.error("nftTradeDoc does not exist.");
       return false;
     }
 
-    const userDocData = userDocSnapshot.data() as UserInServer;
+    const nftTradeDocData = nftTradeDocSnapshot.data() as NFTTradeDocData;
 
-    if (!userDocData) {
-      console.error("User doc data is undefined.");
+    if (!nftTradeDocData) {
+      console.error("nftTradeDocData is undefined.");
       return false;
     }
 
-    return userDocData.stripeCustomerId
-      ? userDocData.stripeCustomerId
+    return nftTradeDocData.stripeCustomerId
+      ? nftTradeDocData.stripeCustomerId
       : undefined;
   } catch (error) {
     console.error("Error while getting stripe customer id", error);
@@ -115,7 +118,8 @@ async function getStripeCustomerId(username: string) {
 
 async function createPaymentOnStripe(
   stripeCustomerId: string | undefined,
-  price: number | undefined
+  price: number | undefined,
+  username: string
 ) {
   try {
     if (!price) return false;
@@ -130,6 +134,7 @@ async function createPaymentOnStripe(
       body: JSON.stringify({
         stripeCustomerId,
         price,
+        username,
       }),
     });
 
@@ -142,6 +147,7 @@ async function createPaymentOnStripe(
     }
 
     const {
+      paymentId,
       paymentIntent,
       ephemeralKey,
       customer,
@@ -149,14 +155,21 @@ async function createPaymentOnStripe(
       createdStripeCustomerId,
     } = await response.json();
 
-    if (!paymentIntent || !ephemeralKey || !customer || !publishableKey) {
+    if (
+      !paymentIntent ||
+      !ephemeralKey ||
+      !customer ||
+      !publishableKey ||
+      !paymentId
+    ) {
       console.error(
-        "Payment intent, ephemeral key, customer or publishable key is undefined."
+        "Payment intent, ephemeral key, customer, paymentId or publishable key is undefined."
       );
       return false;
     }
 
     return {
+      paymentId,
       paymentIntent,
       ephemeralKey,
       customer,
@@ -177,12 +190,48 @@ async function setCustomerId(
 
   try {
     await firestore
-      .doc(`/users/${username}`)
+      .doc(`/users/${username}/nftTrade/nftTrade`)
       .update({ stripeCustomerId: createdStripeCustomerId });
 
     return true;
   } catch (error) {
     console.error("Error while setting new customer id: \n", error);
+    return false;
+  }
+}
+
+async function createPaymentIntentOnDocsOfUser(
+  paymentIntentId: string,
+  postDocPath: string,
+  price: number | undefined,
+  username: string
+) {
+  if (!price) return false;
+
+  const newPaymentIntentDocData: PaymentIntentDocData = {
+    currency: "USD",
+    id: paymentIntentId,
+    postDocPath: postDocPath,
+    price: price,
+    refunded: false,
+    success: false,
+    ts: Date.now(),
+    username: username,
+  };
+
+  try {
+    const newPaymentIntentDocRef = firestore.doc(
+      `users/${username}/nftTrade/nftTrade/paymentIntents/${paymentIntentId}`
+    );
+
+    await newPaymentIntentDocRef.set(newPaymentIntentDocData);
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Error while creating payment intent on apidon servers: \n",
+      error
+    );
     return false;
   }
 }
@@ -236,7 +285,8 @@ export const buyNFT = onRequest(
 
     const createStripePaymentResult = await createPaymentOnStripe(
       stripeCustomerId,
-      nftData.listStatus.price
+      nftData.listStatus.price,
+      username
     );
 
     if (!createStripePaymentResult) {
@@ -249,6 +299,18 @@ export const buyNFT = onRequest(
       createStripePaymentResult.createdStripeCustomerId
     );
     if (!setCustomerIdResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const createPaymentIntentOnDocsOfUserResult =
+      await createPaymentIntentOnDocsOfUser(
+        createStripePaymentResult.paymentId,
+        postDocPath,
+        nftData.listStatus.price,
+        username
+      );
+    if (!createPaymentIntentOnDocsOfUserResult) {
       res.status(500).send("Internal Server Error");
       return;
     }

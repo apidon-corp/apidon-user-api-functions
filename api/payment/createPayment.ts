@@ -15,11 +15,16 @@ function handleAuthorization(authorization: string | undefined) {
   return authorization === keys.CREATE_PAYMENT_API_KEY;
 }
 
-async function getStripeCustomerId(stripeCustomerId: string | undefined) {
+async function getStripeCustomerId(
+  stripeCustomerId: string | undefined,
+  username: string
+) {
   if (stripeCustomerId) return stripeCustomerId;
 
   try {
-    const customer = await stripe.customers.create();
+    const customer = await stripe.customers.create({
+      name: username,
+    });
     return customer.id;
   } catch (error) {
     console.error("Error creating customer: ", error);
@@ -58,7 +63,7 @@ async function createPaymentIntent(customerId: string, price: number) {
 
 export const createPayment = onRequest(async (req, res) => {
   const { authorization } = req.headers;
-  const { price, stripeCustomerId } = req.body;
+  const { price, stripeCustomerId, username } = req.body;
 
   const authorizationResult = handleAuthorization(authorization);
   if (!authorizationResult) {
@@ -72,7 +77,7 @@ export const createPayment = onRequest(async (req, res) => {
     return;
   }
 
-  const customerID = await getStripeCustomerId(stripeCustomerId);
+  const customerID = await getStripeCustomerId(stripeCustomerId, username);
   if (!customerID) {
     res.status(500).send("Internal Server Error");
     return;
@@ -91,6 +96,7 @@ export const createPayment = onRequest(async (req, res) => {
   }
 
   const responseObject = {
+    paymentId: paymentIntent.id,
     paymentIntent: paymentIntent.client_secret,
     ephemeralKey: ephemeralKey.secret,
     customer: customerID,
