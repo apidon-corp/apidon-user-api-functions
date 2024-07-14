@@ -1,15 +1,26 @@
 import { onRequest } from "firebase-functions/v2/https";
-
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 import { keys } from "../../config";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.STRIPE_SECRET_KEY);
 
-async function createStripeCustomer() {
+function checkProps(price: number) {
+  if (!price) return false;
+  return true;
+}
+
+function handleAuthorization(authorization: string | undefined) {
+  if (!authorization) return false;
+
+  return authorization === keys.CREATE_PAYMENT_API_KEY;
+}
+
+async function getStripeCustomerId(stripeCustomerId: string | undefined) {
+  if (stripeCustomerId) return stripeCustomerId;
+
   try {
     const customer = await stripe.customers.create();
-    return customer;
+    return customer.id;
   } catch (error) {
     console.error("Error creating customer: ", error);
     return false;
@@ -31,10 +42,10 @@ async function createEphemeralKey(customerId: string) {
   }
 }
 
-async function createPaymentIntent(customerId: string) {
+async function createPaymentIntent(customerId: string, price: number) {
   try {
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: 2000,
+      amount: price * 100,
       currency: "usd",
       customer: customerId,
     });
@@ -45,34 +56,48 @@ async function createPaymentIntent(customerId: string) {
   }
 }
 
-export const createPayment = onRequest(
-  appCheckMiddleware(async (req, res) => {
-    const customer = await createStripeCustomer();
-    if (!customer) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
+export const createPayment = onRequest(async (req, res) => {
+  const { authorization } = req.headers;
+  const { price, stripeCustomerId } = req.body;
 
-    const ephemeralKey = await createEphemeralKey(customer.id);
-    if (!ephemeralKey) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const paymentIntent = await createPaymentIntent(customer.id);
-    if (!paymentIntent) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const responseObject = {
-      paymentIntent: paymentIntent.client_secret,
-      ephemeralKey: ephemeralKey.secret,
-      customer: customer.id,
-      publishableKey: "pk_test_TYooMQauvdEDq54NiTphI7jx",
-    };
-
-    res.status(200).json(responseObject);
+  const authorizationResult = handleAuthorization(authorization);
+  if (!authorizationResult) {
+    res.status(401).send("Unauthorized");
     return;
-  })
-);
+  }
+
+  const checkPropsResult = checkProps(price);
+  if (!checkPropsResult) {
+    res.status(422).send("Invalid Request");
+    return;
+  }
+
+  const customerID = await getStripeCustomerId(stripeCustomerId);
+  if (!customerID) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const ephemeralKey = await createEphemeralKey(customerID);
+  if (!ephemeralKey) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const paymentIntent = await createPaymentIntent(customerID, price);
+  if (!paymentIntent) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const responseObject = {
+    paymentIntent: paymentIntent.client_secret,
+    ephemeralKey: ephemeralKey.secret,
+    customer: customerID,
+    publishableKey: "pk_test_TYooMQauvdEDq54NiTphI7jx",
+    createdStripeCustomerId: stripeCustomerId ? undefined : customerID,
+  };
+
+  res.status(200).json(responseObject);
+  return;
+});
