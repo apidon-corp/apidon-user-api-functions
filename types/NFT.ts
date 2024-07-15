@@ -41,6 +41,7 @@ export type NftDocDataInServer = {
   postDocPath: string;
   listStatus: {
     buyer?: string;
+    buyers?: BuyersArrayObject[];
     currency?: "USD" | "TL";
     stock?: number;
     isListed: boolean;
@@ -49,53 +50,7 @@ export type NftDocDataInServer = {
   };
 };
 
-export const NftDocDataInServerPlaceholder: NftDocDataInServer = {
-  contractAddress: "",
-  description: "",
-  metadataLink: "",
-  mintTime: 0,
-  name: "",
-  openseaUrl: "",
-  postDocPath: "",
-  tokenId: 0,
-  transferStatus: {
-    isTransferred: false,
-  },
-  listStatus: {
-    isListed: false,
-  },
-};
-
-export type NftListInput = {
-  price: number;
-  currency: "dollar" | "matic";
-};
-
-export const nftListInputPlaceholder: NftListInput = {
-  price: 0,
-  currency: "dollar",
-};
-
-export type NftListRequestBody = {
-  price: number;
-  currency: "dollar" | "matic";
-  postDocId: string;
-};
-
-export type NFTListResponseBody = {
-  price: number;
-  currency: "dollar" | "matic";
-};
-
-export type NFTBuyRequestBody = {
-  postDocPath: string;
-};
-
-export type BoughtNFTsArrayObject = {
-  postDocPath: string;
-  ts: number;
-};
-export type SoldNFTsArrayObject = {
-  postDocPath: string;
+export type BuyersArrayObject = {
+  username: string;
   ts: number;
 };

@@ -1,6 +1,6 @@
 export type NFTTradeDocData = {
-  boughtNFTs: string[];
-  soldNFTs: string[];
+  boughtNFTs: BoughtNFTsArrayObject[];
+  soldNFTs: SoldNFTsArrayObject[];
   stripeCustomerId?: string;
 };
 
@@ -86,4 +86,16 @@ export type PaymentIntentDocDataUpdateable = {
    * The username of the user making the payment, represented as a string.
    */
   username?: string;
+};
+
+export type BoughtNFTsArrayObject = {
+  postDocPath: string;
+  nftDocPath: string;
+  ts: number;
+};
+export type SoldNFTsArrayObject = {
+  postDocPath: string;
+  nftDocPath: string;
+  ts: number;
+  username: string;
 };

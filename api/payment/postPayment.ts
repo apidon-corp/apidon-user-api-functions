@@ -72,15 +72,6 @@ export const postPayment = onRequest(async (req, res) => {
   }
 
   if (event.type === "payment_intent.succeeded") {
-    console.log(
-      "PaymentIntent was successful for (customer) " +
-        event.data.object.metadata.username
-    );
-    console.log(
-      "PaymentIntent was successful for (payment id) " + event.data.object.id
-    );
-    console.log("Now, we are calling successOnPayment API...");
-
     const successfullPaymentIntentId = event.data.object.id;
     handlePaymentIntentSuccess(successfullPaymentIntentId);
   }
