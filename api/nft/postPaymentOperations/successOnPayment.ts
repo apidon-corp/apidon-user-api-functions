@@ -207,7 +207,7 @@ function checkNftData(nftData: NftDocDataInServer) {
     return false;
   }
 
-  if (nftData.listStatus.stock <= 0) {
+  if (nftData.listStatus.stock.remainingStock <= 0) {
     console.error("NFT is out of stock.");
     return false;
   }
@@ -226,7 +226,7 @@ async function updateNftDoc(nftDocPath: string, username: string) {
 
     await nftDocRef.update({
       "listStatus.buyers": FieldValue.arrayUnion(newBuyerObject),
-      "listStatus.stock": FieldValue.increment(-1),
+      "listStatus.stock.remainingStock": FieldValue.increment(-1),
     });
 
     return true;

@@ -1,4 +1,5 @@
 export type NFTTradeDocData = {
+  createdNFTs: CreatedNFTsArrayObject[];
   boughtNFTs: BoughtNFTsArrayObject[];
   soldNFTs: SoldNFTsArrayObject[];
   stripeCustomerId?: string;
@@ -98,4 +99,10 @@ export type SoldNFTsArrayObject = {
   nftDocPath: string;
   ts: number;
   username: string;
+};
+
+export type CreatedNFTsArrayObject = {
+  postDocPath: string;
+  nftDocPath: string;
+  ts: number;
 };

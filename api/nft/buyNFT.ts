@@ -83,8 +83,15 @@ async function getNftData(nftDocPath?: string) {
 }
 
 function checkStockStatus(nftDocData: NftDocDataInServer) {
-  if (!nftDocData.listStatus.stock) return false;
-  if (nftDocData.listStatus.stock <= 0) return false;
+  if (!nftDocData.listStatus.isListed) {
+    console.error("NFT is not listed.");
+    return false;
+  }
+
+  if (nftDocData.listStatus.stock.remainingStock <= 0) {
+    console.error("NFT is out of stock.");
+    return false;
+  }
 
   return true;
 }
@@ -116,9 +123,18 @@ async function getStripeCustomerId(username: string) {
   }
 }
 
+function getPrice(nftDocData: NftDocDataInServer) {
+  if (!nftDocData.listStatus.isListed) {
+    console.error("NFT is not listed.");
+    return false;
+  }
+
+  return nftDocData.listStatus.price.price;
+}
+
 async function createPaymentOnStripe(
   stripeCustomerId: string | undefined,
-  price: number | undefined,
+  price: number,
   username: string
 ) {
   try {
@@ -283,9 +299,15 @@ export const buyNFT = onRequest(
       return;
     }
 
+    const price = getPrice(nftData);
+    if (!price) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
     const createStripePaymentResult = await createPaymentOnStripe(
       stripeCustomerId,
-      nftData.listStatus.price,
+      price,
       username
     );
 
@@ -307,7 +329,7 @@ export const buyNFT = onRequest(
       await createPaymentIntentOnDocsOfUser(
         createStripePaymentResult.paymentId,
         postDocPath,
-        nftData.listStatus.price,
+        price,
         username
       );
     if (!createPaymentIntentOnDocsOfUserResult) {

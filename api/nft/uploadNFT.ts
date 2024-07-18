@@ -11,6 +11,7 @@ import { keys } from "../../config";
 import { FieldValue as fieldValue } from "firebase-admin/firestore";
 
 import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { CreatedNFTsArrayObject } from "@/types/Trade";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -227,6 +228,31 @@ async function updatePostDoc(postDocPath: string, nftDocPath: string) {
   }
 }
 
+async function updateTradeDoc(
+  username: string,
+  nftDocPath: string,
+  postDocPath: string
+) {
+  const newCreatedNFTObject: CreatedNFTsArrayObject = {
+    nftDocPath: nftDocPath,
+    postDocPath: postDocPath,
+    ts: Date.now(),
+  };
+
+  try {
+    const tradeDocRef = firestore.doc(`users/${username}/nftTrade/nftTrade`);
+
+    await tradeDocRef.update({
+      createdNFTs: fieldValue.arrayUnion(newCreatedNFTObject),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating trade doc", error);
+    return false;
+  }
+}
+
 export const uploadNFT = onRequest(
   appCheckMiddleware(async (req, res) => {
     const { authorization } = req.headers;
@@ -302,6 +328,16 @@ export const uploadNFT = onRequest(
       createdNftDocPath
     );
     if (!updatePostDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const updateTradeDocResult = await updateTradeDoc(
+      username,
+      createdNftDocPath,
+      postDocPath
+    );
+    if (!updateTradeDocResult) {
       res.status(500).send("Internal Server Error");
       return;
     }

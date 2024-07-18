@@ -39,16 +39,25 @@ export type NftDocDataInServer = {
     transferredAddress?: string;
   };
   postDocPath: string;
-  listStatus: {
-    buyer?: string;
-    buyers?: BuyersArrayObject[];
-    currency?: "USD" | "TL";
-    stock?: number;
-    isListed: boolean;
-    price?: number;
-    sold?: boolean;
-  };
+  listStatus: ListStatus;
 };
+
+export type ListStatus =
+  | {
+      isListed: false;
+    }
+  | {
+      isListed: true;
+      buyers: BuyersArrayObject[];
+      price: {
+        price: number;
+        currency: "USD" | "TL";
+      };
+      stock: {
+        initialStock: number;
+        remainingStock: number;
+      };
+    };
 
 export type BuyersArrayObject = {
   username: string;

@@ -5,6 +5,7 @@ import { UserInServer } from "../../../../types/User";
 import { NotificationDocData } from "../../../../types/Notifications";
 
 import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
+import { NFTTradeDocData } from "@/types/Trade";
 
 const quickRegexCheck = (
   email: string,
@@ -280,10 +281,7 @@ export const signup = onRequest(
     let mainUserDocData: UserInServer;
     let uid;
     let personalData;
-    let nftTradeData: {
-      boughtNFTs: string[];
-      soldNFTs: string[];
-    };
+    let nftTradeData: NFTTradeDocData;
 
     // Creating user by auth.
     try {
@@ -336,6 +334,7 @@ export const signup = onRequest(
 
       // Creaing "nftTrade" doc for "nftTrade" collection
       nftTradeData = {
+        createdNFTs: [],
         boughtNFTs: [],
         soldNFTs: [],
       };

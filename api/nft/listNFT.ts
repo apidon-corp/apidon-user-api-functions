@@ -98,9 +98,15 @@ async function updateListStatus(
 
   const newListObject: NftDocDataInServer["listStatus"] = {
     isListed: true,
-    price: price,
-    currency: "USD",
-    stock: stock,
+    buyers: [],
+    price: {
+      price: price,
+      currency: "USD",
+    },
+    stock: {
+      initialStock: stock,
+      remainingStock: stock,
+    },
   };
 
   try {
