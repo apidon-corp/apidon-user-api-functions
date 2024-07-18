@@ -22,6 +22,29 @@ function checkProps(postDocPath: string, price: number, stock: number) {
     console.error("postDocPath or price or stock is undefined.");
     return false;
   }
+
+  const priceFloat = parseFloat(price.toString());
+
+  if (isNaN(priceFloat)) {
+    console.error("price is not a number.");
+    return false;
+  }
+
+  if (priceFloat <= 0) {
+    console.error("Price is not valid.");
+    return false;
+  }
+
+  const stockInt = parseInt(stock.toString());
+  if (isNaN(stockInt)) {
+    console.error("stock is not a number.");
+    return false;
+  }
+  if (stockInt <= 0) {
+    console.error("Stock is not valid.");
+    return false;
+  }
+
   return true;
 }
 

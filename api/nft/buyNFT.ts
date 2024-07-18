@@ -96,6 +96,24 @@ function checkStockStatus(nftDocData: NftDocDataInServer) {
   return true;
 }
 
+function checkAlreadyCollected(
+  nftDocData: NftDocDataInServer,
+  username: string
+) {
+  if (!nftDocData.listStatus.isListed) {
+    console.error("NFT is not listed.");
+    return false;
+  }
+
+  const buyers = nftDocData.listStatus.buyers.map((b) => b.username);
+
+  if (buyers.includes(username)) {
+    console.error("NFT is already collected by requester.");
+  }
+
+  return buyers.includes(username);
+}
+
 async function getStripeCustomerId(username: string) {
   try {
     const nftTradeDocSnapshot = await firestore
@@ -284,6 +302,12 @@ export const buyNFT = onRequest(
     const nftData = await getNftData(nftDocPath);
     if (!nftData) {
       res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const alreadyCollected = checkAlreadyCollected(nftData, username);
+    if (alreadyCollected) {
+      res.status(409).send("Conflict");
       return;
     }
 
