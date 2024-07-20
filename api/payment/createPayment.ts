@@ -1,5 +1,5 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.STRIPE_SECRET_KEY);
@@ -38,7 +38,7 @@ async function createEphemeralKey(customerId: string) {
       {
         customer: customerId,
       },
-      { apiVersion: "2024-06-20" }
+      {apiVersion: "2024-06-20"}
     );
     return ephemeralKey;
   } catch (error) {
@@ -62,8 +62,8 @@ async function createPaymentIntent(customerId: string, price: number) {
 }
 
 export const createPayment = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { price, stripeCustomerId, username } = req.body;
+  const {authorization} = req.headers;
+  const {price, stripeCustomerId, username} = req.body;
 
   const authorizationResult = handleAuthorization(authorization);
   if (!authorizationResult) {

@@ -1,4 +1,4 @@
-import { fullnameUpdate } from "./fullnameUpdate";
-import { updateProfileImage } from "./updateProfileImage";
+import {fullnameUpdate} from "./fullnameUpdate";
+import {updateProfileImage} from "./updateProfileImage";
 
-export { fullnameUpdate, updateProfileImage };
+export {fullnameUpdate, updateProfileImage};

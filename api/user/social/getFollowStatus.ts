@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../../helpers/getDisplayName";
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -66,8 +66,8 @@ function getFollowStatusMethod(
 
 export const getFollowStatus = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { suspectUsername } = req.body;
+    const {authorization} = req.headers;
+    const {suspectUsername} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -92,7 +92,7 @@ export const getFollowStatus = onRequest(
       followings
     );
 
-    res.status(200).json({ ...followStatus });
+    res.status(200).json({...followStatus});
     return;
   })
 );

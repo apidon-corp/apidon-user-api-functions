@@ -1,10 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import * as express from "express";
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
 
-import { PostServerDataV3 } from "../../types/Post";
+import {PostServerDataV3} from "../../types/Post";
 
 /**
  * Handling cors policy stuff.
@@ -77,8 +77,8 @@ export const providePostInformation = onRequest(async (req, res) => {
     return;
   }
 
-  const { authorization } = req.headers;
-  const { postDocPath } = req.body;
+  const {authorization} = req.headers;
+  const {postDocPath} = req.body;
 
   const authorizationResult = handleAuthorization(authorization);
   if (!authorizationResult) {

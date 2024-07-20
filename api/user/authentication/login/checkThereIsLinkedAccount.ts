@@ -1,10 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { auth, firestore } from "../../../../firebase/adminApp";
-import { UserInServer } from "../../../../types/User";
+import {onRequest} from "firebase-functions/v2/https";
+import {auth, firestore} from "../../../../firebase/adminApp";
+import {UserInServer} from "../../../../types/User";
 
 import * as express from "express";
 
-import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
 
 function checkProps(eu: string) {
   if (!eu) {
@@ -128,7 +128,7 @@ async function emailHandle(emailReqeuested: string, res: express.Response) {
 
 export const checkThereIsLinkedAccount = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { eu } = req.body;
+    const {eu} = req.body;
 
     const checkPropsResult = checkProps(eu);
     if (!checkPropsResult) {

@@ -1,4 +1,4 @@
-import { follow } from "./follow";
-import { getFollowStatus } from "./getFollowStatus";
+import {follow} from "./follow";
+import {getFollowStatus} from "./getFollowStatus";
 
-export { follow, getFollowStatus };
+export {follow, getFollowStatus};

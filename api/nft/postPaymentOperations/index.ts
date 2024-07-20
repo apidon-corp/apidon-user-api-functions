@@ -1,3 +1,3 @@
-import { successOnPayment } from "./successOnPayment";
+import {successOnPayment} from "./successOnPayment";
 
-export { successOnPayment };
+export {successOnPayment};

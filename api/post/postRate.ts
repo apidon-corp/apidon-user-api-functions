@@ -1,11 +1,11 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import { PostServerDataV3, RateData } from "../../types/Post";
-import { firestore } from "../../firebase/adminApp";
-import { FieldValue } from "firebase-admin/firestore";
-import { NotificationData } from "../../types/Notifications";
-import { internalAPIRoutes, keys } from "../../config";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {PostServerDataV3, RateData} from "../../types/Post";
+import {firestore} from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {NotificationData} from "../../types/Notifications";
+import {internalAPIRoutes, keys} from "../../config";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -181,7 +181,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -235,7 +235,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -281,8 +281,8 @@ async function handleNotification(
 
 export const postRate = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { rating, postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {rating, postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

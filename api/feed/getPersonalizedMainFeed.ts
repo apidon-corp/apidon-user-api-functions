@@ -1,11 +1,11 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
-import { keys } from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {keys} from "../../config";
 
-import { CurrentProviderDocData } from "../../types/Provider";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {CurrentProviderDocData} from "../../types/Provider";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -93,7 +93,7 @@ async function getPostPredictionsFromProvider(
       {
         method: "POST",
         headers: {
-          authorization: apikeyBetweenServices,
+          "authorization": apikeyBetweenServices,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -129,7 +129,7 @@ async function getPostPredictionsFromProvider(
 
 export const getPersonalizedFeed = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
+    const {authorization} = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

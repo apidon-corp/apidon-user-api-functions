@@ -6,8 +6,8 @@ import {
 
 import * as fs from "fs";
 
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
 import * as path from "path";
 
 const readFileAsync = async (filePath: string): Promise<string> => {
@@ -68,7 +68,7 @@ export const appleServiceNotificationsHandler = onRequest(async (req, res) => {
   const bundleId = keys.appleInAppPurchaseKeys.bundleId;
   const environment = Environment.SANDBOX;
 
-  let encodedKey = await getEncodedKey();
+  const encodedKey = await getEncodedKey();
 
   if (!encodedKey) {
     res.status(500).send("Internal Server Error");

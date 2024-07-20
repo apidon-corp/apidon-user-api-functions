@@ -1,13 +1,13 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { internalAPIRoutes, keys } from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {internalAPIRoutes, keys} from "../../config";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.STRIPE_SECRET_KEY);
 
 async function getEvent(payload: string | Buffer, signature: string) {
-  const web_hook_secret = keys.STRIPE_CLI_WEBHOOK_SECRET_LOCAL;
+  const webHookSecret = keys.STRIPE_CLI_WEBHOOK_SECRET_LOCAL;
 
-  if (!web_hook_secret) {
+  if (!webHookSecret) {
     console.error("Web Hook Secret is undefined from config");
     return false;
   }
@@ -16,7 +16,7 @@ async function getEvent(payload: string | Buffer, signature: string) {
     const event = await stripe.webhooks.constructEventAsync(
       payload,
       signature,
-      web_hook_secret
+      webHookSecret
     );
 
     return event;
@@ -35,9 +35,9 @@ async function handlePaymentIntentSuccess(successfullPaymentIntentId: string) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: successOnPaymentAPIKey,
+          "authorization": successOnPaymentAPIKey,
         },
-        body: JSON.stringify({ paymentIntentId: successfullPaymentIntentId }),
+        body: JSON.stringify({paymentIntentId: successfullPaymentIntentId}),
       }
     );
 

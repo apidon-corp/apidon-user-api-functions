@@ -1,15 +1,15 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
-import { FrenletServerData } from "../../types/Frenlet";
+import {firestore} from "../../firebase/adminApp";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
+import {FrenletServerData} from "../../types/Frenlet";
 
-import { NotificationData } from "../../types/Notifications";
+import {NotificationData} from "../../types/Notifications";
 
-import { internalAPIRoutes, keys } from "../../config";
+import {internalAPIRoutes, keys} from "../../config";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -62,7 +62,7 @@ async function createFrenletForSender(frenletDocData: FrenletServerData) {
       .doc(
         `/users/${frenletDocData.frenletSender}/frenlets/frenlets/outgoing/${frenletDocData.frenletDocId}`
       )
-      .set({ ...frenletDocData });
+      .set({...frenletDocData});
 
     return true;
   } catch (error) {
@@ -77,7 +77,7 @@ async function createFrenletForReceiver(frenletDocData: FrenletServerData) {
       .doc(
         `/users/${frenletDocData.frenletReceiver}/frenlets/frenlets/incoming/${frenletDocData.frenletDocId}`
       )
-      .set({ ...frenletDocData });
+      .set({...frenletDocData});
 
     return true;
   } catch (error) {
@@ -174,7 +174,7 @@ async function sendNotification(frenletData: FrenletServerData) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationData,
@@ -223,7 +223,7 @@ async function deleteNotification(frenletData: FrenletServerData) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationData,
@@ -297,8 +297,8 @@ async function rollback(
 
 export const createFrenlet = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { fren, message, tag } = req.body;
+    const {authorization} = req.headers;
+    const {fren, message, tag} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

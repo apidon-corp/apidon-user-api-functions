@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 
-import { keys } from "../config";
+import {keys} from "../config";
 
 if (!admin.apps.length) {
   admin.initializeApp({

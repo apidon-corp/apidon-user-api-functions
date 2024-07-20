@@ -1,7 +1,7 @@
-import { getProviderInformation } from "./getProviderInformation";
-import { providePostInformation } from "./providePostInformtaion";
-import { rateProvider } from "./rateProvider";
-import { selectProvider } from "./selectProvider";
+import {getProviderInformation} from "./getProviderInformation";
+import {providePostInformation} from "./providePostInformtaion";
+import {rateProvider} from "./rateProvider";
+import {selectProvider} from "./selectProvider";
 
 export {
   getProviderInformation,

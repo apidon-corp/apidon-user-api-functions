@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../../../config";
-import { ReferenceDocData } from "../../../../types/Reference";
-import { firestore } from "../../../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../../../config";
+import {ReferenceDocData} from "../../../../types/Reference";
+import {firestore} from "../../../../firebase/adminApp";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -29,7 +29,7 @@ async function createReferenceCode() {
   try {
     const createdReferenceDoc = await firestore
       .collection("/references")
-      .add({ ...newReferenceDocData });
+      .add({...newReferenceDocData});
 
     const docId = createdReferenceDoc.id;
 
@@ -41,7 +41,7 @@ async function createReferenceCode() {
 }
 
 export const createReferralCode = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
   const authorizationResult = handleAuthorization(authorization);
   if (!authorizationResult) {
@@ -55,6 +55,6 @@ export const createReferralCode = onRequest(async (req, res) => {
     return;
   }
 
-  res.status(200).json({ referenceCode: createReferenceCodeResult });
+  res.status(200).json({referenceCode: createReferenceCodeResult});
   return;
 });

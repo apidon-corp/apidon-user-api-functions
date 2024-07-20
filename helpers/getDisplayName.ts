@@ -1,10 +1,10 @@
-import { DecodedIdToken } from "firebase-admin/auth";
-import { auth } from "../firebase/adminApp";
+import {DecodedIdToken} from "firebase-admin/auth";
+import {auth} from "../firebase/adminApp";
 
 /**
  * Get the display name of a user from the authorization token.
  * @param authorization - The authorization header containing the Bearer token.
- * @returns The display name if successful, otherwise an empty string.
+ * @return The display name if successful, otherwise an empty string.
  */
 export default async function getDisplayName(authorization: string) {
   if (!authorization.startsWith("Bearer ")) {

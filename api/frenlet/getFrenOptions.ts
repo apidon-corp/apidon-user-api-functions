@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
-import { UserInServer } from "../../types/User";
+import {firestore} from "../../firebase/adminApp";
+import {UserInServer} from "../../types/User";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -119,7 +119,7 @@ async function createFrensData(frens: string[]) {
 }
 
 export const getFrenOptions = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
   const username = await handleAuthorization(authorization);
   if (!username) {

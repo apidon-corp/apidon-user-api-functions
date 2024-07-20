@@ -1,3 +1,3 @@
-import { getPersonalizedFeed } from "./getPersonalizedMainFeed";
+import {getPersonalizedFeed} from "./getPersonalizedMainFeed";
 
-export { getPersonalizedFeed };
+export {getPersonalizedFeed};

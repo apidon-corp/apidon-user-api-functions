@@ -1,10 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
-import { CurrentProviderDocData, RatingsDocData } from "../../types/Provider";
-import { FieldValue } from "firebase-admin/firestore";
-import { externalAPIRoutes, keys } from "../../config";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {firestore} from "../../firebase/adminApp";
+import {CurrentProviderDocData, RatingsDocData} from "../../types/Provider";
+import {FieldValue} from "firebase-admin/firestore";
+import {externalAPIRoutes, keys} from "../../config";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -108,7 +108,7 @@ async function sendRateToProviderSide(
     const response = await fetch(externalAPIRoutes.provider.client.takeRate, {
       method: "POST",
       headers: {
-        authorization: apiKey,
+        "authorization": apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -136,8 +136,8 @@ async function sendRateToProviderSide(
 
 export const rateProvider = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { score } = req.body;
+    const {authorization} = req.headers;
+    const {score} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

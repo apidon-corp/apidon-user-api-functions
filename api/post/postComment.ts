@@ -1,4 +1,4 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
 import {
@@ -6,13 +6,13 @@ import {
   CommentInteractionData,
   PostServerDataV3,
 } from "../../types/Post";
-import { firestore } from "../../firebase/adminApp";
-import { FieldValue } from "firebase-admin/firestore";
-import { NotificationData } from "../../types/Notifications";
-import { CurrentProviderDocData } from "../../types/Provider";
-import { externalAPIRoutes, internalAPIRoutes, keys } from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {NotificationData} from "../../types/Notifications";
+import {CurrentProviderDocData} from "../../types/Provider";
+import {externalAPIRoutes, internalAPIRoutes, keys} from "../../config";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -172,7 +172,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -238,7 +238,7 @@ async function sendCommentToProvider(
       {
         method: "POST",
         headers: {
-          authorization: apiKey,
+          "authorization": apiKey,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -270,8 +270,8 @@ function delay(ms: number): Promise<void> {
 
 export const postComment = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { message, postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {message, postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

@@ -1,13 +1,13 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
-import { PostServerDataV3 } from "../../types/Post";
-import { NftDocDataInServer } from "../../types/NFT";
-import { internalAPIRoutes, keys } from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {PostServerDataV3} from "../../types/Post";
+import {NftDocDataInServer} from "../../types/NFT";
+import {internalAPIRoutes, keys} from "../../config";
 
-import { NFTTradeDocData, PaymentIntentDocData } from "../../types/Trade";
+import {NFTTradeDocData, PaymentIntentDocData} from "../../types/Trade";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -132,9 +132,9 @@ async function getStripeCustomerId(username: string) {
       return false;
     }
 
-    return nftTradeDocData.stripeCustomerId
-      ? nftTradeDocData.stripeCustomerId
-      : undefined;
+    return nftTradeDocData.stripeCustomerId ?
+      nftTradeDocData.stripeCustomerId :
+      undefined;
   } catch (error) {
     console.error("Error while getting stripe customer id", error);
     return false;
@@ -163,7 +163,7 @@ async function createPaymentOnStripe(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        authorization: apiKey,
+        "authorization": apiKey,
       },
       body: JSON.stringify({
         stripeCustomerId,
@@ -225,7 +225,7 @@ async function setCustomerId(
   try {
     await firestore
       .doc(`/users/${username}/nftTrade/nftTrade`)
-      .update({ stripeCustomerId: createdStripeCustomerId });
+      .update({stripeCustomerId: createdStripeCustomerId});
 
     return true;
   } catch (error) {
@@ -272,8 +272,8 @@ async function createPaymentIntentOnDocsOfUser(
 
 export const buyNFT = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

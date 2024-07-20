@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -21,7 +21,6 @@ function checkProps(fullname: string) {
     return false;
   }
 
-  // @ts-ignore
   const fullnameRegex = /^\p{L}{1,20}(?: \p{L}{1,20})*$/u;
   const regexTestResult = fullnameRegex.test(fullname);
 
@@ -45,8 +44,8 @@ async function updateFirestoreUserDoc(username: string, fullname: string) {
 
 export const fullnameUpdate = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { fullname } = req.body;
+    const {authorization} = req.headers;
+    const {fullname} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

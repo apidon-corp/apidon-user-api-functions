@@ -1,11 +1,11 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore, auth } from "../../../../firebase/adminApp";
-import { UserInServer } from "../../../../types/User";
-import { NotificationDocData } from "../../../../types/Notifications";
+import {firestore, auth} from "../../../../firebase/adminApp";
+import {UserInServer} from "../../../../types/User";
+import {NotificationDocData} from "../../../../types/Notifications";
 
-import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
-import { NFTTradeDocData } from "@/types/Trade";
+import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
+import {NFTTradeDocData} from "@/types/Trade";
 
 const quickRegexCheck = (
   email: string,
@@ -285,7 +285,7 @@ export const signup = onRequest(
 
     // Creating user by auth.
     try {
-      const { uid: createdUID } = await auth.createUser({
+      const {uid: createdUID} = await auth.createUser({
         email: email,
         password: password,
         displayName: username,
@@ -320,7 +320,7 @@ export const signup = onRequest(
         uid: uid,
         username: username,
       };
-      batch.set(firestore.doc(`users/${username}`), { ...mainUserDocData });
+      batch.set(firestore.doc(`users/${username}`), {...mainUserDocData});
 
       // Creating "profile" doc for "personal" collection
       personalData = {

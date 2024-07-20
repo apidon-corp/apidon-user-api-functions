@@ -1,5 +1,5 @@
-import { appCheck } from "../firebase/adminApp";
-import { Request, Response } from "express";
+import {appCheck} from "../firebase/adminApp";
+import {Request, Response} from "express";
 
 export function appCheckMiddleware(
   handler: (req: Request, res: Response) => void | Promise<void>
@@ -16,7 +16,7 @@ export function appCheckMiddleware(
 }
 
 const checkAppCheck = async (req: Request) => {
-  const { appchecktoken } = req.headers;
+  const {appchecktoken} = req.headers;
 
   if (!appchecktoken) {
     console.error("App Check Token is missing");

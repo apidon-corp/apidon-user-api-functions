@@ -1,15 +1,15 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
-import { FrenletServerData, RepletServerData } from "../../types/Frenlet";
-import { firestore } from "../../firebase/adminApp";
+import {FrenletServerData, RepletServerData} from "../../types/Frenlet";
+import {firestore} from "../../firebase/adminApp";
 
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
-import { NotificationData } from "../../types/Notifications";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
+import {NotificationData} from "../../types/Notifications";
 
-import { internalAPIRoutes, keys } from "../../config";
+import {internalAPIRoutes, keys} from "../../config";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -85,7 +85,7 @@ async function deleteRepletForReceiver(
 ) {
   try {
     await firestore.doc(frenletDocPathForReceiver).update({
-      replies: fieldValue.arrayRemove({ ...repletToBeDeleted }),
+      replies: fieldValue.arrayRemove({...repletToBeDeleted}),
     });
     return true;
   } catch (error) {
@@ -100,7 +100,7 @@ async function deleteRepletForSender(
 ) {
   try {
     await firestore.doc(frenletDocPathForSender).update({
-      replies: fieldValue.arrayRemove({ ...repletToBeDeleted }),
+      replies: fieldValue.arrayRemove({...repletToBeDeleted}),
     });
     return true;
   } catch (error) {
@@ -180,7 +180,7 @@ async function deleteNotificationFromOneTarget(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -235,8 +235,8 @@ async function deleteNotification(
 
 export const deleteReplet = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { frenletDocPath, replet } = req.body;
+    const {authorization} = req.headers;
+    const {frenletDocPath, replet} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

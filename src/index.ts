@@ -6,10 +6,10 @@ import * as post from "../api/post";
 import * as provider from "../api/provider";
 import * as payment from "../api/payment";
 
-export { feed };
-export { user };
-export { frenlet };
-export { nft };
-export { post };
-export { provider };
-export { payment };
+export {feed};
+export {user};
+export {frenlet};
+export {nft};
+export {post};
+export {provider};
+export {payment};

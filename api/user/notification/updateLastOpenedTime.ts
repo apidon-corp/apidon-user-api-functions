@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
 
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -36,7 +36,7 @@ async function updateLastOpenedTimeMethod(username: string) {
 
 export const updateLastOpenedTime = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
+    const {authorization} = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

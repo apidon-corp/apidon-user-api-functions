@@ -1,13 +1,13 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../../helpers/getDisplayName";
-import { firestore } from "../../../firebase/adminApp";
-import { FieldValue } from "firebase-admin/firestore";
-import { NotificationData } from "../../../types/Notifications";
-import { internalAPIRoutes, keys } from "../../../config";
+import {firestore} from "../../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {NotificationData} from "../../../types/Notifications";
+import {internalAPIRoutes, keys} from "../../../config";
 import AsyncLock = require("async-lock");
 
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -222,7 +222,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -270,7 +270,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -297,8 +297,8 @@ const lock = new AsyncLock();
 
 export const follow = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { operationTo: operationToUsername, opCode } = req.body;
+    const {authorization} = req.headers;
+    const {operationTo: operationToUsername, opCode} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

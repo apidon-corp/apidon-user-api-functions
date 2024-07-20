@@ -1,14 +1,14 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import { PostServerDataV3, UploadedPostArrayObject } from "../../types/Post";
-import { bucket, firestore } from "../../firebase/adminApp";
-import { FieldValue } from "firebase-admin/firestore";
+import {PostServerDataV3, UploadedPostArrayObject} from "../../types/Post";
+import {bucket, firestore} from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
 import {
   CurrentProviderDocData,
   PostUploadActionRequestBody,
 } from "../../types/Provider";
-import { externalAPIRoutes, keys } from "../../config";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {externalAPIRoutes, keys} from "../../config";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -39,7 +39,7 @@ function createPostServerData(description: string, username: string) {
     description: description,
     image: "",
     rates: [],
-    nftStatus: { convertedToNft: false },
+    nftStatus: {convertedToNft: false},
     senderUsername: username,
     id: ts.toString(),
   };
@@ -182,9 +182,9 @@ async function sendPostForClassification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: keys.API_KEY_BETWEEN_SERVICES,
+          "authorization": keys.API_KEY_BETWEEN_SERVICES,
         },
-        body: JSON.stringify({ ...bodyContent }),
+        body: JSON.stringify({...bodyContent}),
         keepalive: true,
       }
     );
@@ -209,8 +209,8 @@ function delay(ms: number): Promise<void> {
 
 export const postUpload = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { description, tempImageLocation } = req.body;
+    const {authorization} = req.headers;
+    const {description, tempImageLocation} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

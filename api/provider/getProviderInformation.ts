@@ -1,4 +1,4 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
 import {
@@ -7,9 +7,9 @@ import {
   ProviderInformation,
   ProviderShowcaseItem,
 } from "../../types/Provider";
-import { externalAPIRoutes, keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {externalAPIRoutes, keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -98,7 +98,7 @@ async function getDetailedProviderDataFromProviderSide(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: apiKeyBetweenServices,
+          "authorization": apiKeyBetweenServices,
         },
         body: JSON.stringify({
           providerName: providerId,
@@ -125,7 +125,7 @@ async function getDetailedProviderDataFromProviderSide(
 
 export const getProviderInformation = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
+    const {authorization} = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -146,7 +146,7 @@ export const getProviderInformation = onRequest(
         providerOptions: providerOptions,
       };
 
-      res.status(200).json({ ...providerInformation });
+      res.status(200).json({...providerInformation});
       return;
     }
 
@@ -165,7 +165,7 @@ export const getProviderInformation = onRequest(
       activeProviderInformation: detailedProviderData,
     };
 
-    res.status(200).json({ ...providerInformation });
+    res.status(200).json({...providerInformation});
     return;
   })
 );

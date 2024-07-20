@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore, auth } from "../../../../firebase/adminApp";
-import { keys } from "../../../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore, auth} from "../../../../firebase/adminApp";
+import {keys} from "../../../../config";
 
 import * as sg from "@sendgrid/mail";
-import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
 
 function checkProps(
   referralCode: string,
@@ -40,7 +40,6 @@ const quickRegexCheck = (
   // Password
 
   const passwordRegex =
-    // @ts-ignore
     /^(?=.*?\p{Lu})(?=.*?\p{Ll})(?=.*?\d)(?=.*?[^\w\s]|[_]).{12,}$/u;
   const regexTestResultP = passwordRegex.test(password);
 
@@ -53,7 +52,6 @@ const quickRegexCheck = (
   if (!regexTestResultU) return "username";
 
   // Fullname
-  // @ts-ignore
   const fullnameRegex = /^\p{L}{1,20}(?: \p{L}{1,20})*$/u;
   const regexTestResultF = fullnameRegex.test(fullname);
 
@@ -64,7 +62,7 @@ const quickRegexCheck = (
 
 export const sendVerificationCode = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { referralCode, email, password, username, fullname } = req.body;
+    const {referralCode, email, password, username, fullname} = req.body;
 
     const checkPropsResult = checkProps(
       referralCode,
@@ -319,8 +317,6 @@ export const sendVerificationCode = onRequest(
       await sg.send(message);
     } catch (error) {
       console.error("Error on sending verification code: \n", error);
-      // @ts-ignore
-      console.error(error.response.body.errors);
       res.status(500).json({
         cause: "server",
         message: "Internal Server Error",

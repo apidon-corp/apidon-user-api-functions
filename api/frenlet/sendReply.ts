@@ -1,10 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
-import { FrenletServerData } from "../../types/Frenlet";
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
-import { NotificationData } from "../../types/Notifications";
-import { internalAPIRoutes, keys } from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {FrenletServerData} from "../../types/Frenlet";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
+import {NotificationData} from "../../types/Notifications";
+import {internalAPIRoutes, keys} from "../../config";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -42,12 +42,13 @@ async function checkCanReply(replySender: string, frenletDocPath: string) {
       [frenletDocData.frenletSender, frenletDocData.frenletReceiver].includes(
         replySender
       )
-    )
+    ) {
       return {
         sender: frenletDocData.frenletSender,
         receiver: frenletDocData.frenletReceiver,
         frenletId: frenletDocData.frenletDocId,
       };
+    }
 
     const followersCollectionSnapshot = await firestore
       .collection(`/users/${replySender}/followers`)
@@ -203,7 +204,7 @@ async function sendNotificationToOneTarget(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -257,8 +258,8 @@ async function handleNotification(
 }
 
 export const sendReply = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { message, frenletDocPath } = req.body;
+  const {authorization} = req.headers;
+  const {message, frenletDocPath} = req.body;
 
   const replySender = await handleAuthorization(authorization);
   if (!replySender) {

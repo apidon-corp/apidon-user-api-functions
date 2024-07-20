@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../../helpers/getDisplayName";
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -49,8 +49,8 @@ async function updateNotificationDoc(
 
 export const updateNotificationToken = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { notificationToken } = req.body;
+    const {authorization} = req.headers;
+    const {notificationToken} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

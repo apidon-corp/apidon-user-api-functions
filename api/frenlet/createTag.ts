@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -42,8 +42,8 @@ async function createTagMethod(tag: string, username: string) {
 }
 
 export const createTag = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { tag } = req.body;
+  const {authorization} = req.headers;
+  const {tag} = req.body;
 
   const username = await handleAuthorization(authorization);
   if (!username) {

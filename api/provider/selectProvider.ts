@@ -1,13 +1,13 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 import {
   CurrentProviderDocData,
   InteractedPostObject,
   OldProviderDocData,
 } from "../../types/Provider";
-import { externalAPIRoutes, keys } from "../../config";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {externalAPIRoutes, keys} from "../../config";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -51,8 +51,9 @@ function checkChoosingSameProvider(
   requestedProviderId: string,
   existingProviderId: string
 ) {
-  if (requestedProviderId === existingProviderId)
+  if (requestedProviderId === existingProviderId) {
     console.error("Change to same provider request.");
+  }
   return requestedProviderId === existingProviderId;
 }
 
@@ -74,7 +75,7 @@ async function createOldProviderDocForUser(
   };
 
   try {
-    await firestore.doc(oldProviderDocPath).set({ ...oldProviderDocData });
+    await firestore.doc(oldProviderDocPath).set({...oldProviderDocData});
     return true;
   } catch (error) {
     console.error("Error while creating old provider doc: ", error);
@@ -138,7 +139,7 @@ async function sendRequestToProviderServer(
       {
         method: "POST",
         headers: {
-          authorization: apiKey,
+          "authorization": apiKey,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -185,8 +186,8 @@ async function createNewCurrentProviderDoc(
 
 export const selectProvider = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { providerName } = req.body;
+    const {authorization} = req.headers;
+    const {providerName} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

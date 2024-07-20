@@ -1,7 +1,7 @@
-import { ethers } from "ethers";
+import {ethers} from "ethers";
 
-import { apidonNFTContract } from "./ApidonNFTContract";
-import { keys } from "../../../config";
+import {apidonNFTContract} from "./ApidonNFTContract";
+import {keys} from "../../../config";
 
 export const apidonNFTSepoliaContractAddress = keys.APIDON_NFT_CONTRACT_ADDRESS;
 

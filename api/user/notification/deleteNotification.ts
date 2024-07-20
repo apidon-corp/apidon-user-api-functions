@@ -1,10 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { keys } from "../../../config";
-import { firestore } from "../../../firebase/adminApp";
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
+import {keys} from "../../../config";
+import {firestore} from "../../../firebase/adminApp";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
 
-import { NotificationData } from "../../../types/Notifications";
+import {NotificationData} from "../../../types/Notifications";
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -43,8 +43,8 @@ async function deleteNotificationObject(notificationData: NotificationData) {
 }
 
 export const deleteNotification = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { notificationData } = req.body;
+  const {authorization} = req.headers;
+  const {notificationData} = req.body;
 
   const isAuthorized = handleAuthorization(authorization);
   if (!isAuthorized) {

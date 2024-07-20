@@ -1,3 +1,3 @@
-import { checkThereIsLinkedAccount } from "./checkThereIsLinkedAccount";
+import {checkThereIsLinkedAccount} from "./checkThereIsLinkedAccount";
 
-export { checkThereIsLinkedAccount };
+export {checkThereIsLinkedAccount};

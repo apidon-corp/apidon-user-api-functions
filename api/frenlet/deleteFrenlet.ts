@@ -1,17 +1,17 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 
-import { FrenletServerData } from "../../types/Frenlet";
+import {FrenletServerData} from "../../types/Frenlet";
 
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
 
-import { NotificationData } from "../../types/Notifications";
+import {NotificationData} from "../../types/Notifications";
 
-import { keys, internalAPIRoutes } from "../../config";
+import {keys, internalAPIRoutes} from "../../config";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -145,7 +145,7 @@ async function deleteNotification(frenletData: FrenletServerData) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationData,
@@ -190,16 +190,17 @@ async function deleteFrenletMethod(frenletDocData: FrenletServerData) {
     !deleteFrenletForSenderResult ||
     !deleteNotificationResult ||
     !decreaseFrenScoreResult
-  )
+  ) {
     return false;
+  }
 
   return true;
 }
 
 export const deleteFrenlet = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { frenletDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {frenletDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { NftDocDataInServer } from "../../types/NFT";
-import { PostServerDataV3 } from "../../types/Post";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {NftDocDataInServer} from "../../types/NFT";
+import {PostServerDataV3} from "../../types/Post";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -148,8 +148,8 @@ async function updateListStatus(
 
 export const listNFT = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath, price, stock } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath, price, stock} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

@@ -1,17 +1,17 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import { bucket, firestore } from "../../firebase/adminApp";
-import { PostServerDataV3 } from "../../types/Post";
-import { NftDocDataInServer, NFTMetadata } from "../../types/NFT";
+import {bucket, firestore} from "../../firebase/adminApp";
+import {PostServerDataV3} from "../../types/Post";
+import {NftDocDataInServer, NFTMetadata} from "../../types/NFT";
 
-import { apidonNFT } from "../../helpers/web3/nft/apidonNFTApp";
-import { TransactionReceipt } from "ethers";
-import { keys } from "../../config";
+import {apidonNFT} from "../../helpers/web3/nft/apidonNFTApp";
+import {TransactionReceipt} from "ethers";
+import {keys} from "../../config";
 
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { CreatedNFTsArrayObject } from "@/types/Trade";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {CreatedNFTsArrayObject} from "@/types/Trade";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -73,9 +73,9 @@ function createNFTMetadataObject(postDocData: PostServerDataV3, title: string) {
         trait_type: "Rating",
         value:
           postDocData.rates.reduce((acc, current) => acc + current.rate, 0) /
-          postDocData.rates.length
-            ? postDocData.rates.length
-            : 1,
+          postDocData.rates.length ?
+            postDocData.rates.length :
+            1,
       },
       {
         trait_type: "Comments",
@@ -199,11 +199,11 @@ async function createNFTDoc(
     openseaUrl: openseaUrl,
     postDocPath: postDocPath,
     tokenId: tokenId,
-    transferStatus: { isTransferred: false },
+    transferStatus: {isTransferred: false},
   };
 
   try {
-    const nftDoc = await firestore.collection("/nfts").add({ ...data });
+    const nftDoc = await firestore.collection("/nfts").add({...data});
     return nftDoc.path;
   } catch (error) {
     console.error("Error while creating NFT doc", error);
@@ -255,8 +255,8 @@ async function updateTradeDoc(
 
 export const uploadNFT = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath, title, description } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath, title, description} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
