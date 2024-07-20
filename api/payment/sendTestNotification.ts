@@ -5,9 +5,9 @@ import {
 
 import * as fs from "fs";
 
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import * as path from "path";
-import { keys } from "../../config";
+import {keys} from "../../config";
 
 const readFileAsync = async (filePath: string): Promise<string> => {
   return await fs.promises.readFile(filePath, "utf8");
