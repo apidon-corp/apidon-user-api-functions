@@ -32,7 +32,20 @@ async function decodeNotification(
     const decodedNotification = await verifier.verifyAndDecodeNotification(
       signedPayload
     );
-    return decodedNotification;
+
+    if (!decodedNotification) {
+      console.error(
+        "Notification type is missing in the decoded notification."
+      );
+      return false;
+    }
+
+    const type = decodedNotification.notificationType;
+
+    console.log("Notification Type: ", type);
+    console.log("Decoded Notification: ", decodedNotification);
+
+    return true;
   } catch (error) {
     console.error("Error decoding notification:", error);
     return false;
@@ -98,7 +111,7 @@ export const appleServiceNotificationsHandler = onRequest(async (req, res) => {
     return;
   }
 
-  console.log("Decoded Notification: \n", decodedNotificationResult);
+  console.log("Notification Received from Apple.");
 
   res.status(200).send("Success");
   return;
