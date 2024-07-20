@@ -21,3 +21,5 @@ lib
 
 # Apple Root Certs
 *.cer
+
+.env

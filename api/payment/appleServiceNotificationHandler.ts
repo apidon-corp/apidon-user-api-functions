@@ -1,13 +1,12 @@
 import {
-  AppStoreServerAPIClient,
   Environment,
   SignedDataVerifier,
 } from "@apple/app-store-server-library";
 
 import * as fs from "fs";
 
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
+import { onRequest } from "firebase-functions/v2/https";
+import { keys } from "../../config";
 import * as path from "path";
 
 const readFileAsync = async (filePath: string): Promise<string> => {
@@ -25,16 +24,16 @@ async function getEncodedKey() {
   }
 }
 
-async function requestTestNotification(client: AppStoreServerAPIClient) {
-  try {
-    const response = await client.requestTestNotification();
-    console.log("Test Notification Response: \n", response);
-    return response;
-  } catch (error) {
-    console.error("Error requesting test notification:", error);
-    return false;
-  }
-}
+// async function requestTestNotification(client: AppStoreServerAPIClient) {
+//   try {
+//     const response = await client.requestTestNotification();
+//     console.log("Test Notification Response: \n", response);
+//     return response;
+//   } catch (error) {
+//     console.error("Error requesting test notification:", error);
+//     return false;
+//   }
+// }
 
 // Utility function to read and convert a PEM file to DER format
 const readCertificate = async (filePath: string): Promise<Buffer> => {
@@ -63,8 +62,6 @@ async function getAppleRootCerts() {
 }
 
 export const appleServiceNotificationsHandler = onRequest(async (req, res) => {
-  const issuerId = keys.appleInAppPurchaseKeys.issuerId;
-  const keyId = keys.appleInAppPurchaseKeys.keyId;
   const bundleId = keys.appleInAppPurchaseKeys.bundleId;
   const environment = Environment.SANDBOX;
 
@@ -75,22 +72,8 @@ export const appleServiceNotificationsHandler = onRequest(async (req, res) => {
     return;
   }
 
-  const client = new AppStoreServerAPIClient(
-    encodedKey,
-    keyId,
-    issuerId,
-    bundleId,
-    environment
-  );
-
-  const requestTestNotificationResult = await requestTestNotification(client);
-  if (!requestTestNotificationResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
   const enableOnChecks = true;
-  const appApppleId = undefined; // On Production, we need to define this.
+  const appApppleId = keys.appleInAppPurchaseKeys.appAppleId;
   const appleCerts = await getAppleRootCerts();
 
   const verifier = new SignedDataVerifier(
@@ -116,8 +99,6 @@ export const appleServiceNotificationsHandler = onRequest(async (req, res) => {
 
   console.log("Decoded Notification: \n", decodedNotification);
 
-  res
-    .status(200)
-    .send("Success");
+  res.status(200).send("Success");
   return;
 });
