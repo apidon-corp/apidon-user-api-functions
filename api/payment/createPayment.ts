@@ -1,109 +1,120 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
+import { onRequest } from "firebase-functions/v2/https";
+import getDisplayName from "../../helpers/getDisplayName";
+import { firestore } from "../../firebase/adminApp";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
-import Stripe from "stripe";
-const stripe = new Stripe(keys.STRIPE_SECRET_KEY);
+import {
+  PaymentIntentDocData,
+  WalletTransactionsMapArrayObject,
+} from "../../types/IAP";
+import { FieldValue } from "firebase-admin/firestore";
 
-function checkProps(price: number) {
-  if (!price) return false;
+function checkProps(transactionId: string) {
+  if (!transactionId) {
+    console.error("No transactionId provided in the request body");
+    return false;
+  }
   return true;
 }
 
-function handleAuthorization(authorization: string | undefined) {
-  if (!authorization) return false;
+async function handleAuthorization(key: string | undefined) {
+  if (key === undefined) {
+    console.error("Unauthorized attemp to sendReply API.");
+    return false;
+  }
 
-  return authorization === keys.CREATE_PAYMENT_API_KEY;
+  const operationFromUsername = await getDisplayName(key);
+  if (!operationFromUsername) return false;
+
+  return operationFromUsername;
 }
 
-async function getStripeCustomerId(
-  stripeCustomerId: string | undefined,
-  username: string
+async function createPaymentIntentOnDatabase(
+  username: string,
+  transactionId: string
 ) {
-  if (stripeCustomerId) return stripeCustomerId;
-
   try {
-    const customer = await stripe.customers.create({
-      name: username,
-    });
-    return customer.id;
-  } catch (error) {
-    console.error("Error creating customer: ", error);
-    return false;
-  }
-}
-
-async function createEphemeralKey(customerId: string) {
-  try {
-    const ephemeralKey = await stripe.ephemeralKeys.create(
-      {
-        customer: customerId,
-      },
-      {apiVersion: "2024-06-20"}
+    const newPaymentIntentDocRef = firestore.doc(
+      `users/${username}/wallet/paymentIntents/paymentIntents/${transactionId}`
     );
-    return ephemeralKey;
+    const newPaymentIntentDocData: PaymentIntentDocData = {
+      id: transactionId,
+      refunded: false,
+      success: false,
+      ts: Date.now(),
+      username: username,
+    };
+
+    await newPaymentIntentDocRef.set(newPaymentIntentDocData);
+
+    return true;
   } catch (error) {
-    console.error("Error creating ephemeral key: ", error);
+    console.error("Error while creating payment intent on database: \n", error);
     return false;
   }
 }
 
-async function createPaymentIntent(customerId: string, price: number) {
+async function createMappingOnDatabase(
+  username: string,
+  transactionId: string
+) {
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: price * 100,
-      currency: "usd",
-      customer: customerId,
+    const walletTransactionsDocRef = firestore.doc(
+      "payment/walletTransactions"
+    );
+
+    const newMappingObject: WalletTransactionsMapArrayObject = {
+      transactionId: transactionId,
+      username: username,
+    };
+
+    await walletTransactionsDocRef.update({
+      walletTransactionsMap: FieldValue.arrayUnion(newMappingObject),
     });
-    return paymentIntent;
+
+    return true;
   } catch (error) {
-    console.error("Error creating payment intent: ", error);
+    console.error("Error while creating mapping on database: \n", error);
     return false;
   }
 }
 
-export const createPayment = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
-  const {price, stripeCustomerId, username} = req.body;
+export const createPayment = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { transactionId } = req.body;
 
-  const authorizationResult = handleAuthorization(authorization);
-  if (!authorizationResult) {
-    res.status(401).send("Unauthorized");
+    const username = await handleAuthorization(authorization);
+    if (!username) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const checkPropsResult = checkProps(transactionId);
+    if (!checkPropsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const createPaymentIntentOnDatabaseResult =
+      await createPaymentIntentOnDatabase(username, transactionId);
+
+    if (!createPaymentIntentOnDatabaseResult) {
+      res.status(500).send("Error while creating payment intent on database");
+      return;
+    }
+
+    const createMappingOnDatabaseResult = await createMappingOnDatabase(
+      username,
+      transactionId
+    );
+
+    if (!createMappingOnDatabaseResult) {
+      res.status(500).send("Error while creating mapping on database");
+      return;
+    }
+
+    res.status(200).send("Success");
     return;
-  }
-
-  const checkPropsResult = checkProps(price);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const customerID = await getStripeCustomerId(stripeCustomerId, username);
-  if (!customerID) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const ephemeralKey = await createEphemeralKey(customerID);
-  if (!ephemeralKey) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const paymentIntent = await createPaymentIntent(customerID, price);
-  if (!paymentIntent) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const responseObject = {
-    paymentId: paymentIntent.id,
-    paymentIntent: paymentIntent.client_secret,
-    ephemeralKey: ephemeralKey.secret,
-    customer: customerID,
-    publishableKey: "pk_test_TYooMQauvdEDq54NiTphI7jx",
-    createdStripeCustomerId: stripeCustomerId ? undefined : customerID,
-  };
-
-  res.status(200).json(responseObject);
-  return;
-});
+  })
+);

@@ -5,8 +5,8 @@ import {
 
 import * as fs from "fs";
 
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
 import * as path from "path";
 
 const readFileAsync = async (filePath: string): Promise<string> => {
@@ -44,6 +44,19 @@ async function decodeNotification(
 
     console.log("Notification Type: ", type);
     console.log("Decoded Notification: ", decodedNotification);
+
+    const signedTransactionData =
+      decodedNotification.data?.signedTransactionInfo;
+
+    if (!signedTransactionData) {
+      console.error("Signed transaction data is missing in the notification.");
+      return false;
+    }
+
+    const decodedTransactionData = await verifier.verifyAndDecodeTransaction(
+      signedTransactionData
+    );
+    console.log("Decoded Transaction Data: ", decodedTransactionData);
 
     return true;
   } catch (error) {

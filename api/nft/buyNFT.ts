@@ -1,32 +1,139 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import getDisplayName from "../../helpers/getDisplayName";
-import {firestore} from "../../firebase/adminApp";
-import {PostServerDataV3} from "../../types/Post";
-import {NftDocDataInServer} from "../../types/NFT";
-import {internalAPIRoutes, keys} from "../../config";
+import { keys } from "../../config";
 
-import {NFTTradeDocData, PaymentIntentDocData} from "../../types/Trade";
+import {
+  PaymentIntentDocData,
+  PaymentIntentDocDataUpdateable,
+  SoldNFTsArrayObject,
+  BoughtNFTsArrayObject,
+} from "../../types/Trade";
 
-async function handleAuthorization(key: string | undefined) {
+import Stripe from "stripe";
+const stripe = new Stripe(keys.STRIPE_SECRET_KEY);
+
+import { firestore } from "../../firebase/adminApp";
+import { PostServerDataV3 } from "../../types/Post";
+import { BuyersArrayObject, NftDocDataInServer } from "../../types/NFT";
+import { FieldValue } from "firebase-admin/firestore";
+
+function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
-    console.error("Unauthorized attemp to sendReply API.");
+    console.error("Unauthorized attemp to successOnPayment API.");
     return false;
   }
 
-  const operationFromUsername = await getDisplayName(key);
-  if (!operationFromUsername) return false;
-
-  return operationFromUsername;
+  return key === keys.SUCCESS_ON_PAYMENT_API_KEY;
 }
 
-function checkProps(postDocPath: string) {
-  if (!postDocPath) {
-    console.error("postDocPath or price or stock is undefined.");
+function checkProps(paymentIntentId: string) {
+  if (!paymentIntentId) {
+    console.error("paymentIntentId is undefined.");
     return false;
   }
   return true;
+}
+
+async function getPaymentIntentData(paymentIntentId: string) {
+  try {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    return paymentIntent;
+  } catch (error) {
+    console.error(
+      "Error while retrieving payment intent from stripe servers: \n",
+      error
+    );
+    return false;
+  }
+}
+
+async function getCustomerApidonUsername(customerId: string) {
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (customer.deleted) {
+      console.error("NEED-TO-REFUND");
+      console.error("Customer was deleted.");
+      return false;
+    }
+
+    if (!customer.name) {
+      console.error("Customer name is undefined.");
+      console.error("NEED-TO-REFUND");
+      return false;
+    }
+
+    return customer.name;
+  } catch (error) {
+    console.error(
+      "Error while retrieving customer from stripe servers: \n",
+      error
+    );
+    return false;
+  }
+}
+
+async function updatePaymentIntentDataOnUserDocs(
+  username: string,
+  paymentIntentId: string
+) {
+  const updateData: PaymentIntentDocDataUpdateable = {
+    success: true,
+  };
+
+  try {
+    const paymentIntentDocRef = firestore.doc(
+      `users/${username}/nftTrade/nftTrade/paymentIntents/${paymentIntentId}`
+    );
+
+    await paymentIntentDocRef.update(updateData);
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Error while updating payment intent data on user docs: \n",
+      error
+    );
+    console.error("NEED-TO-REFUND");
+    return false;
+  }
+}
+
+async function getPostDocPath(username: string, paymentIntentId: string) {
+  try {
+    const paymentIntentSnapshot = await firestore
+      .doc(
+        `users/${username}/nftTrade/nftTrade/paymentIntents/${paymentIntentId}`
+      )
+      .get();
+
+    if (!paymentIntentSnapshot.exists) {
+      console.error(
+        "Payment intent does not exist on user's paymentIntents collection."
+      );
+      return false;
+    }
+
+    const paymentIntentDocData =
+      paymentIntentSnapshot.data() as PaymentIntentDocData;
+
+    if (!paymentIntentDocData) {
+      console.error("Payment intent doc data is undefined.");
+      return false;
+    }
+
+    if (!paymentIntentDocData.success) {
+      console.error("Payment intent is not successful to continue.");
+      return false;
+    }
+
+    return paymentIntentDocData.postDocPath;
+  } catch (error) {
+    console.error(
+      "Error while retrieving post doc path from payment intent doc: \n",
+      error
+    );
+    return false;
+  }
 }
 
 async function getPostData(postDocPath: string) {
@@ -50,7 +157,12 @@ async function getPostData(postDocPath: string) {
   }
 }
 
-function getNFTDocPath(postDocData: PostServerDataV3) {
+function getNftDocPath(postDocData: PostServerDataV3) {
+  if (!postDocData.nftStatus.convertedToNft) {
+    console.error("NFT is not converted to NFT.");
+    return false;
+  }
+
   if (!postDocData.nftStatus.nftDocPath) {
     console.error("NFT doc path is undefined.");
     return false;
@@ -82,13 +194,18 @@ async function getNftData(nftDocPath?: string) {
   }
 }
 
-function checkStockStatus(nftDocData: NftDocDataInServer) {
-  if (!nftDocData.listStatus.isListed) {
+function checkNftData(nftData: NftDocDataInServer) {
+  if (!nftData.listStatus.isListed) {
     console.error("NFT is not listed.");
     return false;
   }
 
-  if (nftDocData.listStatus.stock.remainingStock <= 0) {
+  if (!nftData.listStatus.stock) {
+    console.error("NFT list status stock is undefined.");
+    return false;
+  }
+
+  if (nftData.listStatus.stock.remainingStock <= 0) {
     console.error("NFT is out of stock.");
     return false;
   }
@@ -96,277 +213,179 @@ function checkStockStatus(nftDocData: NftDocDataInServer) {
   return true;
 }
 
-function checkAlreadyCollected(
-  nftDocData: NftDocDataInServer,
-  username: string
-) {
-  if (!nftDocData.listStatus.isListed) {
-    console.error("NFT is not listed.");
-    return false;
-  }
-
-  const buyers = nftDocData.listStatus.buyers.map((b) => b.username);
-
-  if (buyers.includes(username)) {
-    console.error("NFT is already collected by requester.");
-  }
-
-  return buyers.includes(username);
-}
-
-async function getStripeCustomerId(username: string) {
+async function updateNftDoc(nftDocPath: string, username: string) {
   try {
-    const nftTradeDocSnapshot = await firestore
-      .doc(`/users/${username}/nftTrade/nftTrade`)
-      .get();
+    const nftDocRef = firestore.doc(nftDocPath);
 
-    if (!nftTradeDocSnapshot.exists) {
-      console.error("nftTradeDoc does not exist.");
-      return false;
-    }
-
-    const nftTradeDocData = nftTradeDocSnapshot.data() as NFTTradeDocData;
-
-    if (!nftTradeDocData) {
-      console.error("nftTradeDocData is undefined.");
-      return false;
-    }
-
-    return nftTradeDocData.stripeCustomerId ?
-      nftTradeDocData.stripeCustomerId :
-      undefined;
-  } catch (error) {
-    console.error("Error while getting stripe customer id", error);
-    return false;
-  }
-}
-
-function getPrice(nftDocData: NftDocDataInServer) {
-  if (!nftDocData.listStatus.isListed) {
-    console.error("NFT is not listed.");
-    return false;
-  }
-
-  return nftDocData.listStatus.price.price;
-}
-
-async function createPaymentOnStripe(
-  stripeCustomerId: string | undefined,
-  price: number,
-  username: string
-) {
-  try {
-    if (!price) return false;
-
-    const apiKey = keys.CREATE_PAYMENT_API_KEY;
-    const response = await fetch(internalAPIRoutes.payment.createPayment, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "authorization": apiKey,
-      },
-      body: JSON.stringify({
-        stripeCustomerId,
-        price,
-        username,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(
-        "Response from createPayment API is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    const {
-      paymentId,
-      paymentIntent,
-      ephemeralKey,
-      customer,
-      publishableKey,
-      createdStripeCustomerId,
-    } = await response.json();
-
-    if (
-      !paymentIntent ||
-      !ephemeralKey ||
-      !customer ||
-      !publishableKey ||
-      !paymentId
-    ) {
-      console.error(
-        "Payment intent, ephemeral key, customer, paymentId or publishable key is undefined."
-      );
-      return false;
-    }
-
-    return {
-      paymentId,
-      paymentIntent,
-      ephemeralKey,
-      customer,
-      publishableKey,
-      createdStripeCustomerId,
+    const newBuyerObject: BuyersArrayObject = {
+      ts: Date.now(),
+      username: username,
     };
-  } catch (error) {
-    console.error("Error while creating payment on stripe: ", error);
-    return false;
-  }
-}
 
-async function setCustomerId(
-  username: string,
-  createdStripeCustomerId: string | undefined
-) {
-  if (!createdStripeCustomerId) return true;
-
-  try {
-    await firestore
-      .doc(`/users/${username}/nftTrade/nftTrade`)
-      .update({stripeCustomerId: createdStripeCustomerId});
-
-    return true;
-  } catch (error) {
-    console.error("Error while setting new customer id: \n", error);
-    return false;
-  }
-}
-
-async function createPaymentIntentOnDocsOfUser(
-  paymentIntentId: string,
-  postDocPath: string,
-  price: number | undefined,
-  username: string
-) {
-  if (!price) return false;
-
-  const newPaymentIntentDocData: PaymentIntentDocData = {
-    currency: "USD",
-    id: paymentIntentId,
-    postDocPath: postDocPath,
-    price: price,
-    refunded: false,
-    success: false,
-    ts: Date.now(),
-    username: username,
-  };
-
-  try {
-    const newPaymentIntentDocRef = firestore.doc(
-      `users/${username}/nftTrade/nftTrade/paymentIntents/${paymentIntentId}`
-    );
-
-    await newPaymentIntentDocRef.set(newPaymentIntentDocData);
-
-    return true;
-  } catch (error) {
-    console.error(
-      "Error while creating payment intent on apidon servers: \n",
-      error
-    );
-    return false;
-  }
-}
-
-export const buyNFT = onRequest(
-  appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
-
-    const username = await handleAuthorization(authorization);
-    if (!username) {
-      res.status(401).send("Unauthorized");
-      return;
-    }
-
-    const checkPropsResult = checkProps(postDocPath);
-    if (!checkPropsResult) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
-
-    const postData = await getPostData(postDocPath);
-    if (!postData) {
-      res.status(404).send("Not Found");
-      return;
-    }
-
-    const nftDocPath = getNFTDocPath(postData);
-    if (!nftDocPath) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const nftData = await getNftData(nftDocPath);
-    if (!nftData) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const alreadyCollected = checkAlreadyCollected(nftData, username);
-    if (alreadyCollected) {
-      res.status(409).send("Conflict");
-      return;
-    }
-
-    const stockStatus = checkStockStatus(nftData);
-    if (!stockStatus) {
-      res.status(409).send("Conflict");
-      return;
-    }
-
-    const stripeCustomerId = await getStripeCustomerId(username);
-    if (stripeCustomerId === false) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const price = getPrice(nftData);
-    if (!price) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const createStripePaymentResult = await createPaymentOnStripe(
-      stripeCustomerId,
-      price,
-      username
-    );
-
-    if (!createStripePaymentResult) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const setCustomerIdResult = await setCustomerId(
-      username,
-      createStripePaymentResult.createdStripeCustomerId
-    );
-    if (!setCustomerIdResult) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const createPaymentIntentOnDocsOfUserResult =
-      await createPaymentIntentOnDocsOfUser(
-        createStripePaymentResult.paymentId,
-        postDocPath,
-        price,
-        username
-      );
-    if (!createPaymentIntentOnDocsOfUserResult) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    res.status(200).json({
-      paymentIntent: createStripePaymentResult.paymentIntent,
-      ephemeralKey: createStripePaymentResult.ephemeralKey,
-      customer: createStripePaymentResult.customer,
+    await nftDocRef.update({
+      "listStatus.buyers": FieldValue.arrayUnion(newBuyerObject),
+      "listStatus.stock.remainingStock": FieldValue.increment(-1),
     });
 
+    return true;
+  } catch (error) {
+    console.error("Error while updating nft doc", error);
+    console.error("NEED-TO-REFUND");
+    return false;
+  }
+}
+
+async function updateNftTradeDocOfBuyer(
+  postDocPath: string,
+  nftDocPath: string,
+  username: string
+) {
+  try {
+    const nftTradeDocRef = firestore.doc(`users/${username}/nftTrade/nftTrade`);
+
+    const newBoughtObject: BoughtNFTsArrayObject = {
+      nftDocPath: nftDocPath,
+      postDocPath: postDocPath,
+      ts: Date.now(),
+    };
+
+    await nftTradeDocRef.update({
+      boughtNFTs: FieldValue.arrayUnion(newBoughtObject),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating nft trade doc", error);
+    console.error("NEED-TO-REFUND");
+    return false;
+  }
+}
+
+async function updateNftTradeDocOfSeller(
+  postDocPath: string,
+  nftDocPath: string,
+  customer: string,
+  sellerUsername: string
+) {
+  try {
+    const nftTradeDocRef = firestore.doc(
+      `users/${sellerUsername}/nftTrade/nftTrade`
+    );
+
+    const newSoldObject: SoldNFTsArrayObject = {
+      nftDocPath: nftDocPath,
+      postDocPath: postDocPath,
+      ts: Date.now(),
+      username: customer,
+    };
+
+    await nftTradeDocRef.update({
+      soldNFTs: FieldValue.arrayUnion(newSoldObject),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating nft trade doc", error);
+    console.error("NEED-TO-REFUND");
+    return false;
+  }
+}
+
+export const buyNFT = onRequest(async (req, res) => {
+  const { authorization } = req.headers;
+  const { paymentIntentId } = req.body;
+
+  const authResult = handleAuthorization(authorization);
+  if (!authResult) {
+    res.status(401).send("Unauthorized");
     return;
-  })
-);
+  }
+
+  const checkPropsResult = checkProps(paymentIntentId);
+  if (!checkPropsResult) {
+    res.status(422).send("Invalid Request");
+    return;
+  }
+
+  const paymentIntent = await getPaymentIntentData(paymentIntentId);
+  if (!paymentIntent) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const customer = await getCustomerApidonUsername(
+    paymentIntent.customer as string
+  );
+  if (!customer) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const updatePaymentIntentDataOnUserDocsResult =
+    await updatePaymentIntentDataOnUserDocs(customer, paymentIntentId);
+
+  if (!updatePaymentIntentDataOnUserDocsResult) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const postDocPath = await getPostDocPath(customer, paymentIntentId);
+  if (!postDocPath) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const postData = await getPostData(postDocPath);
+  if (!postData) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const nftDocPath = getNftDocPath(postData);
+  if (!nftDocPath) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const nftData = await getNftData(nftDocPath);
+  if (!nftData) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const nftCheckResult = checkNftData(nftData);
+  if (!nftCheckResult) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const updateNftDocResult = await updateNftDoc(nftDocPath, customer);
+  if (!updateNftDocResult) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const updateNftTradeDocOfBuyerResult = await updateNftTradeDocOfBuyer(
+    postDocPath,
+    nftDocPath,
+    customer
+  );
+  if (!updateNftTradeDocOfBuyerResult) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const updateNftTradeDocOfSellerResult = await updateNftTradeDocOfSeller(
+    postDocPath,
+    nftDocPath,
+    customer,
+    postData.senderUsername
+  );
+  if (!updateNftTradeDocOfSellerResult) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  res.status(200).send("Successsfull paymaent handled correctly.");
+  return;
+});
