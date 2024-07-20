@@ -5,8 +5,8 @@ import {
 
 import * as fs from "fs";
 
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
+import { onRequest } from "firebase-functions/v2/https";
+import { keys } from "../../config";
 import * as path from "path";
 
 const readFileAsync = async (filePath: string): Promise<string> => {
@@ -24,34 +24,33 @@ async function getEncodedKey() {
   }
 }
 
-// async function requestTestNotification(client: AppStoreServerAPIClient) {
-//   try {
-//     const response = await client.requestTestNotification();
-//     console.log("Test Notification Response: \n", response);
-//     return response;
-//   } catch (error) {
-//     console.error("Error requesting test notification:", error);
-//     return false;
-//   }
-// }
+async function decodeNotification(
+  signedPayload: string,
+  verifier: SignedDataVerifier
+) {
+  try {
+    const decodedNotification = await verifier.verifyAndDecodeNotification(
+      signedPayload
+    );
+    return decodedNotification;
+  } catch (error) {
+    console.error("Error decoding notification:", error);
+    return false;
+  }
+}
 
 // Utility function to read and convert a PEM file to DER format
 const readCertificate = async (filePath: string): Promise<Buffer> => {
-  const pem = await readFileAsync(filePath);
-  // Convert PEM to DER by removing header, footer, and newlines
-  const base64 = pem
-    .replace(/-----BEGIN CERTIFICATE-----/g, "")
-    .replace(/-----END CERTIFICATE-----/g, "")
-    .replace(/\s+/g, "");
-  return Buffer.from(base64, "base64");
+  const data = await readFileAsync(filePath);
+  return Buffer.from(data);
 };
 
 async function getAppleRootCerts() {
   const certPaths = [
-    path.resolve(__dirname, "root_certs/AppleRootCA-G3.cer"),
-    path.resolve(__dirname, "root_certs/AppleRootCA-G2.cer"),
-    path.resolve(__dirname, "root_certs/AppleComputerRootCertificate.cer"),
-    path.resolve(__dirname, "root_certs/AppleIncRootCertificate.cer"),
+    path.resolve(__dirname, "root_certs/AppleRootCA-G3.pem"),
+    path.resolve(__dirname, "root_certs/AppleRootCA-G2.pem"),
+    path.resolve(__dirname, "root_certs/AppleComputerRootCertificate.pem"),
+    path.resolve(__dirname, "root_certs/AppleIncRootCertificate.pem"),
   ];
 
   const appleRootCertificates = await Promise.all(
@@ -93,11 +92,13 @@ export const appleServiceNotificationsHandler = onRequest(async (req, res) => {
     return;
   }
 
-  const decodedNotification = await verifier.verifyAndDecodeNotification(
-    payload
-  );
+  const decodedNotificationResult = await decodeNotification(payload, verifier);
+  if (!decodedNotificationResult) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
 
-  console.log("Decoded Notification: \n", decodedNotification);
+  console.log("Decoded Notification: \n", decodedNotificationResult);
 
   res.status(200).send("Success");
   return;
