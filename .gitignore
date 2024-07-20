@@ -13,7 +13,11 @@ package-lock.json
 # Service Account File
 serviceAccount.json
 config.ts
+*.p8
 
 lib
 
 *.log
+
+# Apple Root Certs
+*.cer
