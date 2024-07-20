@@ -83,7 +83,7 @@ export const appleServiceNotificationsHandler = onRequest(async (req, res) => {
     appApppleId
   );
 
-  const payload = req.body.signedData;
+  const payload = req.body.signedPayload;
 
   if (!payload) {
     console.error("No signedData provided in the request body \n");
