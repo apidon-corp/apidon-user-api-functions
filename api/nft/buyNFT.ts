@@ -1,6 +1,4 @@
-import { onRequest } from "firebase-functions/v2/https";
-
-import { keys } from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
 
 import {
   PaymentIntentDocData,
@@ -10,12 +8,12 @@ import {
 } from "../../types/Trade";
 
 import Stripe from "stripe";
-const stripe = new Stripe(keys.STRIPE_SECRET_KEY);
+const stripe = new Stripe("");
 
-import { firestore } from "../../firebase/adminApp";
-import { PostServerDataV3 } from "../../types/Post";
-import { BuyersArrayObject, NftDocDataInServer } from "../../types/NFT";
-import { FieldValue } from "firebase-admin/firestore";
+import {firestore} from "../../firebase/adminApp";
+import {PostServerDataV3} from "../../types/Post";
+import {BuyersArrayObject, NftDocDataInServer} from "../../types/NFT";
+import {FieldValue} from "firebase-admin/firestore";
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -23,7 +21,7 @@ function handleAuthorization(key: string | undefined) {
     return false;
   }
 
-  return key === keys.SUCCESS_ON_PAYMENT_API_KEY;
+  return key === "keys.SUCCESS_ON_PAYMENT_API_KEY;";
 }
 
 function checkProps(paymentIntentId: string) {
@@ -292,8 +290,8 @@ async function updateNftTradeDocOfSeller(
 }
 
 export const buyNFT = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { paymentIntentId } = req.body;
+  const {authorization} = req.headers;
+  const {paymentIntentId} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

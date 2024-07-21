@@ -1,3 +1,3 @@
-import { paymentNotificationHandler } from "./paymentNotificationHandler";
+import {paymentNotificationHandler} from "./paymentNotificationHandler";
 
-export { paymentNotificationHandler };
+export {paymentNotificationHandler};

@@ -1,19 +1,38 @@
+export type RevenuCatNotificationType =
+  | "TEST"
+  | "INITIAL_PURCHASE"
+  | "RENEWAL"
+  | "CANCELLATION"
+  | "UNCANCELLATION"
+  | "NON_RENEWING_PURCHASE"
+  | "SUBSCRIPTION_PAUSED"
+  | "EXPIRATION"
+  | "BILLING_ISSUE"
+  | "PRODUCT_CHANGE"
+  | "TRANSFER"
+  | "SUBSCRIPTION_EXTENDED"
+  | "TEMPORARY_ENTITLEMENT_GRANT";
+
+export type RevenueCatNotificationPayload = {
+  type: RevenuCatNotificationType;
+  id: string;
+  app_id: string;
+  event_timestamp_ms: number;
+  app_user_id: string;
+  original_app_user_id: string;
+  aliases: any[];
+  subscriber_attributes: any[];
+  product_id: string;
+  price: number;
+  currency: string;
+};
+
 export type PaymentIntentDocData =
   | {
-      /**
-       * The currency in which the payment is made, represented as a string (e.g., "USD", "EUR").
-       */
-      currency: string;
-
       /**
        * The unique identifier for the payment intent, used to track and reference the transaction.
        */
       id: string;
-
-      /**
-       * The amount to be paid for the post, represented as a number.
-       */
-      price: number;
 
       /**
        * A boolean indicating whether the payment has been refunded (true if refunded, false otherwise).
@@ -66,12 +85,3 @@ export type PaymentIntentDocData =
        */
       username: string;
     };
-
-export type WalletTransactionsDocData = {
-  walletTransactionsMap: WalletTransactionsMapArrayObject[];
-};
-
-export type WalletTransactionsMapArrayObject = {
-  username: string;
-  transactionId: string;
-};
