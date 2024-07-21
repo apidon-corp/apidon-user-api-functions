@@ -1,6 +1,6 @@
-import { internalAPIRoutes, keys } from "../../config";
-import { onRequest } from "firebase-functions/v2/https";
-import { RevenueCatNotificationPayload } from "../../types/IAP";
+import {internalAPIRoutes, keys} from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {RevenueCatNotificationPayload} from "../../types/IAP";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -27,7 +27,7 @@ async function handleSuccessfullPayment(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         productId: payload.id,
@@ -50,7 +50,7 @@ async function handleSuccessfullPayment(
 }
 
 export const paymentNotificationHandler = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
   const body = req.body;
 

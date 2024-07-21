@@ -1,8 +1,8 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
-import { PaymentIntentDocData } from "../../types/IAP";
-import { FieldValue } from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {PaymentIntentDocData} from "../../types/IAP";
+import {FieldValue} from "firebase-admin/firestore";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -142,8 +142,8 @@ async function rollback(username: string, transactionId: string) {
 }
 
 export const successOnPayment = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { productId, customerId, transactionId, ts } = req.body;
+  const {authorization} = req.headers;
+  const {productId, customerId, transactionId, ts} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

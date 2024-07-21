@@ -1,3 +1,4 @@
 import {paymentNotificationHandler} from "./paymentNotificationHandler";
+import {successOnPayment} from "./successOnPayment";
 
-export {paymentNotificationHandler};
+export {paymentNotificationHandler, successOnPayment};
