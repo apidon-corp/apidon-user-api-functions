@@ -68,7 +68,7 @@ export type PaymentIntentDocData =
     };
 
 export type WalletTransactionsDocData = {
-  walletTransactionsMap: [];
+  walletTransactionsMap: WalletTransactionsMapArrayObject[];
 };
 
 export type WalletTransactionsMapArrayObject = {
