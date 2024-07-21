@@ -10,6 +10,7 @@ import {
 } from "../../types/IAP";
 import { FieldValue } from "firebase-admin/firestore";
 import { keys } from "../../config";
+import { environment as apiEnvironment } from "../../config";
 import {
   Environment,
   JWSTransactionDecodedPayload,
@@ -95,7 +96,13 @@ async function getAppleRootCerts(): Promise<Buffer[]> {
  */
 async function getVerifier(): Promise<SignedDataVerifier> {
   const bundleId = keys.appleInAppPurchaseKeys.bundleId;
-  const environment = Environment.SANDBOX;
+
+  const environment =
+    apiEnvironment === "development"
+      ? Environment.XCODE
+      : apiEnvironment === "preview"
+      ? Environment.SANDBOX
+      : Environment.PRODUCTION;
 
   const enableOnChecks = true;
   const appAppleId = keys.appleInAppPurchaseKeys.appAppleId;
@@ -179,7 +186,9 @@ async function isValidRequest(
  * @param {JWSTransactionDecodedPayload} transactionData - The transaction data.
  * @returns {Promise<boolean>} - True if the transaction is unique, false otherwise.
  */
-async function isUniqueRequest(transactionData: JWSTransactionDecodedPayload): Promise<boolean> {
+async function isUniqueRequest(
+  transactionData: JWSTransactionDecodedPayload
+): Promise<boolean> {
   const transactionId = transactionData.transactionId;
   if (!transactionId) {
     console.error("No transactionId found in the decoded transaction data");
@@ -242,7 +251,7 @@ async function isUniqueRequest(transactionData: JWSTransactionDecodedPayload): P
 async function createPaymentIntentOnDatabase(
   username: string,
   decodedTransactionData: JWSTransactionDecodedPayload
-): Promise<false | { transactionId: string; }> {
+): Promise<false | { transactionId: string }> {
   if (!decodedTransactionData.transactionId) {
     console.error("No transactionId found in the decoded transaction data");
     return false;
