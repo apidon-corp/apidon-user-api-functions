@@ -21,12 +21,12 @@ import * as path from "path";
 import * as fs from "fs";
 
 /**
- * Checks if the required transactionId is present in the request body.
- * @param {string} transactionId - The transaction ID to check.
- * @returns {boolean} - True if transactionId is present, false otherwise.
+ * Checks if the required transactionReceipt is present in the request body.
+ * @param {string} transactionReceipt - The transaction ID to check.
+ * @returns {boolean} - True if transactionReceipt is present, false otherwise.
  */
-function checkProps(transactionId: string): boolean {
-  if (!transactionId) {
+function checkProps(transactionReceipt: string): boolean {
+  if (!transactionReceipt) {
     console.error("No transactionId provided in the request body");
     return false;
   }
