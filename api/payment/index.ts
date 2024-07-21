@@ -1,5 +1,3 @@
-import { createPayment } from "./createPayment";
+import { paymentNotificationHandler } from "./paymentNotificationHandler";
 
-import { appleServiceNotificationsHandler } from "./appleServiceNotificationHandler";
-
-export { createPayment, appleServiceNotificationsHandler };
+export { paymentNotificationHandler };
