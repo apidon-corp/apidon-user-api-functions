@@ -22,9 +22,20 @@ function checkProps(
   productId: string,
   customerId: string,
   transactionId: string,
-  ts: number
+  ts: number,
+  price: number,
+  priceInPurchasedCurrency: number,
+  currency: string
 ) {
-  if (!productId || !customerId || !transactionId || !ts) {
+  if (
+    !productId ||
+    !customerId ||
+    !transactionId ||
+    !ts ||
+    !price ||
+    !priceInPurchasedCurrency ||
+    !currency
+  ) {
     console.error("Missing required properties");
     return false;
   }
@@ -61,7 +72,10 @@ async function createPaymentIntentOnDatabase(
   username: string,
   transactionId: string,
   productId: string,
-  ts: number
+  ts: number,
+  price: number,
+  priceInPurchasedCurrency: number,
+  currency: string
 ) {
   const newPaymentIntentDocData: PaymentIntentDocData = {
     id: transactionId,
@@ -70,6 +84,9 @@ async function createPaymentIntentOnDatabase(
     ts: ts,
     username: username,
     itemSKU: productId,
+    price: price,
+    priceInPurchasedCurrency: priceInPurchasedCurrency,
+    currency: currency,
   };
 
   try {
@@ -143,7 +160,15 @@ async function rollback(username: string, transactionId: string) {
 
 export const successOnPayment = onRequest(async (req, res) => {
   const {authorization} = req.headers;
-  const {productId, customerId, transactionId, ts} = req.body;
+  const {
+    productId,
+    customerId,
+    transactionId,
+    ts,
+    price,
+    priceInPurchasedCurrency,
+    currency,
+  } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -151,7 +176,15 @@ export const successOnPayment = onRequest(async (req, res) => {
     return;
   }
 
-  const propsResult = checkProps(productId, customerId, transactionId, ts);
+  const propsResult = checkProps(
+    productId,
+    customerId,
+    transactionId,
+    ts,
+    price,
+    priceInPurchasedCurrency,
+    currency
+  );
   if (!propsResult) {
     res.status(422).send("Invalid Request");
     return;
@@ -168,7 +201,10 @@ export const successOnPayment = onRequest(async (req, res) => {
       customerId,
       transactionId,
       productId,
-      ts
+      ts,
+      price,
+      priceInPurchasedCurrency,
+      currency
     );
   if (!createPaymentIntentOnDatabaseResult) {
     res.status(500).send("Internal Server Error");

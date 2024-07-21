@@ -24,64 +24,43 @@ export type RevenueCatNotificationPayload = {
   subscriber_attributes: any[];
   product_id: string;
   price: number;
+  price_in_purchased_currency: number;
   currency: string;
 };
 
-export type PaymentIntentDocData =
-  | {
-      /**
-       * The unique identifier for the payment intent, used to track and reference the transaction.
-       */
-      id: string;
+export type PaymentIntentDocData = {
+  /**
+   * The unique identifier for the payment intent, used to track and reference the transaction.
+   */
+  id: string;
 
-      /**
-       * A boolean indicating whether the payment has been refunded (true if refunded, false otherwise).
-       */
-      refunded: boolean;
+  /**
+   * A boolean indicating whether the payment has been refunded (true if refunded, false otherwise).
+   */
+  refunded: boolean;
 
-      /**
-       * A boolean indicating whether the payment was successful (true if successful, false otherwise).
-       */
-      success: boolean;
+  /**
+   * A boolean indicating whether the payment was successful (true if successful, false otherwise).
+   */
+  success: boolean;
 
-      /**
-       * The timestamp of when the payment intent was created, represented as a number (typically in milliseconds since epoch).
-       */
-      ts: number;
+  /**
+   * The timestamp of when the payment intent was created, represented as a number (typically in milliseconds since epoch).
+   */
+  ts: number;
 
-      /**
-       * The username of the user making the payment, represented as a string.
-       */
-      username: string;
+  /**
+   * The username of the user making the payment, represented as a string.
+   */
+  username: string;
 
-      /**
-       * The item id of product that bought, represented as a string.
-       */
-      itemSKU: string;
-    }
-  | {
-      /**
-       * The unique identifier for the payment intent, used to track and reference the transaction.
-       */
-      id: string;
+  /**
+   * The item id of product that bought, represented as a string.
+   */
+  itemSKU: string;
 
-      /**
-       * A boolean indicating whether the payment has been refunded (true if refunded, false otherwise).
-       */
-      refunded: boolean;
+  price: number;
+  priceInPurchasedCurrency: number;
 
-      /**
-       * A boolean indicating whether the payment was successful (true if successful, false otherwise).
-       */
-      success: boolean;
-
-      /**
-       * The timestamp of when the payment intent was created, represented as a number (typically in milliseconds since epoch).
-       */
-      ts: number;
-
-      /**
-       * The username of the user making the payment, represented as a string.
-       */
-      username: string;
-    };
+  currency: string;
+};

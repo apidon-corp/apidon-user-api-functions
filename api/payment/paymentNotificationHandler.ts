@@ -27,13 +27,16 @@ async function handleSuccessfullPayment(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": apiKey,
       },
       body: JSON.stringify({
-        productId: payload.id,
+        productId: payload.product_id,
         customerId: payload.app_user_id,
         transactionId: payload.id,
         ts: payload.event_timestamp_ms,
+        price: payload.price,
+        priceInPurchasedCurrency: payload.price_in_purchased_currency,
+        currency: payload.currency,
       }),
     });
 
@@ -52,7 +55,7 @@ async function handleSuccessfullPayment(
 export const paymentNotificationHandler = onRequest(async (req, res) => {
   const {authorization} = req.headers;
 
-  const body = req.body;
+  const {event} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -60,14 +63,21 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
     return;
   }
 
-  const type = getTypeOfNotification(body);
+  const type = getTypeOfNotification(event);
 
   if (type === "NON_RENEWING_PURCHASE") {
-    handleSuccessfullPayment(body);
-  }
-
-  if (type === "TEST") {
+    const result = await handleSuccessfullPayment(event);
+    if (!result) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+  } else if (type === "TEST") {
     console.log("Test notification received");
+  } else {
+    console.log("Unknown notification type received");
+    console.log("Body: \n", event);
+    res.status(500).send("Internal Server Error");
+    return;
   }
 
   res.status(200).send("OK");
