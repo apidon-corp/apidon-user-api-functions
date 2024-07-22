@@ -1,4 +1,4 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import {
   BoughtNFTsArrayObject,
@@ -7,14 +7,14 @@ import {
   SoldNFTsArrayObject,
 } from "../../types/Trade";
 
-import { FieldValue } from "firebase-admin/firestore";
-import { firestore } from "../../firebase/adminApp";
-import { BuyersArrayObject, NftDocDataInServer } from "../../types/NFT";
-import { PostServerDataV3 } from "../../types/Post";
+import {FieldValue} from "firebase-admin/firestore";
+import {firestore} from "../../firebase/adminApp";
+import {BuyersArrayObject, NftDocDataInServer} from "../../types/NFT";
+import {PostServerDataV3} from "../../types/Post";
 
 import getDisplayName from "../../helpers/getDisplayName";
-import { BalanceDocData } from "@/types/Wallet";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {BalanceDocData} from "@/types/Wallet";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -611,8 +611,8 @@ async function rollback(
 
 export const buyNFT = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
