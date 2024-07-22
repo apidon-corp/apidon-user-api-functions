@@ -310,7 +310,7 @@ export const signup = onRequest(
       // Creating "username" doc for "usernames" collection
       batch.set(firestore.doc(`usernames/${username}`), {});
 
-      // Creating "username" doc for "users" collection
+      // Creating "user" doc for "users" collection
       mainUserDocData = {
         email: email,
         followerCount: 0,
@@ -344,10 +344,10 @@ export const signup = onRequest(
         ...nftTradeData,
       });
 
-      // Creating "frenlets" doc to "frenlets" collection and add "tags" array in it.
-      batch.set(firestore.doc(`/users/${username}/frenlets/frenlets`), {
-        tags: ["general"],
-      });
+      // // Creating "frenlets" doc to "frenlets" collection and add "tags" array in it.
+      // batch.set(firestore.doc(`/users/${username}/frenlets/frenlets`), {
+      //   tags: ["general"],
+      // });
 
       // Creating "notifications" doc to "notifications/notifications" doc and new data in it.
       const notificationsDocData: NotificationDocData = {

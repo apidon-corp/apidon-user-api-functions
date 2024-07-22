@@ -2,7 +2,6 @@ export type NFTTradeDocData = {
   createdNFTs: CreatedNFTsArrayObject[];
   boughtNFTs: BoughtNFTsArrayObject[];
   soldNFTs: SoldNFTsArrayObject[];
-  stripeCustomerId?: string;
 };
 
 export type BoughtNFTsArrayObject = {
@@ -32,7 +31,7 @@ export type PurhcasePaymentIntentDocData = {
   price: number;
   currency: "USD";
   refunded: boolean;
-  seller: string,
+  seller: string;
 };
 
 export type SellPaymentIntentDocData = {
