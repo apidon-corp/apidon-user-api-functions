@@ -28,7 +28,7 @@ export type RevenueCatNotificationPayload = {
   currency: string;
 };
 
-export type PaymentIntentDocData = {
+export type PaymentIntentTopUpDocData = {
   /**
    * The unique identifier for the payment intent, used to track and reference the transaction.
    */

@@ -1,8 +1,8 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
-import {firestore} from "../../firebase/adminApp";
-import {PaymentIntentDocData} from "../../types/IAP";
-import {FieldValue} from "firebase-admin/firestore";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { keys } from "../../config";
+import { firestore } from "../../firebase/adminApp";
+import { PaymentIntentTopUpDocData } from "../../types/IAP";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -77,7 +77,7 @@ async function createPaymentIntentOnDatabase(
   priceInPurchasedCurrency: number,
   currency: string
 ) {
-  const newPaymentIntentDocData: PaymentIntentDocData = {
+  const newPaymentIntentDocData: PaymentIntentTopUpDocData = {
     id: transactionId,
     refunded: false,
     success: true,
@@ -91,7 +91,7 @@ async function createPaymentIntentOnDatabase(
 
   try {
     const newPaymentIntentDocRef = firestore.doc(
-      `users/${username}/wallet/paymentIntents/paymentIntents/${transactionId}`
+      `users/${username}/wallet/paymentIntents/topUpPaymentIntents/${transactionId}`
     );
 
     await newPaymentIntentDocRef.set(newPaymentIntentDocData);
@@ -146,7 +146,7 @@ async function updateBalance(
 async function rollback(username: string, transactionId: string) {
   try {
     const createdPaymentIntentDocRef = firestore.doc(
-      `users/${username}/wallet/paymentIntents/paymentIntents/${transactionId}`
+      `users/${username}/wallet/paymentIntents/topUpPaymentIntents/${transactionId}`
     );
 
     await createdPaymentIntentDocRef.delete();
@@ -159,7 +159,7 @@ async function rollback(username: string, transactionId: string) {
 }
 
 export const successOnPayment = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const { authorization } = req.headers;
   const {
     productId,
     customerId,
