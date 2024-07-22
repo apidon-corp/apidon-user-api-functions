@@ -74,9 +74,8 @@ async function checkUsername(username: string) {
 
 async function modifyingAuthObject(uid: string, username: string) {
   try {
-    await auth.updateUser(uid, {
-      displayName: username,
-    });
+    await auth.updateUser(uid, { displayName: username });
+
     return true;
   } catch (error) {
     console.error("Error while modifying auth object: ", error);
@@ -239,19 +238,13 @@ export const completeSignUp = onRequest(
 
     const checkPropsResult = checkProps(username, fullname);
     if (!checkPropsResult) {
-      res.status(422).json({
-        cause: "server",
-        message: "Invalid props.",
-      });
+      res.status(422).send("Invalid Props");
       return;
     }
 
     const checkUsernameResult = await checkUsername(username);
     if (!checkUsernameResult) {
-      res.status(409).json({
-        cause: "username",
-        message: "Username is not available.",
-      });
+      res.status(409).send("Username is not available.");
       return;
     }
 
@@ -260,10 +253,7 @@ export const completeSignUp = onRequest(
       username
     );
     if (!modifyingAuthObjectResult) {
-      res.status(500).json({
-        cause: "server",
-        message: "Internal server error.",
-      });
+      res.status(500).send("Internal server error");
       return;
     }
 
@@ -274,12 +264,12 @@ export const completeSignUp = onRequest(
     );
     if (!createUserOnFirestoreResult) {
       await rollBackAuthModification(authResult.uid);
-      res.status(500).json({
-        cause: "server",
-        message: "Internal server error.",
-      });
+      res.status(500).send("Internal server error.");
 
       return;
     }
+
+    res.status(200).send("OK");
+    return;
   })
 );
