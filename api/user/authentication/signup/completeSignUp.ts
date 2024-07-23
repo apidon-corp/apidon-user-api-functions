@@ -1,6 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
-
 import { auth, firestore } from "../../../../firebase/adminApp";
 import { WriteBatch } from "firebase-admin/firestore";
 import { UserInServer } from "../../../../types/User";
