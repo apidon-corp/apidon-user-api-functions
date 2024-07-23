@@ -296,7 +296,10 @@ export const signup = onRequest(
 
       uid = createdUID;
 
-      await auth.setCustomUserClaims(createdUID, { name: username });
+      await auth.setCustomUserClaims(createdUID, {
+        name: username,
+        isValidAuthObject: true,
+      });
     } catch (error) {
       await releaseReferralCode(referralCode);
       res.status(500).json({

@@ -74,7 +74,10 @@ async function checkUsername(username: string) {
 async function modifyingAuthObject(uid: string, username: string) {
   try {
     await auth.updateUser(uid, { displayName: username });
-    await auth.setCustomUserClaims(uid, { name: username });
+    await auth.setCustomUserClaims(uid, {
+      name: username,
+      isValidAuthObject: true,
+    });
 
     return true;
   } catch (error) {
