@@ -1,22 +1,42 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore, auth} from "../../../../firebase/adminApp";
-import {keys} from "../../../../config";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore, auth } from "../../../../firebase/adminApp";
+import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
+import { keys } from "../../../../config";
 
-import * as sg from "@sendgrid/mail";
-import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
+import * as SG from "@sendgrid/mail";
 
-function checkProps(
-  referralCode: string,
-  email: string,
-  password: string,
-  username: string,
-  fullname: string
-) {
-  if (!referralCode || !email || !password || !username || !fullname) {
-    console.error("Invalid Props");
+function checkProps(email: string, password: string) {
+  if (!email || !password) return false;
+
+  const emailRegex =
+    /^[a-zA-Z0-9._%+-]+@(gmail\.com|icloud\.com|yahoo\.com|outlook\.com)$/i;
+  const emailRegexTestResult = emailRegex.test(email);
+
+  if (!emailRegexTestResult) {
+    console.error("Email is not valid");
     return false;
   }
-  return true;
+
+  const minLengthCase = password.length >= 8;
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasDigit = /\d/.test(password);
+
+  if (minLengthCase && hasLowerCase && hasUpperCase && hasDigit) return true;
+
+  console.error("Password is not valid");
+  return false;
+}
+
+async function isEmailUnique(email: string) {
+  try {
+    await auth.getUserByEmail(email);
+    console.error("Email is already taken");
+    return false;
+  } catch (error) {
+    console.log("Email is unique");
+    return true;
+  }
 }
 
 function generateSixDigitNumber(): number {
@@ -24,307 +44,181 @@ function generateSixDigitNumber(): number {
   return Math.floor(100000 + Math.random() * 900000);
 }
 
-const quickRegexCheck = (
-  email: string,
-  password: string,
-  username: string,
-  fullname: string
-) => {
-  // Email
-  const emailRegex =
-    /^[A-Za-z0-9._%+-]+@(gmail|yahoo|outlook|aol|icloud|protonmail|yandex|mail|zoho)\.(com|net|org)$/i;
-  const regexTestResultE = emailRegex.test(email);
+async function createVerificationDoc(email: string, code: number) {
+  try {
+    const newVerificationDocRef = firestore.doc(`emailVerifications/${email}`);
 
-  if (!regexTestResultE) return "email";
+    await newVerificationDocRef.set({
+      code: code,
+    });
 
-  // Password
+    return true;
+  } catch (error) {
+    console.error(
+      "Error while creating verification doc in firestore: \n",
+      error
+    );
+    return false;
+  }
+}
 
-  const passwordRegex =
-    /^(?=.*?\p{Lu})(?=.*?\p{Ll})(?=.*?\d)(?=.*?[^\w\s]|[_]).{12,}$/u;
-  const regexTestResultP = passwordRegex.test(password);
+async function sendEmailVerificationCode(email: string, code: number) {
+  const sgApiKey = keys.SENDGRID_EMAIL_SERVICE_API_KEY;
 
-  if (!regexTestResultP) return "password";
+  try {
+    SG.setApiKey(sgApiKey);
 
-  // Username
-  const usernameRegex = /^[a-z0-9]{4,20}$/;
-  const regexTestResultU = usernameRegex.test(username);
+    const data = {
+      to: email,
+      from: "auth@apidon.com",
+      subject: `Verification Code for Apidon: ${code}`,
+      text: `Hello, your verification code is: ${code}`,
+      html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <title>Verify Your Email Address</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+            /* Base Styles */
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                color: #575757;
+                line-height: 1.6;
+            }
+    
+            .highlighted a {
+                color: #1A87FB; /* Change color as desired */
+                text-decoration: underline; /* Add underline */
+            }
+    
+            a {
+                color: #1A87FB;
+                text-decoration: none;
+            }
+    
+            /* Layout */
+            .container {
+                background-color: #f5f7f9;
+                padding: 20px;
+                width: 100%;
+                max-width: 600px;
+                margin: 0 auto;
+            }
+    
+            .header {
+                text-align: center;
+            }
+    
+            .logo {
+                width: 100px;
+                height: auto; /* Maintain aspect ratio */
+                display: block;
+                margin: 10px auto;
+            }
+    
+            .content {
+                padding: 20px;
+                background-color: #fff;
+                border-radius: 4px;
+            }
+    
+            .code {
+                font-size: 18px;
+                font-weight: bold;
+                text-align: center;
+                margin: 20px 0;
+                background-color: #f2f2f2;
+                padding: 10px;
+                border-radius: 4px;
+                display: inline-block;
+            }
+    
+            .footer {
+                text-align: center;
+                padding: 10px 0;
+            }
+    
+            /* Highlighting */
+            .highlighted {
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <div class="container">
+            <div class="header">
+                <img src="https://app.apidon.com/og.png" alt="Apidon" class="logo" />
+            </div>
+            <div class="content">
+                <p>Welcome to Apidon!</p>
+                <p>Thank you for signing up. To verify your email address and complete your registration, please enter the following code:</p>
+                <h2 class="code">${code}</h2>
+                <p>If you have any questions, please don't hesitate to contact us at <a href="mailto:[support@apidon.com]">support@apidon.com</a> or visit our Help Center at <a href="[https://apidon.com]">Apidon</a>.</p>
+            </div>
+            <div class="footer">
+                <p>Sincerely,</p>
+                <p>The Apidon Team</p>
+            </div>
+        </div>
+    </body>
+    
+    </html>
+    `,
+    };
 
-  if (!regexTestResultU) return "username";
+    const result = (await SG.send(data))[0];
 
-  // Fullname
-  const fullnameRegex = /^\p{L}{1,20}(?: \p{L}{1,20})*$/u;
-  const regexTestResultF = fullnameRegex.test(fullname);
+    if (result.statusCode >= 200 && result.statusCode <= 299) return true;
 
-  if (!regexTestResultF) return "fullname";
-
-  return true;
-};
+    console.error("Error while sending email: ", result);
+    return false;
+  } catch (error) {
+    console.error("Error while sending email: ", error);
+    return false;
+  }
+}
 
 export const sendVerificationCode = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {referralCode, email, password, username, fullname} = req.body;
+    const { email, password } = req.body;
 
-    const checkPropsResult = checkProps(
-      referralCode,
+    const checkPropResult = checkProps(email, password);
+    if (checkPropResult !== true) {
+      res.status(422).send("Invalid props.");
+      return;
+    }
+
+    const emailUnique = await isEmailUnique(email);
+    if (emailUnique !== true) {
+      res.status(422).send("Email is already taken.");
+      return;
+    }
+
+    const code = generateSixDigitNumber();
+
+    const createVerificationDocResult = await createVerificationDoc(
       email,
-      password,
-      username,
-      fullname
+      code
     );
-
-    if (!checkPropsResult) {
-      res.status(422).json({
-        cause: "server",
-        message: "Invalid props.",
-      });
+    if (createVerificationDocResult !== true) {
+      res.status(500).json("Internal server error.");
       return;
     }
 
-    const regexTestResult = quickRegexCheck(
+    const sendEmailVerificationCodeResult = await sendEmailVerificationCode(
       email,
-      password,
-      username,
-      fullname
+      code
     );
-    if (regexTestResult !== true) {
-      res.status(422).json({
-        cause: regexTestResult,
-        message: "Invalid Prop",
-      });
+    if (sendEmailVerificationCodeResult !== true) {
+      res.status(500).send("Internal server error.");
       return;
     }
 
-    if (!regexTestResult) {
-      res.status(422).json({
-        cause: "email",
-        message: "Invalid Email.",
-      });
-      return;
-    }
-
-    try {
-      const referralCodeDocSnapshot = await firestore
-        .doc(`/references/${referralCode}`)
-        .get();
-      if (!referralCodeDocSnapshot.exists) {
-        res.status(422).json({
-          cause: "referralCode",
-          message: "Referral code is invalid.",
-        });
-        return;
-      }
-
-      const data = referralCodeDocSnapshot.data();
-
-      if (data === undefined) {
-        console.error("Refferal code exists but its data is undefined.");
-        res.status(500).json({
-          cause: "server",
-          message: "Internal Server Error",
-        });
-        return;
-      }
-
-      const inProcess = data.inProcess;
-      const isUsed = data.isUsed;
-
-      if (isUsed || inProcess) {
-        res.status(422).json({
-          cause: "referralCode",
-          message: "Referral code has already been used.",
-        });
-        return;
-      }
-    } catch (error) {
-      console.error("Error on checking referral code: \n", error);
-      res.status(422).json({
-        cause: "server",
-        message: "Internal server error.",
-      });
-      return;
-    }
-
-    // Check if this email used before.
-    try {
-      await auth.getUserByEmail(email);
-      res.status(422).json({
-        cause: "email",
-        message: "This email is used by another account.",
-      });
-      return;
-    } catch (error) {
-      // Normal Situation
-      // There is no account linked with requested email.
-    }
-
-    // username validity check (If it is taken or not.)
-    try {
-      const userDocSnapshot = await firestore
-        .doc(`usernames/${username}`)
-        .get();
-      if (userDocSnapshot.exists) {
-        res.status(422).json({
-          cause: "username",
-          message: "Username is taken.",
-        });
-        return;
-      }
-      // So If there is no doc, no problem.
-    } catch (error) {
-      console.error(
-        "Error on checking username validity: (If it is valid or not.): \n",
-        error
-      );
-      res.status(500).json({
-        cause: "server",
-        message: "Internal server error.",
-      });
-      return;
-    }
-
-    // Creating verification code...
-    const verificationCode = generateSixDigitNumber();
-    try {
-      await firestore.doc(`emailVerifications/${email}`).set({
-        code: verificationCode,
-      });
-    } catch (error) {
-      console.error(
-        "Error while creating verificationCode doc in firestore: \n",
-        error
-      );
-      res.status(500).json({
-        cause: "server",
-        message: "Internal Server Error",
-      });
-      return;
-    }
-
-    // Send Email Verification Code
-    const sgApiKey = keys.SENDGRID_EMAIL_SERVICE_API_KEY;
-    if (!sgApiKey) {
-      res.status(500).json({
-        cause: "server",
-        message: "Internal Server Error",
-      });
-      return console.error("Error on getting email verification api key: \n");
-    }
-
-    try {
-      sg.setApiKey(sgApiKey);
-      const message = {
-        to: email,
-        from: "auth@apidon.com",
-        subject: `Verification Code for Apidon: ${verificationCode}`,
-        text: `Hello, your verification code is: ${verificationCode}`,
-        html: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-      <html xmlns="http://www.w3.org/1999/xhtml">
-      <head>
-          <title>Verify Your Email Address</title>
-          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <style>
-              /* Base Styles */
-              body {
-                  font-family: Arial, sans-serif;
-                  margin: 0;
-                  padding: 0;
-                  color: #575757;
-                  line-height: 1.6;
-              }
-      
-              .highlighted a {
-                  color: #1A87FB; /* Change color as desired */
-                  text-decoration: underline; /* Add underline */
-              }
-      
-              a {
-                  color: #1A87FB;
-                  text-decoration: none;
-              }
-      
-              /* Layout */
-              .container {
-                  background-color: #f5f7f9;
-                  padding: 20px;
-                  width: 100%;
-                  max-width: 600px;
-                  margin: 0 auto;
-              }
-      
-              .header {
-                  text-align: center;
-              }
-      
-              .logo {
-                  width: 100px;
-                  height: auto; /* Maintain aspect ratio */
-                  display: block;
-                  margin: 10px auto;
-              }
-      
-              .content {
-                  padding: 20px;
-                  background-color: #fff;
-                  border-radius: 4px;
-              }
-      
-              .code {
-                  font-size: 18px;
-                  font-weight: bold;
-                  text-align: center;
-                  margin: 20px 0;
-                  background-color: #f2f2f2;
-                  padding: 10px;
-                  border-radius: 4px;
-                  display: inline-block;
-              }
-      
-              .footer {
-                  text-align: center;
-                  padding: 10px 0;
-              }
-      
-              /* Highlighting */
-              .highlighted {
-                  font-weight: bold;
-              }
-          </style>
-      </head>
-      
-      <body>
-          <div class="container">
-              <div class="header">
-                  <img src="https://app.apidon.com/og.png" alt="Apidon" class="logo" />
-              </div>
-              <div class="content">
-                  <p>Welcome to Apidon!</p>
-                  <p>Thank you for signing up. To verify your email address and complete your registration, please enter the following code:</p>
-                  <h2 class="code">${verificationCode}</h2>
-                  <p>If you have any questions, please don't hesitate to contact us at <a href="mailto:[support@apidon.com]">support@apidon.com</a> or visit our Help Center at <a href="[https://apidon.com]">Apidon</a>.</p>
-              </div>
-              <div class="footer">
-                  <p>Sincerely,</p>
-                  <p>The Apidon Team</p>
-              </div>
-          </div>
-      </body>
-      
-      </html>
-      `,
-      };
-
-      await sg.send(message);
-    } catch (error) {
-      console.error("Error on sending verification code: \n", error);
-      res.status(500).json({
-        cause: "server",
-        message: "Internal Server Error",
-      });
-      return;
-    }
-
-    res.status(200).send("Success");
+    res.status(200).send("Verification code sent.");
     return;
   })
 );
