@@ -1,6 +1,6 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
-import { auth, firestore } from "../../../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
+import {auth, firestore} from "../../../../firebase/adminApp";
 
 function checkProps(email: string, password: string, verificationCode: number) {
   if (!email || !password || !verificationCode) return false;
@@ -31,7 +31,6 @@ async function isEmailUnique(email: string) {
     console.error("Email is already taken");
     return false;
   } catch (error) {
-    console.log("Email is unique");
     return true;
   }
 }
@@ -85,7 +84,7 @@ async function createAuthObject(email: string, password: string) {
 
 export const verifyEmail = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { email, password, verificationCode } = req.body;
+    const {email, password, verificationCode} = req.body;
 
     const checkPropResult = checkProps(email, password, verificationCode);
     if (!checkPropResult) {

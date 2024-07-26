@@ -59,7 +59,6 @@ async function checkUsername(username: string) {
       .get();
 
     if (!suspectedUserDocSnapshot.exists) {
-      console.log("Username is available.");
       return true;
     }
 
