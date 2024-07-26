@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore, auth } from "../../../../firebase/adminApp";
-import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
-import { keys } from "../../../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore, auth} from "../../../../firebase/adminApp";
+import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
+import {keys} from "../../../../config";
 
 import * as SG from "@sendgrid/mail";
 
@@ -184,7 +184,7 @@ async function sendEmailVerificationCode(email: string, code: number) {
 
 export const sendVerificationCode = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { email, password } = req.body;
+    const {email, password} = req.body;
 
     const checkPropResult = checkProps(email, password);
     if (checkPropResult !== true) {

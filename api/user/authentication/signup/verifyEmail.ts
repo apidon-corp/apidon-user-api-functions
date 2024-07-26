@@ -57,9 +57,11 @@ async function checkVerificationCode(email: string, verificationCode: number) {
     const codeString = data.code.toString();
     const verificationCodeString = verificationCode.toString();
 
-    await verificationDocRef.delete();
+    const verifyResult = codeString === verificationCodeString;
 
-    return codeString === verificationCodeString;
+    if (verifyResult) await verificationDocRef.delete();
+
+    return verifyResult;
   } catch (error) {
     console.error("Error checking verification code", error);
     return false;
