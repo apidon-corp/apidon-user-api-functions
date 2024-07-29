@@ -1,6 +1,6 @@
-import {internalAPIRoutes, keys} from "../../config";
-import {onRequest} from "firebase-functions/v2/https";
-import {RevenueCatNotificationPayload} from "../../types/IAP";
+import { internalAPIRoutes, keys } from "../../config";
+import { onRequest } from "firebase-functions/v2/https";
+import { RevenueCatNotificationPayload } from "../../types/IAP";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -27,7 +27,7 @@ async function handleSuccessfullPayment(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": apiKey,
+        Authorization: apiKey,
       },
       body: JSON.stringify({
         productId: payload.product_id,
@@ -52,10 +52,49 @@ async function handleSuccessfullPayment(
   }
 }
 
-export const paymentNotificationHandler = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+async function handleRefund(payload: RevenueCatNotificationPayload) {
+  const refundApiRoute = internalAPIRoutes.payment.refund;
+  const refundApiKey = keys.REFUND_API_AUTH_KEY;
 
-  const {event} = req.body;
+  try {
+    const response = await fetch(refundApiRoute, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: refundApiKey,
+      },
+      body: JSON.stringify({
+        productId: payload.product_id,
+        customerId: payload.app_user_id,
+        purchased_at_ms: payload.purchased_at_ms,
+        price: payload.price,
+        priceInPurchasedCurrency: payload.price_in_purchased_currency,
+        currency: payload.currency,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Response from refundAPI route is not good: ",
+        await response.text()
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Error sending refund request to our internal servers (apidon):",
+      error
+    );
+    return false;
+  }
+}
+
+export const paymentNotificationHandler = onRequest(async (req, res) => {
+  const { authorization } = req.headers;
+
+  const { event } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -71,14 +110,24 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
       res.status(500).send("Internal Server Error");
       return;
     }
+    res.status(200).send("OK");
+    return;
+  } else if (type === "CANCELLATION") {
+    const result = await handleRefund(event);
+    if (!result) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    res.status(200).send("OK");
+    return;
   } else if (type === "TEST") {
     console.log("Test notification received");
+    res.status(200).send("OK");
+    return;
   } else {
     console.log("Unknown notification type received");
     console.log("Body: \n", event);
     res.status(500).send("Internal Server Error");
     return;
   }
-
-  res.status(200).send("OK");
 });

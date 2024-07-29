@@ -26,6 +26,7 @@ export type RevenueCatNotificationPayload = {
   price: number;
   price_in_purchased_currency: number;
   currency: string;
+  purchased_at_ms?: number;
 };
 
 export type PaymentIntentTopUpDocData = {
