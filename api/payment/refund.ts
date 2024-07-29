@@ -3,6 +3,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { keys } from "../../config";
 import { firestore } from "../../firebase/adminApp";
 import { FieldValue } from "firebase-admin/firestore";
+import { PaymentIntentTopUpDocData } from "@/types/IAP";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -21,20 +22,11 @@ function handleAuthorization(authorization: string | undefined) {
 function checkProps(
   productId: string,
   customerId: string,
-  purchased_at_ms: number,
-  price: number,
-  priceInPurchasedCurrency: number,
-  currency: string
+  transactionId: string
 ) {
-  if (
-    !productId ||
-    !customerId ||
-    !purchased_at_ms ||
-    !price ||
-    !priceInPurchasedCurrency ||
-    !currency
-  )
+  if (!productId || !customerId || !transactionId) {
     return false;
+  }
 
   return true;
 }
@@ -42,36 +34,48 @@ function checkProps(
 async function getRevertedTopUpPaymentIntent(
   customerId: string,
   productId: string,
-  currency: string,
-  price: number,
-  priceInPurchasedCurrency: number,
-  ts: number
+  transactionId: string
 ) {
   try {
-    const queryResult = await firestore
-      .collection(
-        `users/${customerId}/wallet/paymentIntents/topUpPaymentIntents`
+    const revertedIntentDocSnapshot = await firestore
+      .doc(
+        `users/${customerId}/wallet/paymentIntents/topUpPaymentIntents/${transactionId}`
       )
-      .where("productId", "==", productId)
-      .where("currency", "==", currency)
-      .where("price", "==", -price)
-      .where("priceInPurchasedCurrency", "==", -priceInPurchasedCurrency)
-      .where("ts", "==", ts)
       .get();
 
-    if (queryResult.empty) {
+    if (!revertedIntentDocSnapshot.exists) {
       console.error("No such document to make refund");
       return false;
     }
 
-    const docs = queryResult.docs;
-
-    if (docs.length !== 1) {
-      console.error("More than one document found");
+    const intentDocData =
+      revertedIntentDocSnapshot.data() as PaymentIntentTopUpDocData;
+    if (!intentDocData) {
+      console.error("Intent doc data is undefined.");
       return false;
     }
 
-    return docs[0].ref;
+    if (!intentDocData.success) {
+      console.error("This payment intent is not even successfull to refund.");
+      return false;
+    }
+
+    if (intentDocData.refunded) {
+      console.error("This payment intent is already refunded.");
+      return false;
+    }
+
+    if (intentDocData.itemSKU !== productId) {
+      console.error("Product id is not matching");
+
+      console.error(
+        `Intent doc data item sku: ${intentDocData.itemSKU}, product id: (came from notification) ${productId}`
+      );
+
+      return false;
+    }
+
+    return revertedIntentDocSnapshot.ref;
   } catch (error) {
     console.error(
       "Error occured while getting reverted top up payment intent",
@@ -79,6 +83,30 @@ async function getRevertedTopUpPaymentIntent(
     );
     return false;
   }
+}
+
+function extractCreditCountFromProductId(productId: string) {
+  const value = productId.split("_")[0];
+
+  if (!value) {
+    console.error("No value found in the productId. (Destructing array.)");
+    return false;
+  }
+
+  const valueInNumber = parseInt(value);
+  if (isNaN(valueInNumber)) {
+    console.error("Value is not a number.");
+    return false;
+  }
+
+  if (!valueInNumber) {
+    console.error("Value is zero.");
+    return false;
+  }
+
+  const price = valueInNumber;
+
+  return price;
 }
 
 async function updatePaymentIntent(ref: FirebaseFirestore.DocumentReference) {
@@ -126,28 +154,14 @@ async function rollback(ref: FirebaseFirestore.DocumentReference) {
 
 export const refund = onRequest(async (req, res) => {
   const { authorization } = req.headers;
-  const {
-    productId,
-    customerId,
-    purchased_at_ms,
-    price,
-    priceInPurchasedCurrency,
-    currency,
-  } = req.body;
+  const { productId, customerId, transactionId } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;
   }
-  const propsResult = checkProps(
-    productId,
-    customerId,
-    purchased_at_ms,
-    price,
-    priceInPurchasedCurrency,
-    currency
-  );
+  const propsResult = checkProps(productId, customerId, transactionId);
   if (!propsResult) {
     res.status(422).send("Invalid Request");
     return;
@@ -156,10 +170,7 @@ export const refund = onRequest(async (req, res) => {
   const revertedPaymentIntent = await getRevertedTopUpPaymentIntent(
     customerId,
     productId,
-    currency,
-    price,
-    priceInPurchasedCurrency,
-    purchased_at_ms
+    transactionId
   );
   if (!revertedPaymentIntent) {
     res
@@ -176,7 +187,18 @@ export const refund = onRequest(async (req, res) => {
     return;
   }
 
-  const updateBalanceResult = await updateBalance(customerId, price);
+  const priceToDecreaseInUSDCreditFormat =
+    extractCreditCountFromProductId(productId);
+
+  if (!priceToDecreaseInUSDCreditFormat) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const updateBalanceResult = await updateBalance(
+    customerId,
+    priceToDecreaseInUSDCreditFormat
+  );
   if (!updateBalanceResult) {
     const rollbackResult = await rollback(revertedPaymentIntent);
     if (!rollbackResult) {

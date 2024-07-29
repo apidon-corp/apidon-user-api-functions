@@ -26,7 +26,8 @@ export type RevenueCatNotificationPayload = {
   price: number;
   price_in_purchased_currency: number;
   currency: string;
-  purchased_at_ms?: number;
+  /** Initial Purhcase Transaction of refunded item */
+  transaction_id?: string;
 };
 
 export type PaymentIntentTopUpDocData = {

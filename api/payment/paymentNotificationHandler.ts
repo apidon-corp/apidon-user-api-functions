@@ -66,10 +66,7 @@ async function handleRefund(payload: RevenueCatNotificationPayload) {
       body: JSON.stringify({
         productId: payload.product_id,
         customerId: payload.app_user_id,
-        purchased_at_ms: payload.purchased_at_ms,
-        price: payload.price,
-        priceInPurchasedCurrency: payload.price_in_purchased_currency,
-        currency: payload.currency,
+        transactionId: payload.transaction_id,
       }),
     });
 
