@@ -1,10 +1,10 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {bucket, firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { bucket, firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {PostServerDataV3} from "../../types/Post";
-import {onRequest} from "firebase-functions/v2/https";
+import { PostDocPathsArrayItem, PostServerDataV3 } from "../../types/Post";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -120,10 +120,29 @@ async function deletePostDoc(postDocPath: string) {
   }
 }
 
+async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
+  const postDocPathsArrayItem: PostDocPathsArrayItem = {
+    postDocPath: "/" + postDocPath,
+    timestamp: timestamp,
+  };
+
+  try {
+    const postsDocRef = firestore.doc(`posts/posts`);
+    await postsDocRef.update({
+      postDocPaths: FieldValue.arrayRemove(postDocPathsArrayItem),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating postDocPathsArray: \n", error);
+    return false;
+  }
+}
+
 export const postDelete = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -157,18 +176,21 @@ export const postDelete = onRequest(
       decreaseNFTCountResult,
       deleteNFTDocResult,
       deletePostDocResult,
+      updatePostDocPathsArrayResult,
     ] = await Promise.all([
       deleteStoredFiles(postData.id, username, postData),
       decreaseNFTCount(username, postData),
       deleteNFTDoc(postData),
       deletePostDoc(`/users/${username}/posts/${postData.id}`),
+      updatePostDocPathsArray(postDocPath, postData.creationTime),
     ]);
 
     if (
       !deleteStoredFilesResult ||
       !decreaseNFTCountResult ||
       !deleteNFTDocResult ||
-      !deletePostDocResult
+      !deletePostDocResult ||
+      !updatePostDocPathsArrayResult
     ) {
       res.status(500).send("Internal Server Error");
       return;

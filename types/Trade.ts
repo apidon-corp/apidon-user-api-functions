@@ -1,25 +1,25 @@
-export type NFTTradeDocData = {
-  createdNFTs: CreatedNFTsArrayObject[];
-  boughtNFTs: BoughtNFTsArrayObject[];
-  soldNFTs: SoldNFTsArrayObject[];
+export type CollectibleTradeDocData = {
+  createdCollectibles: CreatedCollectiblesArrayObject[];
+  boughtCollectibles: BoughtCollectiblesArrayObject[];
+  soldCollectibles: SoldCollectiblesArrayObject[];
 };
 
-export type BoughtNFTsArrayObject = {
+export type BoughtCollectiblesArrayObject = {
   postDocPath: string;
-  nftDocPath: string;
+  collectibleDocPath: string;
   ts: number;
 };
 
-export type SoldNFTsArrayObject = {
+export type SoldCollectiblesArrayObject = {
   postDocPath: string;
-  nftDocPath: string;
+  collectibleDocPath: string;
   ts: number;
   username: string;
 };
 
-export type CreatedNFTsArrayObject = {
+export type CreatedCollectiblesArrayObject = {
   postDocPath: string;
-  nftDocPath: string;
+  collectibleDocPath: string;
   ts: number;
 };
 
@@ -27,7 +27,7 @@ export type PurhcasePaymentIntentDocData = {
   id: string;
   ts: number;
   postDocPath: string;
-  nftDocPath: string;
+  collectibleDocPath: string;
   price: number;
   currency: "USD";
   refunded: boolean;
@@ -38,7 +38,7 @@ export type SellPaymentIntentDocData = {
   id: string;
   ts: number;
   postDocPath: string;
-  nftDocPath: string;
+  collectibleDocPath: string;
   price: number;
   currency: "USD";
   refunded: boolean;

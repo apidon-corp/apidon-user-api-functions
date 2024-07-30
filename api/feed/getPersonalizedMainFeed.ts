@@ -1,11 +1,8 @@
-import {onRequest} from "firebase-functions/v2/https";
-
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {firestore} from "../../firebase/adminApp";
-import {keys} from "../../config";
-
-import {CurrentProviderDocData} from "../../types/Provider";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { PostsDocData } from "@/types/Post";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -19,117 +16,42 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-async function getFollowingsOfUser(username: string) {
+async function getPostRecommendations() {
   try {
-    const followingQuery = await firestore
-      .collection(`/users/${username}/followings`)
-      .get();
+    const postsDocSnapshot = await firestore.doc(`posts/posts`).get();
 
-    const followings = followingQuery.docs.map((f) => f.id);
-
-    return followings;
-  } catch (error) {
-    console.error("Error while getting followings of user: ", error);
-    return false;
-  }
-}
-
-async function getProviderInformation(username: string) {
-  try {
-    const providerDocSnapshot = await firestore
-      .doc(`/users/${username}/provider/currentProvider`)
-      .get();
-    if (!providerDocSnapshot.exists) {
-      console.error("Provider information does not exist.");
+    if (!postsDocSnapshot.exists) {
+      console.error("Posts doc doesn't exist in firestore.");
       return false;
     }
 
-    const providerDocData =
-      providerDocSnapshot.data() as CurrentProviderDocData;
-    if (!providerDocData) {
-      console.error("Provider information is undefined.");
+    const postsDocData = postsDocSnapshot.data() as PostsDocData;
+
+    if (!postsDocData) {
+      console.error("Posts doc data is undefined.");
       return false;
     }
 
-    const providerId = providerDocData.providerId;
-    const clientId = providerDocData.clientId;
+    const postDocPaths = postsDocData.postDocPaths;
 
-    return {
-      providerId: providerId,
-      clientId: clientId,
-    };
-  } catch (error) {
-    console.error("Error while getting provider information: ", error);
-    return false;
-  }
-}
-
-async function getPostPredictionsFromProvider(
-  username: string,
-  providerName: string,
-  clientId: string
-) {
-  const apiEndPointToProviderServer =
-    keys.API_ENDPOINT_TO_APIDON_PROVIDER_SERVER;
-
-  if (!apiEndPointToProviderServer) {
-    console.error(
-      "API Endpoint to provider server is invalid (we were getting it from .env file)"
-    );
-    return false;
-  }
-
-  const apikeyBetweenServices = keys.API_KEY_BETWEEN_SERVICES;
-  if (!apikeyBetweenServices) {
-    console.error(
-      "API Key between services is invalid (we were getting it from .env file)"
-    );
-    return false;
-  }
-
-  try {
-    const response = await fetch(
-      `${apiEndPointToProviderServer}/client/provideFeed`,
-      {
-        method: "POST",
-        headers: {
-          "authorization": apikeyBetweenServices,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username,
-          provider: providerName,
-          clientId: clientId,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        "Resposne from provideFeed API (provider side) is not okay: \n",
-        await response.text()
-      );
+    if (!postDocPaths) {
+      console.error("Post doc paths is undefined.");
       return false;
     }
 
-    const result = await response.json();
+    const sortedPostDocPaths = postDocPaths;
+    sortedPostDocPaths.sort((a, b) => b.timestamp - a.timestamp);
 
-    const postDocPathArray = result.postDocPathArray as string[];
-    return {
-      postDocPathArray: postDocPathArray,
-    };
+    return sortedPostDocPaths.map((item) => item.postDocPath);
   } catch (error) {
-    console.error(
-      "Error while getting post predictions from provider: ",
-      error
-    );
+    console.error("Error while getting post recommendations: \n", error);
     return false;
   }
 }
 
 export const getPersonalizedFeed = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
+    const { authorization } = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -137,31 +59,14 @@ export const getPersonalizedFeed = onRequest(
       return;
     }
 
-    const followingsOfUser = await getFollowingsOfUser(username);
-    if (!followingsOfUser) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const providerData = await getProviderInformation(username);
-    if (!providerData) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const getPostPredictionsFromProviderResult =
-      await getPostPredictionsFromProvider(
-        username,
-        providerData.providerId,
-        providerData.clientId
-      );
-    if (!getPostPredictionsFromProviderResult) {
+    const postDocPathArray = await getPostRecommendations();
+    if (!postDocPathArray) {
       res.status(500).send("Internal Server Error");
       return;
     }
 
     res.status(200).json({
-      postDocPathArray: getPostPredictionsFromProviderResult.postDocPathArray,
+      postDocPathArray: postDocPathArray,
     });
     return;
   })

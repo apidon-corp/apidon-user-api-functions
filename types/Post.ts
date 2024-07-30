@@ -1,3 +1,25 @@
+export type PostServerData = {
+  senderUsername: string;
+
+  description: string;
+  image: string;
+
+  rates: RateData[];
+  comments: CommentDataV2[];
+
+  collectibleStatus:
+    | {
+        isCollectible: false;
+      }
+    | {
+        isCollectible: true;
+        collectibleDocPath: string;
+      };
+
+  creationTime: number;
+  id: string;
+};
+
 export type PostServerDataV3 = {
   senderUsername: string;
 
@@ -36,4 +58,13 @@ export type CommentInteractionData = {
 export type UploadedPostArrayObject = {
   timestamp: number;
   postDocPath: string;
+};
+
+export type PostDocPathsArrayItem = {
+  postDocPath: string;
+  timestamp: number;
+};
+
+export type PostsDocData = {
+  postDocPaths: PostDocPathsArrayItem[];
 };

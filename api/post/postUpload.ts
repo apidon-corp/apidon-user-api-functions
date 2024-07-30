@@ -1,14 +1,15 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { bucket, firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {PostServerDataV3, UploadedPostArrayObject} from "../../types/Post";
-import {bucket, firestore} from "../../firebase/adminApp";
-import {FieldValue} from "firebase-admin/firestore";
 import {
-  CurrentProviderDocData,
-  PostUploadActionRequestBody,
-} from "../../types/Provider";
-import {externalAPIRoutes, keys} from "../../config";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+  PostDocPathsArrayItem,
+  PostServerData,
+  UploadedPostArrayObject,
+} from "../../types/Post";
+import { CurrentProviderDocData } from "../../types/Provider";
+
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -33,13 +34,13 @@ function checkProps(description: string, image: string) {
 function createPostServerData(description: string, username: string) {
   const ts = Date.now();
 
-  const newPostServerData: PostServerDataV3 = {
+  const newPostServerData: PostServerData = {
     comments: [],
     creationTime: ts,
     description: description,
     image: "",
     rates: [],
-    nftStatus: {convertedToNft: false},
+    collectibleStatus: { isCollectible: false },
     senderUsername: username,
     id: ts.toString(),
   };
@@ -92,7 +93,7 @@ async function changeLocationOfTempImage(
 }
 
 async function createPostOnFirestore(
-  postServerData: PostServerDataV3,
+  postServerData: PostServerData,
   username: string
 ) {
   try {
@@ -160,57 +161,29 @@ async function getProviderData(username: string) {
   }
 }
 
-async function sendPostForClassification(
-  username: string,
-  imageURL: string,
-  postDocPath: string,
-  providerId: string,
-  clientId: string
-) {
-  const bodyContent: PostUploadActionRequestBody = {
-    imageURL: imageURL,
+async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
+  const postDocPathsArrayItem: PostDocPathsArrayItem = {
     postDocPath: postDocPath,
-    providerId: providerId,
-    username: username,
-    clientId: clientId,
+    timestamp: timestamp,
   };
 
   try {
-    const response = await fetch(
-      externalAPIRoutes.provider.client.classification.postUploadActicon,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": keys.API_KEY_BETWEEN_SERVICES,
-        },
-        body: JSON.stringify({...bodyContent}),
-        keepalive: true,
-      }
-    );
-    if (!response.ok) {
-      console.error(
-        "Response from postUploadAction(providerside) API is not okay: \n",
-        await response.text()
-      );
-      return false;
-    }
+    const postsDocRef = firestore.doc(`posts/posts`);
+    await postsDocRef.update({
+      postDocPaths: FieldValue.arrayUnion(postDocPathsArrayItem),
+    });
 
     return true;
   } catch (error) {
-    console.error("Error while sending post for classification: \n", error);
+    console.error("Error while updating postDocPathsArray: \n", error);
     return false;
   }
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export const postUpload = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {description, tempImageLocation} = req.body;
+    const { authorization } = req.headers;
+    const { description, tempImageLocation } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -247,6 +220,7 @@ export const postUpload = onRequest(
       createPostOnFirestoreResult,
       updateUploadedPostArrayResult,
       currentProviderData,
+      updatePostDocPathsArrayResult,
     ] = await Promise.all([
       createPostOnFirestore(postServerData, username),
       updateUploadedPostArray(
@@ -254,26 +228,21 @@ export const postUpload = onRequest(
         `/users/${username}/posts/${postServerData.id}`
       ),
       getProviderData(username),
+      updatePostDocPathsArray(
+        `/users/${username}/posts/${postServerData.id}`,
+        postServerData.creationTime
+      ),
     ]);
 
     if (
       !createPostOnFirestoreResult ||
       !updateUploadedPostArrayResult ||
-      !currentProviderData
+      !currentProviderData ||
+      !updatePostDocPathsArrayResult
     ) {
       res.status(500).send("Internal Server Error");
       return;
     }
-
-    sendPostForClassification(
-      username,
-      postServerData.image,
-      `/users/${username}/posts/${postServerData.id}`,
-      currentProviderData.providerId,
-      currentProviderData.clientId
-    );
-
-    await delay(1000);
 
     res.status(200).json({
       newPostData: postServerData,
