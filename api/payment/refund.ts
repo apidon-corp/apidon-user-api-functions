@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
-import { FieldValue } from "firebase-admin/firestore";
-import { PaymentIntentTopUpDocData } from "@/types/IAP";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {PaymentIntentTopUpDocData} from "@/types/IAP";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -153,8 +153,8 @@ async function rollback(ref: FirebaseFirestore.DocumentReference) {
 }
 
 export const refund = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { productId, customerId, transactionId } = req.body;
+  const {authorization} = req.headers;
+  const {productId, customerId, transactionId} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
