@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
 import {
@@ -6,13 +6,11 @@ import {
   CommentInteractionData,
   PostServerDataV3,
 } from "../../types/Post";
-import {firestore} from "../../firebase/adminApp";
-import {FieldValue} from "firebase-admin/firestore";
-import {NotificationData} from "../../types/Notifications";
-import {CurrentProviderDocData} from "../../types/Provider";
-import {externalAPIRoutes, internalAPIRoutes, keys} from "../../config";
-
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { firestore } from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { NotificationData } from "../../types/Notifications";
+import { internalAPIRoutes, keys } from "../../config";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -172,7 +170,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -195,83 +193,10 @@ async function sendNotification(
   }
 }
 
-async function getProviderData(username: string) {
-  try {
-    const providerDocSnaphot = await firestore
-      .doc(`/users/${username}/provider/currentProvider`)
-      .get();
-
-    if (!providerDocSnaphot.exists) {
-      console.error("Provider doc does not exist");
-      return false;
-    }
-
-    const providerDocData = providerDocSnaphot.data() as CurrentProviderDocData;
-    if (providerDocData === undefined) {
-      console.error("Provider doc data is undefined");
-      return false;
-    }
-
-    return providerDocData;
-  } catch (error) {
-    console.error("Error while getting provider data: ", error);
-    return false;
-  }
-}
-
-async function sendCommentToProvider(
-  clientId: string,
-  providerId: string,
-  postDocPath: string
-) {
-  const apiKey = keys.API_KEY_BETWEEN_SERVICES;
-  if (!apiKey) {
-    console.error(
-      "Provider API KEY BETWEEN SERVICe key is undefined from config file"
-    );
-    return false;
-  }
-
-  try {
-    const response = await fetch(
-      externalAPIRoutes.provider.client.classification.commentAction,
-      {
-        method: "POST",
-        headers: {
-          "authorization": apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          clientId: clientId,
-          providerId: providerId,
-          postDocPath: postDocPath,
-        }),
-        keepalive: true,
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        `commentAction from provider API side's response not okay: ${await response.text()} `
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending comment to provider: ", error);
-    return false;
-  }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export const postComment = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {message, postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { message, postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -295,13 +220,11 @@ export const postComment = onRequest(
       changeCommentsArrayResult,
       increaseCommentCountResult,
       updateInteractionsResult,
-      providerData,
       sendNotificationResult,
     ] = await Promise.all([
       changeCommentsArray(postDocPath, commendData),
       increaseCommentCount(postDocPath),
       updateInteractions(commentInteractionData, username),
-      getProviderData(username),
       sendNotification(
         username,
         postDocPath,
@@ -314,20 +237,11 @@ export const postComment = onRequest(
       !changeCommentsArrayResult ||
       !increaseCommentCountResult ||
       !updateInteractionsResult ||
-      !providerData ||
       !sendNotificationResult
     ) {
       res.status(500).send("Internal Server Error");
       return;
     }
-
-    sendCommentToProvider(
-      providerData.clientId,
-      providerData.providerId,
-      postDocPath
-    );
-
-    await delay(500);
 
     res.status(200).json({
       commentData: commendData,
