@@ -65,11 +65,11 @@ async function getRevertedTopUpPaymentIntent(
       return false;
     }
 
-    if (intentDocData.itemSKU !== productId) {
+    if (intentDocData.productId !== productId) {
       console.error("Product id is not matching");
 
       console.error(
-        `Intent doc data item sku: ${intentDocData.itemSKU}, product id: (came from notification) ${productId}`
+        `Intent doc data product id: ${intentDocData.productId}, product id: (came from notification) ${productId}`
       );
 
       return false;
@@ -106,7 +106,9 @@ function extractCreditCountFromProductId(productId: string) {
 
   const price = valueInNumber;
 
-  return price;
+  const negativePrice = -price;
+
+  return negativePrice;
 }
 
 async function updatePaymentIntent(ref: FirebaseFirestore.DocumentReference) {

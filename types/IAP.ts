@@ -15,8 +15,8 @@ export type RevenuCatNotificationType =
 
 export type RevenueCatNotificationPayload = {
   type: RevenuCatNotificationType;
-  id: string;
   app_id: string;
+  transaction_id: string;
   event_timestamp_ms: number;
   app_user_id: string;
   original_app_user_id: string;
@@ -26,15 +26,13 @@ export type RevenueCatNotificationPayload = {
   price: number;
   price_in_purchased_currency: number;
   currency: string;
-  /** Initial Purhcase Transaction of refunded item */
-  transaction_id?: string;
 };
 
 export type PaymentIntentTopUpDocData = {
   /**
    * The unique identifier for the payment intent, used to track and reference the transaction.
    */
-  id: string;
+  transactionId: string;
 
   /**
    * A boolean indicating whether the payment has been refunded (true if refunded, false otherwise).
@@ -59,7 +57,7 @@ export type PaymentIntentTopUpDocData = {
   /**
    * The item id of product that bought, represented as a string.
    */
-  itemSKU: string;
+  productId: string;
 
   price: number;
   priceInPurchasedCurrency: number;

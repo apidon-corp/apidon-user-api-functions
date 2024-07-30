@@ -32,7 +32,7 @@ async function handleSuccessfullPayment(
       body: JSON.stringify({
         productId: payload.product_id,
         customerId: payload.app_user_id,
-        transactionId: payload.id,
+        transactionId: payload.transaction_id,
         ts: payload.event_timestamp_ms,
         price: payload.price,
         priceInPurchasedCurrency: payload.price_in_purchased_currency,

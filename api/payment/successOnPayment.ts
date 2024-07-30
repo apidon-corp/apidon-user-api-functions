@@ -78,12 +78,12 @@ async function createPaymentIntentOnDatabase(
   currency: string
 ) {
   const newPaymentIntentDocData: PaymentIntentTopUpDocData = {
-    id: transactionId,
+    transactionId: transactionId,
     refunded: false,
     success: true,
     ts: ts,
     username: username,
-    itemSKU: productId,
+    productId: productId,
     price: price,
     priceInPurchasedCurrency: priceInPurchasedCurrency,
     currency: currency,
