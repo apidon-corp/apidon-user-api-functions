@@ -1,8 +1,8 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { PostsDocData } from "@/types/Post";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {PostsDocData} from "@/types/Post";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -18,7 +18,7 @@ async function handleAuthorization(key: string | undefined) {
 
 async function getPostRecommendations() {
   try {
-    const postsDocSnapshot = await firestore.doc(`posts/posts`).get();
+    const postsDocSnapshot = await firestore.doc("posts/posts").get();
 
     if (!postsDocSnapshot.exists) {
       console.error("Posts doc doesn't exist in firestore.");
@@ -51,7 +51,7 @@ async function getPostRecommendations() {
 
 export const getPersonalizedFeed = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
+    const {authorization} = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
