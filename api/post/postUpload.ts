@@ -7,7 +7,6 @@ import {
   PostServerData,
   UploadedPostArrayObject,
 } from "../../types/Post";
-import { CurrentProviderDocData } from "../../types/Provider";
 
 import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
@@ -107,58 +106,30 @@ async function createPostOnFirestore(
   }
 }
 
-async function updateUploadedPostArray(username: string, postDocPath: string) {
+async function updateUploadedPostArray(
+  username: string,
+  postDocPath: string,
+  timestamp: number
+) {
   try {
     const newUploadedPostObject: UploadedPostArrayObject = {
       postDocPath: postDocPath,
-      timestamp: Date.now(),
+      timestamp: timestamp,
     };
 
-    const postInteractionsDoc = await firestore
-      .doc(`users/${username}/personal/postInteractions`)
-      .get();
+    const postInteractionsDocRef = firestore.doc(
+      `users/${username}/personal/postInteractions`
+    );
 
-    if (!postInteractionsDoc.exists) {
-      postInteractionsDoc.ref.set({
-        uploadedPostsArray: FieldValue.arrayUnion(newUploadedPostObject),
-      });
-    } else {
-      postInteractionsDoc.ref.update({
-        uploadedPostsArray: FieldValue.arrayUnion(newUploadedPostObject),
-      });
-    }
+    await postInteractionsDocRef.update({
+      uploadedPostArray: FieldValue.arrayUnion(newUploadedPostObject),
+    });
   } catch (error) {
     console.error("Error while updating uploadedPostArray");
     return false;
   }
 
   return true;
-}
-
-async function getProviderData(username: string) {
-  try {
-    const providerDocSnapshot = await firestore
-      .doc(`/users/${username}/provider/currentProvider`)
-      .get();
-    if (!providerDocSnapshot.exists) {
-      console.error("Provider doc doesn't exist.");
-      return false;
-    }
-    const providerDocData =
-      providerDocSnapshot.data() as CurrentProviderDocData;
-    if (providerDocData === undefined) {
-      console.error("Provider doc data is undefined.");
-      return false;
-    }
-
-    return {
-      providerId: providerDocData.providerId,
-      clientId: providerDocData.clientId,
-    };
-  } catch (error) {
-    console.error("Error while getting provider data");
-    return false;
-  }
 }
 
 async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
@@ -219,17 +190,16 @@ export const postUpload = onRequest(
     const [
       createPostOnFirestoreResult,
       updateUploadedPostArrayResult,
-      currentProviderData,
       updatePostDocPathsArrayResult,
     ] = await Promise.all([
       createPostOnFirestore(postServerData, username),
       updateUploadedPostArray(
         username,
-        `/users/${username}/posts/${postServerData.id}`
+        `users/${username}/posts/${postServerData.id}`,
+        postServerData.creationTime
       ),
-      getProviderData(username),
       updatePostDocPathsArray(
-        `/users/${username}/posts/${postServerData.id}`,
+        `users/${username}/posts/${postServerData.id}`,
         postServerData.creationTime
       ),
     ]);
@@ -237,7 +207,6 @@ export const postUpload = onRequest(
     if (
       !createPostOnFirestoreResult ||
       !updateUploadedPostArrayResult ||
-      !currentProviderData ||
       !updatePostDocPathsArrayResult
     ) {
       res.status(500).send("Internal Server Error");

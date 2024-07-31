@@ -1,7 +1,11 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { bucket, firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { PostDocPathsArrayItem, PostServerDataV3 } from "../../types/Post";
+import {
+  PostDocPathsArrayItem,
+  PostServerData,
+  UploadedPostArrayObject,
+} from "../../types/Post";
 import { onRequest } from "firebase-functions/v2/https";
 
 import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
@@ -35,10 +39,15 @@ async function checkCanDeletePost(postDocPath: string, username: string) {
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerDataV3;
+    const postDocData = postDocSnapshot.data() as PostServerData;
 
     if (!postDocData) {
       console.error("postDocData is undefined");
+      return false;
+    }
+
+    if (postDocData.collectibleStatus.isCollectible) {
+      console.error("Post is a collectible. Can't delete.");
       return false;
     }
 
@@ -55,9 +64,9 @@ async function checkCanDeletePost(postDocPath: string, username: string) {
 async function deleteStoredFiles(
   postId: string,
   username: string,
-  postDocData: PostServerDataV3
+  postDocData: PostServerData
 ) {
-  if (postDocData.image.length === 0 && !postDocData.nftStatus.convertedToNft) {
+  if (postDocData.image.length === 0) {
     return true;
   }
 
@@ -69,40 +78,6 @@ async function deleteStoredFiles(
     return true;
   } catch (error) {
     console.error("Error while deleting stored files", error);
-    return false;
-  }
-}
-
-async function decreaseNFTCount(
-  username: string,
-  postServerData: PostServerDataV3
-) {
-  if (!postServerData.nftStatus.convertedToNft) return true;
-
-  try {
-    const userDocRef = firestore.doc(`/users/${username}`);
-    await userDocRef.update({
-      nftCount: FieldValue.increment(-1),
-    });
-    return true;
-  } catch (error) {
-    console.error("Error while decreasing nft count", error);
-    return false;
-  }
-}
-
-async function deleteNFTDoc(postServerData: PostServerDataV3) {
-  if (!postServerData.nftStatus.convertedToNft) return true;
-  if (!postServerData.nftStatus.nftDocPath) return true;
-
-  try {
-    const nftDocRef = firestore.doc(postServerData.nftStatus.nftDocPath);
-
-    await nftDocRef.delete();
-
-    return true;
-  } catch (error) {
-    console.error("Error while deleting nft doc", error);
     return false;
   }
 }
@@ -139,6 +114,32 @@ async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
   }
 }
 
+async function updateUploadedPostArray(
+  username: string,
+  postDocPath: string,
+  timestamp: number
+) {
+  const deletedPostArrayObject: UploadedPostArrayObject = {
+    postDocPath: postDocPath,
+    timestamp: timestamp,
+  };
+
+  try {
+    const postInteractionsDocRef = firestore.doc(
+      `users/${username}/personal/postInteractions`
+    );
+
+    await postInteractionsDocRef.update({
+      uploadedPostArray: FieldValue.arrayRemove(deletedPostArrayObject),
+    });
+  } catch (error) {
+    console.error("Error while updating uploadedPostArray");
+    return false;
+  }
+
+  return true;
+}
+
 export const postDelete = onRequest(
   appCheckMiddleware(async (req, res) => {
     const { authorization } = req.headers;
@@ -173,24 +174,21 @@ export const postDelete = onRequest(
 
     const [
       deleteStoredFilesResult,
-      decreaseNFTCountResult,
-      deleteNFTDocResult,
       deletePostDocResult,
       updatePostDocPathsArrayResult,
+      updateUploadedPostArrayResult,
     ] = await Promise.all([
       deleteStoredFiles(postData.id, username, postData),
-      decreaseNFTCount(username, postData),
-      deleteNFTDoc(postData),
       deletePostDoc(`/users/${username}/posts/${postData.id}`),
       updatePostDocPathsArray(postDocPath, postData.creationTime),
+      updateUploadedPostArray(username, postDocPath, postData.creationTime),
     ]);
 
     if (
       !deleteStoredFilesResult ||
-      !decreaseNFTCountResult ||
-      !deleteNFTDocResult ||
       !deletePostDocResult ||
-      !updatePostDocPathsArrayResult
+      !updatePostDocPathsArrayResult ||
+      !updateUploadedPostArrayResult
     ) {
       res.status(500).send("Internal Server Error");
       return;

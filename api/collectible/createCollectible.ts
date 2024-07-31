@@ -221,7 +221,7 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const newCollectibleDocPath = `/collectibles/${newCollectibleId}`;
+    const newCollectibleDocPath = `collectibles/${newCollectibleId}`;
     const updatePostDocResult = await updatePostDoc(
       postDocPath,
       newCollectibleDocPath
