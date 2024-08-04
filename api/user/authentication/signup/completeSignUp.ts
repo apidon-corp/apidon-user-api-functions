@@ -1,11 +1,11 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
-import {auth, firestore} from "../../../../firebase/adminApp";
-import {WriteBatch} from "firebase-admin/firestore";
-import {UserInServer} from "../../../../types/User";
-import {CollectibleTradeDocData} from "../../../../types/Trade";
-import {NotificationDocData} from "../../../../types/Notifications";
-import {BalanceDocData} from "../../../../types/Wallet";
+import { onRequest } from "firebase-functions/v2/https";
+import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
+import { auth, firestore } from "../../../../firebase/adminApp";
+import { WriteBatch } from "firebase-admin/firestore";
+import { UserInServer } from "../../../../types/User";
+import { CollectibleTradeDocData } from "../../../../types/Trade";
+import { NotificationDocData } from "../../../../types/Notifications";
+import { BalanceDocData } from "../../../../types/Wallet";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -72,7 +72,7 @@ async function checkUsername(username: string) {
 
 async function modifyingAuthObject(uid: string, username: string) {
   try {
-    await auth.updateUser(uid, {displayName: username});
+    await auth.updateUser(uid, { displayName: username });
     await auth.setCustomUserClaims(uid, {
       name: username,
       isValidAuthObject: true,
@@ -111,17 +111,6 @@ function createUserDocData(
 
   const userDocRef = firestore.doc(`users/${username}`);
   batch.set(userDocRef, userDocData);
-}
-
-function createProfileDoc(batch: WriteBatch, username: string) {
-  const profileDocData = {
-    age: 18,
-    country: "Turkey",
-    gender: "male",
-  };
-
-  const profileDocRef = firestore.doc(`users/${username}/personal/profile`);
-  batch.set(profileDocRef, profileDocData);
 }
 
 function createCollectibleTradeDoc(batch: WriteBatch, username: string) {
@@ -163,15 +152,6 @@ function createPostInteractions(batch: WriteBatch, username: string) {
   batch.set(postInteractionsDocRef, postInteractionsDocData);
 }
 
-function createRatingsDoc(batch: WriteBatch, username: string) {
-  const ratingsDocData = {
-    ratings: [],
-  };
-
-  const ratingsDocRef = firestore.doc(`users/${username}/provider/ratings`);
-  batch.set(ratingsDocRef, ratingsDocData);
-}
-
 function createBalanceDoc(batch: WriteBatch, username: string) {
   const balanceData: BalanceDocData = {
     balance: 0,
@@ -198,11 +178,9 @@ async function createUserOnFirestore(
       authResult.email,
       fullname
     );
-    createProfileDoc(batch, username);
     createCollectibleTradeDoc(batch, username);
     createNotificationsDoc(batch, username);
     createPostInteractions(batch, username);
-    createRatingsDoc(batch, username);
     createBalanceDoc(batch, username);
 
     await batch.commit();
@@ -231,8 +209,8 @@ async function rollBackAuthModification(uid: string) {
 
 export const completeSignUp = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {username, fullname} = req.body;
+    const { authorization } = req.headers;
+    const { username, fullname } = req.body;
 
     const authResult = await handleAuthorization(authorization);
     if (!authResult) {
