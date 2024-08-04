@@ -1,3 +1,3 @@
-import { sendNotificationToAllUsers } from "./sendNotificationToAllUsers";
+import {sendNotificationToAllUsers} from "./sendNotificationToAllUsers";
 
-export { sendNotificationToAllUsers };
+export {sendNotificationToAllUsers};
