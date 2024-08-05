@@ -1,17 +1,19 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { onRequest } from "firebase-functions/v2/https";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
-import {firestore} from "../../firebase/adminApp";
-import {PostServerData} from "../../types/Post";
-import {BuyersArrayObject, CollectibleDocData} from "../../types/Collectible";
-import {BalanceDocData} from "../../types/Wallet";
-import {FieldValue} from "firebase-admin/firestore";
+import { firestore } from "../../firebase/adminApp";
+import { PostServerData } from "../../types/Post";
+import { BuyersArrayObject, CollectibleDocData } from "../../types/Collectible";
+import { BalanceDocData } from "../../types/Wallet";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   BoughtCollectiblesArrayObject,
   SoldCollectiblesArrayObject,
 } from "../../types/Trade";
+import { NotificationData } from "@/types/Notifications";
+import { internalAPIRoutes, keys } from "../../config";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -365,7 +367,7 @@ async function updateCollectibleDoc(
     };
 
     await collectibleDocRef.update({
-      "buyers": FieldValue.arrayUnion(newBuyerObject),
+      buyers: FieldValue.arrayUnion(newBuyerObject),
       "stock.remainingStock": FieldValue.increment(-1),
     });
 
@@ -554,7 +556,7 @@ async function rollback(
         updateCollectibleDocResult.collectibleDocPath
       );
       await collectibleDocRef.update({
-        "buyers": FieldValue.arrayRemove(updateCollectibleDocResult.username),
+        buyers: FieldValue.arrayRemove(updateCollectibleDocResult.username),
         "stock.remainingStock": FieldValue.increment(1),
       });
     } catch (error) {
@@ -596,10 +598,69 @@ async function rollback(
   }
 }
 
+function createNotificationObject(
+  postDocPath: string,
+  price: number,
+  customer: string,
+  seller: string
+) {
+  const notificationObject: NotificationData = {
+    type: "collectibleBought",
+    params: {
+      collectiblePostDocPath: postDocPath,
+      currency: "USD",
+      price: price,
+    },
+    source: customer,
+    target: seller,
+    timestamp: Date.now(),
+  };
+
+  return notificationObject;
+}
+
+async function sendNotification(notificationObject: NotificationData) {
+  const notificationAPIKey = keys.NOTIFICATION_API_KEY;
+
+  if (!notificationAPIKey) {
+    console.error("Notification API key is undefined from config file.");
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      internalAPIRoutes.notification.sendNotification,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: notificationAPIKey,
+        },
+        body: JSON.stringify({
+          notificationData: notificationObject,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        "Notification API response is not okay: ",
+        await response.text()
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error while sending notification: ", error);
+    return false;
+  }
+}
+
 export const buyCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -770,6 +831,19 @@ export const buyCollectible = onRequest(
       );
       res.status(500).send("Internal Server Error");
       return;
+    }
+
+    const notificationObject = createNotificationObject(
+      postDocPath,
+      price,
+      username,
+      postData.senderUsername
+    );
+    const notificationResult = await sendNotification(notificationObject);
+    if (!notificationResult) {
+      console.error(
+        "Notification result is false on buying collectibe... See above logs. (non-fatal)."
+      );
     }
 
     res.status(200).send("Successsfull paymaent handled correctly.");

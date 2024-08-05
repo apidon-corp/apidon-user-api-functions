@@ -77,72 +77,6 @@ export type NotificationData =
   | {
       /**
        * Type of the notification.
-       * This notification indicates a frenlet creation action.
-       */
-      type: "frenletCreate";
-
-      /**
-       * Recipient of the notification.
-       */
-      target: string;
-
-      /**
-       * Sender of the notification.
-       */
-      source: string;
-
-      /**
-       * Timestamp of when the notification was sent.
-       */
-      timestamp: number;
-
-      /**
-       * Additional parameters related to the frenlet creation notification.
-       */
-      params: {
-        /**
-         * The document path of the created frenlet.
-         */
-        createdFrenletDocPath: string;
-        message: string;
-      };
-    }
-  | {
-      /**
-       * Type of the notification.
-       * This notification indicates a frenlet reply action.
-       */
-      type: "frenletReply";
-
-      /**
-       * Recipient of the notification.
-       */
-      target: string;
-
-      /**
-       * Sender of the notification.
-       */
-      source: string;
-
-      /**
-       * Timestamp of when the notification was sent.
-       */
-      timestamp: number;
-
-      /**
-       * Additional parameters related to the frenlet reply notification.
-       */
-      params: {
-        /**
-         * The document path of the replied frenlet.
-         */
-        repliedFrenletDocPath: string;
-        message: string;
-      };
-    }
-  | {
-      /**
-       * Type of the notification.
        * This notification indicates a post rating action.
        */
       type: "ratePost";
@@ -171,6 +105,40 @@ export type NotificationData =
          */
         ratedPostDocPath: string;
         rate: number;
+      };
+    }
+  | {
+      /**
+       * Type of the notification.
+       * This notification indicates a collectible bought action.
+       */
+      type: "collectibleBought";
+
+      /**
+       * Recipient of the notification.
+       */
+      target: string;
+
+      /**
+       * Sender of the notification.
+       */
+      source: string;
+
+      /**
+       * Timestamp of when the notification was sent.
+       */
+      timestamp: number;
+
+      /**
+       * Additional parameters related to the post rating notification.
+       */
+      params: {
+        /**
+         * The document path of the collected post.
+         */
+        collectiblePostDocPath: string;
+        price: number;
+        currency: "USD";
       };
     };
 
