@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../../firebase/adminApp";
-import { FieldValue as fieldValue } from "firebase-admin/firestore";
+import {firestore} from "../../../firebase/adminApp";
+import {FieldValue as fieldValue} from "firebase-admin/firestore";
 
 import {
   ExpoPushMessage,
@@ -9,7 +9,7 @@ import {
   NotificationDocData,
 } from "../../../types/Notifications";
 
-import { keys } from "../../../config";
+import {keys} from "../../../config";
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -161,7 +161,7 @@ async function sendPushNotification(
     const response = await fetch(route, {
       method: "POST",
       headers: {
-        Accept: "application/json",
+        "Accept": "application/json",
         "Content-Type": "application/json",
         "Accept-encoding": "gzip, deflate",
       },
@@ -190,9 +190,9 @@ async function sendPushNotification(
 }
 
 export const sendNotification = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
-  const { notificationData } = req.body;
+  const {notificationData} = req.body;
 
   const isAuthorized = handleAuthorization(authorization);
   if (!isAuthorized) {

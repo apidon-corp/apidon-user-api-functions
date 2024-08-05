@@ -1,19 +1,19 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/v2/https";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
-import { firestore } from "../../firebase/adminApp";
-import { PostServerData } from "../../types/Post";
-import { BuyersArrayObject, CollectibleDocData } from "../../types/Collectible";
-import { BalanceDocData } from "../../types/Wallet";
-import { FieldValue } from "firebase-admin/firestore";
+import {firestore} from "../../firebase/adminApp";
+import {PostServerData} from "../../types/Post";
+import {BuyersArrayObject, CollectibleDocData} from "../../types/Collectible";
+import {BalanceDocData} from "../../types/Wallet";
+import {FieldValue} from "firebase-admin/firestore";
 import {
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   BoughtCollectiblesArrayObject,
   SoldCollectiblesArrayObject,
 } from "../../types/Trade";
-import { NotificationData } from "@/types/Notifications";
-import { internalAPIRoutes, keys } from "../../config";
+import {NotificationData} from "@/types/Notifications";
+import {internalAPIRoutes, keys} from "../../config";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -367,7 +367,7 @@ async function updateCollectibleDoc(
     };
 
     await collectibleDocRef.update({
-      buyers: FieldValue.arrayUnion(newBuyerObject),
+      "buyers": FieldValue.arrayUnion(newBuyerObject),
       "stock.remainingStock": FieldValue.increment(-1),
     });
 
@@ -556,7 +556,7 @@ async function rollback(
         updateCollectibleDocResult.collectibleDocPath
       );
       await collectibleDocRef.update({
-        buyers: FieldValue.arrayRemove(updateCollectibleDocResult.username),
+        "buyers": FieldValue.arrayRemove(updateCollectibleDocResult.username),
         "stock.remainingStock": FieldValue.increment(1),
       });
     } catch (error) {
@@ -634,7 +634,7 @@ async function sendNotification(notificationObject: NotificationData) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -659,8 +659,8 @@ async function sendNotification(notificationObject: NotificationData) {
 
 export const buyCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
