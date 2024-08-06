@@ -1,9 +1,9 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
 import getDisplayName from "../../../helpers/getDisplayName";
-import {firestore} from "../../../firebase/adminApp";
+import { firestore } from "../../../firebase/adminApp";
 
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -22,23 +22,23 @@ function checkProps(notificationToken: string) {
   return true;
 }
 
-async function updateNotificationDoc(
+async function updateNotificationSettingsDoc(
   username: string,
   notificationToken: string
 ) {
   try {
-    const notificationDocRef = firestore.doc(
-      `/users/${username}/notifications/notifications`
+    const notificationSettingsDocRef = firestore.doc(
+      `/users/${username}/notifications/notificationSettings`
     );
 
-    await notificationDocRef.update({
+    await notificationSettingsDocRef.update({
       notificationToken: notificationToken,
     });
 
     return true;
   } catch (error) {
     console.error(
-      "Error while updating notification token for user: ",
+      "Error while updating notificationSettingsDoc token for user: ",
       username,
       "\nError: ",
       error
@@ -49,8 +49,8 @@ async function updateNotificationDoc(
 
 export const updateNotificationToken = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {notificationToken} = req.body;
+    const { authorization } = req.headers;
+    const { notificationToken } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -64,12 +64,10 @@ export const updateNotificationToken = onRequest(
       return;
     }
 
-    const updateNotificationDocResult = await updateNotificationDoc(
-      username,
-      notificationToken
-    );
+    const updateNotificationSettingsDocResult =
+      await updateNotificationSettingsDoc(username, notificationToken);
 
-    if (!updateNotificationDocResult) {
+    if (!updateNotificationSettingsDocResult) {
       res.status(422).send("Invalid Request");
       return;
     }
