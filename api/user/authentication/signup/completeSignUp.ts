@@ -1,11 +1,14 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
-import {auth, firestore} from "../../../../firebase/adminApp";
-import {WriteBatch} from "firebase-admin/firestore";
-import {UserInServer} from "../../../../types/User";
-import {CollectibleTradeDocData} from "../../../../types/Trade";
-import {NotificationDocData} from "../../../../types/Notifications";
-import {BalanceDocData} from "../../../../types/Wallet";
+import { onRequest } from "firebase-functions/v2/https";
+import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
+import { auth, firestore } from "../../../../firebase/adminApp";
+import { WriteBatch } from "firebase-admin/firestore";
+import { UserInServer } from "../../../../types/User";
+import { CollectibleTradeDocData } from "../../../../types/Trade";
+import {
+  NotificationDocData,
+  NotificationSettingsData,
+} from "../../../../types/Notifications";
+import { BalanceDocData } from "../../../../types/Wallet";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -72,7 +75,7 @@ async function checkUsername(username: string) {
 
 async function modifyingAuthObject(uid: string, username: string) {
   try {
-    await auth.updateUser(uid, {displayName: username});
+    await auth.updateUser(uid, { displayName: username });
     await auth.setCustomUserClaims(uid, {
       name: username,
       isValidAuthObject: true,
@@ -130,13 +133,24 @@ function createNotificationsDoc(batch: WriteBatch, username: string) {
   const notificationsDocData: NotificationDocData = {
     lastOpenedTime: Date.now(),
     notifications: [],
-    notificationToken: "",
   };
 
   const notificationsDocRef = firestore.doc(
     `users/${username}/notifications/notifications`
   );
   batch.set(notificationsDocRef, notificationsDocData);
+}
+
+function createNotificationSettingsDoc(batch: WriteBatch, username: string) {
+  const notificationSettingsDocData: NotificationSettingsData = {
+    notificationToken: "",
+  };
+
+  const notificationSettingsDocRef = firestore.doc(
+    `users/${username}/notifications/notificationSettings`
+  );
+
+  batch.set(notificationSettingsDocRef, notificationSettingsDocData);
 }
 
 function createPostInteractions(batch: WriteBatch, username: string) {
@@ -180,6 +194,7 @@ async function createUserOnFirestore(
     );
     createCollectibleTradeDoc(batch, username);
     createNotificationsDoc(batch, username);
+    createNotificationSettingsDoc(batch, username);
     createPostInteractions(batch, username);
     createBalanceDoc(batch, username);
 
@@ -209,8 +224,8 @@ async function rollBackAuthModification(uid: string) {
 
 export const completeSignUp = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {username, fullname} = req.body;
+    const { authorization } = req.headers;
+    const { username, fullname } = req.body;
 
     const authResult = await handleAuthorization(authorization);
     if (!authResult) {

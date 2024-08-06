@@ -1,7 +1,10 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
-import {firestore} from "../../firebase/adminApp";
-import {ExpoPushMessage, NotificationDocData} from "../../types/Notifications";
+import { onRequest } from "firebase-functions/v2/https";
+import { keys } from "../../config";
+import { firestore } from "../../firebase/adminApp";
+import {
+  ExpoPushMessage,
+  NotificationSettingsData,
+} from "../../types/Notifications";
 
 /**
  * Handles the authorization of incoming requests.
@@ -57,23 +60,29 @@ async function getAllUsers() {
 async function getNotificationToken(username: string) {
   try {
     const notificationDocRef = firestore.doc(
-      `users/${username}/notifications/notifications`
+      `users/${username}/notifications/notificationSettings`
     );
-    const notificationDocSnapshot = await notificationDocRef.get();
+    const notificationSettingsDocSnapshot = await notificationDocRef.get();
 
-    if (!notificationDocSnapshot.exists) {
-      console.error("Notification doc doesn't exist for user: ", username);
+    if (!notificationSettingsDocSnapshot.exists) {
+      console.error(
+        "Notification Settings doc doesn't exist for user: ",
+        username
+      );
       return false;
     }
 
-    const notificationDocData =
-      notificationDocSnapshot.data() as NotificationDocData;
-    if (!notificationDocData) {
-      console.error("Notification doc data doesn't exist for user: ", username);
+    const notificationSettingsDocData =
+      notificationSettingsDocSnapshot.data() as NotificationSettingsData;
+    if (!notificationSettingsDocData) {
+      console.error(
+        "Notification Settings doc data doesn't exist for user: ",
+        username
+      );
       return false;
     }
 
-    const notificationToken = notificationDocData.notificationToken;
+    const notificationToken = notificationSettingsDocData.notificationToken;
     if (!notificationToken) {
       console.error("Notification token doesn't exist for user: ", username);
       return false;
@@ -172,7 +181,7 @@ async function sendPushNotification(pushMessage: ExpoPushMessage) {
     const response = await fetch(route, {
       method: "POST",
       headers: {
-        "Accept": "application/json",
+        Accept: "application/json",
         "Content-Type": "application/json",
         "Accept-encoding": "gzip, deflate",
       },
@@ -229,8 +238,8 @@ async function sendPushNotificationsToAllUsers(
 }
 
 export const sendNotificationToAllUsers = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
-  const {title, description} = req.body;
+  const { authorization } = req.headers;
+  const { title, description } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

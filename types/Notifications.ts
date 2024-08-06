@@ -1,7 +1,6 @@
 export type NotificationDocData = {
   notifications: NotificationData[];
   lastOpenedTime: number;
-  notificationToken: string;
 };
 
 export type NotificationData =
@@ -165,4 +164,8 @@ export type ExpoPushMessage = {
   channelId?: string;
   categoryId?: string;
   mutableContent?: boolean;
+};
+
+export type NotificationSettingsData = {
+  notificationToken: string;
 };

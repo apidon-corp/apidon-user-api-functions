@@ -1,15 +1,16 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {firestore} from "../../../firebase/adminApp";
-import {FieldValue as fieldValue} from "firebase-admin/firestore";
+import { firestore } from "../../../firebase/adminApp";
+import { FieldValue as fieldValue } from "firebase-admin/firestore";
 
 import {
   ExpoPushMessage,
   NotificationData,
   NotificationDocData,
+  NotificationSettingsData,
 } from "../../../types/Notifications";
 
-import {keys} from "../../../config";
+import { keys } from "../../../config";
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -46,6 +47,37 @@ async function updateNotificationDocOfRecipient(
   }
 }
 
+async function getNotificationDocData(username: string) {
+  try {
+    const notificationDocSnapshot = await firestore
+      .doc(`/users/${username}/notifications/notifications`)
+      .get();
+
+    if (!notificationDocSnapshot.exists) {
+      console.error("Notification doc doesn't exist for user: ", username);
+      return false;
+    }
+
+    const notificationDocData =
+      notificationDocSnapshot.data() as NotificationDocData;
+
+    if (!notificationDocData) {
+      console.error("Notification doc data doesn't exist for user: ", username);
+      return false;
+    }
+
+    return notificationDocData;
+  } catch (error) {
+    console.error(
+      "Error while getting notification doc data for user: ",
+      username,
+      "\nError: ",
+      error
+    );
+    return false;
+  }
+}
+
 function badgeCountCalculate(notificationDocData: NotificationDocData) {
   return notificationDocData.notifications.reduce((acc, current) => {
     if (current.timestamp > notificationDocData.lastOpenedTime) {
@@ -64,20 +96,30 @@ async function getUserNotificationSettings(notificationData: NotificationData) {
   }
 
   try {
-    const notificationDocSnapshot = await firestore
-      .doc(`/users/${username}/notifications/notifications`)
-      .get();
+    const notificationDocRef = firestore.doc(
+      `users/${username}/notifications/notificationSettings`
+    );
+    const notificationSettingsDocSnapshot = await notificationDocRef.get();
 
-    if (!notificationDocSnapshot.exists) {
-      console.error("Notification doc doesn't exist for user: ", username);
+    if (!notificationSettingsDocSnapshot.exists) {
+      console.error(
+        "Notification Settings doc doesn't exist for user: ",
+        username
+      );
       return false;
     }
 
-    const notificationDocData =
-      notificationDocSnapshot.data() as NotificationDocData;
+    const notificationSettingsDocData =
+      notificationSettingsDocSnapshot.data() as NotificationSettingsData;
+    if (!notificationSettingsDocData) {
+      console.error(
+        "Notification Settings doc data doesn't exist for user: ",
+        username
+      );
+      return false;
+    }
 
-    const notificationToken = notificationDocData.notificationToken;
-
+    const notificationToken = notificationSettingsDocData.notificationToken;
     if (!notificationToken) {
       console.error("Notification token doesn't exist for user: ", username);
       return false;
@@ -85,7 +127,6 @@ async function getUserNotificationSettings(notificationData: NotificationData) {
 
     return {
       notificationToken: notificationToken,
-      badgeCount: badgeCountCalculate(notificationDocData),
     };
   } catch (error) {
     console.error(
@@ -161,7 +202,7 @@ async function sendPushNotification(
     const response = await fetch(route, {
       method: "POST",
       headers: {
-        "Accept": "application/json",
+        Accept: "application/json",
         "Content-Type": "application/json",
         "Accept-encoding": "gzip, deflate",
       },
@@ -190,9 +231,9 @@ async function sendPushNotification(
 }
 
 export const sendNotification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const { authorization } = req.headers;
 
-  const {notificationData} = req.body;
+  const { notificationData } = req.body;
 
   const isAuthorized = handleAuthorization(authorization);
   if (!isAuthorized) {
@@ -220,10 +261,19 @@ export const sendNotification = onRequest(async (req, res) => {
     return;
   }
 
+  const notificationDocData = await getNotificationDocData(
+    notificationData.target
+  );
+  if (!notificationDocData) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+  const badgeCount = badgeCountCalculate(notificationDocData);
+
   const sendPushNotificationResult = await sendPushNotification(
     notificationData,
     userNotificationSettings.notificationToken,
-    userNotificationSettings.badgeCount
+    badgeCount
   );
   if (!sendPushNotificationResult) {
     res.status(500).send("Internal Server Error");
