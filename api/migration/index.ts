@@ -1,2 +1,2 @@
-import { notificationTokenMigration } from "./NotificationTokenMigration";
-export { notificationTokenMigration };
+import {notificationTokenMigration} from "./NotificationTokenMigration";
+export {notificationTokenMigration};

@@ -1,6 +1,6 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
 import {
   ExpoPushMessage,
   NotificationSettingsData,
@@ -181,7 +181,7 @@ async function sendPushNotification(pushMessage: ExpoPushMessage) {
     const response = await fetch(route, {
       method: "POST",
       headers: {
-        Accept: "application/json",
+        "Accept": "application/json",
         "Content-Type": "application/json",
         "Accept-encoding": "gzip, deflate",
       },
@@ -238,8 +238,8 @@ async function sendPushNotificationsToAllUsers(
 }
 
 export const sendNotificationToAllUsers = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { title, description } = req.body;
+  const {authorization} = req.headers;
+  const {title, description} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

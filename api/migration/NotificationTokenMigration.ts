@@ -1,8 +1,8 @@
-import { keys } from "../../config";
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
-import { FieldValue, WriteBatch } from "firebase-admin/firestore";
-import { NotificationSettingsData } from "../../types/Notifications";
+import {keys} from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
+import {FieldValue, WriteBatch} from "firebase-admin/firestore";
+import {NotificationSettingsData} from "../../types/Notifications";
 
 /**
  * Handles the authorization of incoming requests.
@@ -139,7 +139,7 @@ async function updateAllUsers(
 }
 
 export const notificationTokenMigration = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
