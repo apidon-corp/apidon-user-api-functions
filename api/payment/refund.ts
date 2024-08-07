@@ -3,7 +3,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import {keys} from "../../config";
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
-import {PaymentIntentTopUpDocData} from "@/types/IAP";
+import {PaymentIntentTopUpDocData} from "../../types/IAP";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
