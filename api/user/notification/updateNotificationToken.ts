@@ -18,7 +18,12 @@ async function handleAuthorization(key: string | undefined) {
 }
 
 function checkProps(notificationToken: string) {
-  if (!notificationToken) return false;
+  if (notificationToken === undefined || notificationToken === null)
+    return false;
+
+  const typeOfToken = typeof notificationToken;
+  if (typeOfToken !== "string") return false;
+
   return true;
 }
 
