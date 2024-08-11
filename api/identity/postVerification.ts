@@ -1,13 +1,13 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { internalAPIRoutes, keys } from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {internalAPIRoutes, keys} from "../../config";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
 
 async function getEvent(payload: string | Buffer, signature: string) {
-  const web_hook_secret = keys.IDENTITY.POST_VERIFICATION_WEBHOOK_SECRET;
+  const webHookSecret = keys.IDENTITY.POST_VERIFICATION_WEBHOOK_SECRET;
 
-  if (!web_hook_secret) {
+  if (!webHookSecret) {
     console.error("Web Hook Secret is undefined from config");
     return false;
   }
@@ -16,7 +16,7 @@ async function getEvent(payload: string | Buffer, signature: string) {
     const event = await stripe.webhooks.constructEventAsync(
       payload,
       signature,
-      web_hook_secret
+      webHookSecret
     );
 
     return event;
@@ -30,7 +30,8 @@ async function handleSuccessfullVerification(
   username: string,
   id: string,
   created: number,
-  status: string
+  status: string,
+  livemode: boolean
 ) {
   const handleSuccessfulVerificationApiKey =
     keys.IDENTITY.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
@@ -42,9 +43,9 @@ async function handleSuccessfullVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: handleSuccessfulVerificationApiKey,
+          "authorization": handleSuccessfulVerificationApiKey,
         },
-        body: JSON.stringify({ username, id, created, status }),
+        body: JSON.stringify({username, id, created, status, livemode}),
       }
     );
 
@@ -92,7 +93,8 @@ export const postVerification = onRequest(async (req, res) => {
       event.data.object.metadata.username,
       event.data.object.id,
       event.data.object.created,
-      event.data.object.status
+      event.data.object.status,
+      event.data.object.livemode
     );
 
   if (!handleSuccessfullVerificationResult) {
@@ -101,7 +103,7 @@ export const postVerification = onRequest(async (req, res) => {
     return;
   }
 
-  event.data.object.status == "verified"
+  event.data.object.status == "verified";
 
   res.status(200).send("OK");
 

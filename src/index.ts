@@ -5,7 +5,7 @@ import * as post from "../api/post";
 import * as payment from "../api/payment";
 import * as adminNotifications from "../api/adminNotifications";
 import * as migration from "../api/migration";
-import * as identity from "../api/identity"
+import * as identity from "../api/identity";
 
 export {feed};
 export {user};

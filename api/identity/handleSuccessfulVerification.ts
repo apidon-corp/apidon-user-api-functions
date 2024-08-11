@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
-import { UserIdentityDoc } from "../../types/Identity";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {UserIdentityDoc} from "../../types/Identity";
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -28,7 +28,8 @@ async function updateUserIdentitynDoc(
   username: string,
   id: string,
   created: number,
-  status: UserIdentityDoc["status"]
+  status: UserIdentityDoc["status"],
+  livemode: boolean
 ) {
   const identityDocRef = firestore.doc(`users/${username}/personal/identity`);
 
@@ -36,6 +37,7 @@ async function updateUserIdentitynDoc(
     id,
     created,
     status,
+    livemode,
   };
 
   try {
@@ -49,9 +51,9 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleSuccessfulVerification = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
-  const { username, id, created, status } = req.body;
+  const {username, id, created, status, livemode} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -68,7 +70,8 @@ export const handleSuccessfulVerification = onRequest(async (req, res) => {
     username,
     id,
     created,
-    status
+    status,
+    livemode
   );
   if (!updateUserIdentitynDocResult) {
     res.status(500).send("Internal Server Error");

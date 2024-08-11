@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/v2/https";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
 
 import Stripe from "stripe";
-import { keys } from "../../config";
+import {keys} from "../../config";
 const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
 
 async function handleAuthorization(key: string | undefined) {
@@ -47,8 +47,8 @@ async function createEphermalKey(
 ) {
   try {
     const ephemeralKey = await stripe.ephemeralKeys.create(
-      { verification_session: verificationSession.id },
-      { apiVersion: "2024-06-20" }
+      {verification_session: verificationSession.id},
+      {apiVersion: "2024-06-20"}
     );
 
     return ephemeralKey;
@@ -60,7 +60,7 @@ async function createEphermalKey(
 
 export const createVerificationSession = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
+    const {authorization} = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
