@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
-import { UserIdentityDoc } from "../../types/Identity";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {UserIdentityDoc} from "../../types/Identity";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.IDENTITY.STRIPE_RESTRICTED_API_KEY);
@@ -52,37 +52,71 @@ async function getIdentityDetails(
         }
       );
 
-    console.log("Verification Session: ", verificationSession);
+    const lastVerificationReport = verificationSession.last_verification_report;
+
+    if (!lastVerificationReport) {
+      console.error(
+        "No lastVerificationReport found from verification session"
+      );
+      return false;
+    }
+
+    if (typeof lastVerificationReport === "string") {
+      console.error("lastVerificationReport is a string");
+      return false;
+    }
+
+    const verificationReportId = lastVerificationReport.id;
+
+    const documentData = lastVerificationReport.document;
+
+    if (!documentData) {
+      console.error("No document data found");
+      return false;
+    }
+
+    const firstName = documentData.first_name || "";
+    const lastName = documentData.last_name || "";
+    const idNumber = documentData.number || "";
+    const type = documentData.type || "";
+    const issuingCountry = documentData.issuing_country || "";
 
     const verifiedOutputs = verificationSession.verified_outputs;
 
     if (!verifiedOutputs) {
-      console.error("No verified outputs");
+      console.error("No verified outputs found");
       return false;
     }
 
-    const firstName = verifiedOutputs.first_name || "";
-    const lastName = verifiedOutputs.last_name || "";
-    const dateOfBirth =
-      `${verifiedOutputs.dob?.day}-${verifiedOutputs.dob?.month}-${verifiedOutputs.dob?.year}` ||
-      "";
-    const idNumber = verifiedOutputs.id_number || "";
+    const dob = verifiedOutputs.dob;
+    if (!dob) {
+      console.error("No dob found");
+      return false;
+    }
 
-    if (!firstName || !lastName || !dateOfBirth) {
+    const dateOfBirth = `${dob.day}-${dob.month}-${dob.year}` || "";
+
+    if (
+      !verificationReportId ||
+      !firstName ||
+      !lastName ||
+      !idNumber ||
+      !type ||
+      !issuingCountry ||
+      !dateOfBirth
+    ) {
       console.error("Missing verified outputs");
       return false;
     }
 
-    if (isLiveMode && !idNumber) {
-      console.error("Missing id number on live mode.");
-      return false;
-    }
-
     return {
+      verificationReportId,
       firstName,
       lastName,
-      dateOfBirth,
       idNumber,
+      type,
+      issuingCountry,
+      dateOfBirth,
     };
   } catch (error) {
     console.error("Error on retrieving verification session.", error);
@@ -95,10 +129,13 @@ async function updateUserIdentitynDoc(
   id: string,
   created: number,
   livemode: boolean,
+  verificationReportId: string,
   firstName: string,
   lastName: string,
-  dateOfBirth: string,
-  idNumber: string
+  idNumber: string,
+  type: string,
+  issuingCountry: string,
+  dateOfBirth: string
 ) {
   const identityDocRef = firestore.doc(`users/${username}/personal/identity`);
 
@@ -107,10 +144,13 @@ async function updateUserIdentitynDoc(
     created,
     status: "verified",
     livemode,
+    verificationReportId,
     firstName,
     lastName,
-    dateOfBirth,
     idNumber,
+    type,
+    issuingCountry,
+    dateOfBirth,
   };
 
   try {
@@ -124,9 +164,9 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleSuccessfulVerification = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
-  const { username, id, created, status, livemode } = req.body;
+  const {username, id, created, status, livemode} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -150,10 +190,13 @@ export const handleSuccessfulVerification = onRequest(async (req, res) => {
     id,
     created,
     livemode,
+    identityDetails.verificationReportId,
     identityDetails.firstName,
     identityDetails.lastName,
-    identityDetails.dateOfBirth,
-    identityDetails.idNumber
+    identityDetails.idNumber,
+    identityDetails.type,
+    identityDetails.issuingCountry,
+    identityDetails.dateOfBirth
   );
   if (!updateUserIdentitynDocResult) {
     res.status(500).send("Internal Server Error");

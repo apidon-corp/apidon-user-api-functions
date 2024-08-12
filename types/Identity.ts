@@ -2,7 +2,7 @@ export type UserIdentityDoc =
   | {
       id: string;
       created: number;
-      status: "canceled" | "processing" | "requires_input" | "verified";
+      status: "canceled" | "processing" | "requires_input";
       livemode: boolean;
     }
   | {
@@ -10,8 +10,11 @@ export type UserIdentityDoc =
       created: number;
       status: "verified";
       livemode: boolean;
+      verificationReportId: string;
       firstName: string;
       lastName: string;
-      dateOfBirth: string;
       idNumber: string;
+      type: string;
+      issuingCountry: string;
+      dateOfBirth: string;
     };

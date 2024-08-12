@@ -33,6 +33,11 @@ async function updateUserIdentitynDoc(
   status: UserIdentityDoc["status"],
   livemode: boolean
 ) {
+  if (status === "verified") {
+    console.error("User identity is already verified.");
+    return false;
+  }
+
   const identityDocRef = firestore.doc(`users/${username}/personal/identity`);
 
   const data: UserIdentityDoc = {
