@@ -2,7 +2,10 @@ import {onRequest} from "firebase-functions/v2/https";
 import {internalAPIRoutes, keys} from "../../config";
 
 import Stripe from "stripe";
+import AsyncLock = require("async-lock");
 const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
+
+const lock = new AsyncLock();
 
 async function getEvent(payload: string | Buffer, signature: string) {
   const webHookSecret = keys.IDENTITY.POST_VERIFICATION_WEBHOOK_SECRET;
@@ -205,85 +208,121 @@ export const postVerification = onRequest(async (req, res) => {
     return;
   }
 
-  if (event.type === "identity.verification_session.created") {
-    const handleCreatedVerificationResult = await handleCreatedVerification(
-      event.data.object.metadata.username,
-      event.data.object.id,
-      event.data.object.created,
-      event.data.object.status,
-      event.data.object.livemode
+  if (
+    event.type !== "identity.verification_session.created" &&
+    event.type !== "identity.verification_session.processing" &&
+    event.type !== "identity.verification_session.verified" &&
+    event.type !== "identity.verification_session.requires_input"
+  ) {
+    res.status(422).send("Invalid Request");
+    return;
+  }
+
+  const username = event.data.object.metadata.username || "";
+
+  if (!username) {
+    console.error("Username is undefined");
+    res.status(422).send("Invalid Request");
+    return;
+  }
+
+  try {
+    await lock.acquire(username, async () => {
+      if (event.type === "identity.verification_session.created") {
+        const handleCreatedVerificationResult = await handleCreatedVerification(
+          event.data.object.metadata.username,
+          event.data.object.id,
+          event.data.object.created,
+          event.data.object.status,
+          event.data.object.livemode
+        );
+
+        if (!handleCreatedVerificationResult) {
+          console.error("handleCreatedVerification failed. See above logs.");
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+
+        res.status(200).send("OK");
+        return;
+      }
+
+      if (event.type === "identity.verification_session.processing") {
+        const handleProcessingVerificationResult =
+          await handleProcessingVerification(
+            event.data.object.metadata.username,
+            event.data.object.id,
+            event.data.object.created,
+            event.data.object.status,
+            event.data.object.livemode
+          );
+
+        if (!handleProcessingVerificationResult) {
+          console.error("handleProcessingVerification failed. See above logs.");
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+        res.status(200).send("OK");
+        return;
+      }
+
+      if (event.type === "identity.verification_session.verified") {
+        const handleSuccessfullVerificationResult =
+          await handleSuccessfullVerification(
+            event.data.object.metadata.username,
+            event.data.object.id,
+            event.data.object.created,
+            event.data.object.status,
+            event.data.object.livemode
+          );
+
+        if (!handleSuccessfullVerificationResult) {
+          console.error(
+            "handleSuccessfullVerification failed. See above logs."
+          );
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+
+        res.status(200).send("OK");
+        return;
+      }
+
+      if (event.type === "identity.verification_session.requires_input") {
+        const handleReuqiresInputVerificationResult =
+          await handleReuqiresInputVerification(
+            event.data.object.metadata.username,
+            event.data.object.id,
+            event.data.object.created,
+            event.data.object.status,
+            event.data.object.livemode
+          );
+
+        if (!handleReuqiresInputVerificationResult) {
+          console.error(
+            "handleReuqiresInputVerification failed. See above logs."
+          );
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+
+        res.status(200).send("OK");
+        return;
+      }
+
+      console.error("Unknown event type");
+      res.status(422).send("Invalid Request");
+      return;
+    });
+
+    console.error(
+      "postVerification API is not returned a response on try-catch with async-lock."
     );
-
-    if (!handleCreatedVerificationResult) {
-      console.error("handleCreatedVerification failed. See above logs.");
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    res.status(200).send("OK");
+    res.status(500).send("Internal Server Error");
+    return;
+  } catch (error) {
+    console.error("Lock error: ", error);
+    res.status(500).send("Internal Server Error");
     return;
   }
-
-  if (event.type === "identity.verification_session.processing") {
-    const handleProcessingVerificationResult =
-      await handleProcessingVerification(
-        event.data.object.metadata.username,
-        event.data.object.id,
-        event.data.object.created,
-        event.data.object.status,
-        event.data.object.livemode
-      );
-
-    if (!handleProcessingVerificationResult) {
-      console.error("handleProcessingVerification failed. See above logs.");
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-    res.status(200).send("OK");
-    return;
-  }
-
-  if (event.type === "identity.verification_session.verified") {
-    const handleSuccessfullVerificationResult =
-      await handleSuccessfullVerification(
-        event.data.object.metadata.username,
-        event.data.object.id,
-        event.data.object.created,
-        event.data.object.status,
-        event.data.object.livemode
-      );
-
-    if (!handleSuccessfullVerificationResult) {
-      console.error("handleSuccessfullVerification failed. See above logs.");
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    res.status(200).send("OK");
-    return;
-  }
-
-  if (event.type === "identity.verification_session.requires_input") {
-    const handleReuqiresInputVerificationResult =
-      await handleReuqiresInputVerification(
-        event.data.object.metadata.username,
-        event.data.object.id,
-        event.data.object.created,
-        event.data.object.status,
-        event.data.object.livemode
-      );
-
-    if (!handleReuqiresInputVerificationResult) {
-      console.error("handleReuqiresInputVerification failed. See above logs.");
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    res.status(200).send("OK");
-    return;
-  }
-
-  console.error("Unhandled event type: ", event.type);
-  res.status(500).send("Internal Server Error");
-  return;
 });
