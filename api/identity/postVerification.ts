@@ -1,5 +1,5 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { internalAPIRoutes, keys } from "../../config";
+import {onRequest} from "firebase-functions/v2/https";
+import {internalAPIRoutes, keys} from "../../config";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
@@ -47,9 +47,9 @@ async function handleCreatedVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: handleCreatedVerificationApiKey,
+          "authorization": handleCreatedVerificationApiKey,
         },
-        body: JSON.stringify({ username, id, created, status, livemode }),
+        body: JSON.stringify({username, id, created, status, livemode}),
       }
     );
 
@@ -88,9 +88,9 @@ async function handleProcessingVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: handleProcessingVerificationApiKey,
+          "authorization": handleProcessingVerificationApiKey,
         },
-        body: JSON.stringify({ username, id, created, status, livemode }),
+        body: JSON.stringify({username, id, created, status, livemode}),
       }
     );
 
@@ -129,9 +129,9 @@ async function handleSuccessfullVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: handleSuccessfulVerificationApiKey,
+          "authorization": handleSuccessfulVerificationApiKey,
         },
-        body: JSON.stringify({ username, id, created, status, livemode }),
+        body: JSON.stringify({username, id, created, status, livemode}),
       }
     );
 
@@ -170,9 +170,9 @@ async function handleReuqiresInputVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: handleReuqiresInputVerificationApiKey,
+          "authorization": handleReuqiresInputVerificationApiKey,
         },
-        body: JSON.stringify({ username, id, created, status, livemode }),
+        body: JSON.stringify({username, id, created, status, livemode}),
       }
     );
 

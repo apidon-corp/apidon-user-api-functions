@@ -4,7 +4,7 @@ import {firestore} from "../../firebase/adminApp";
 import {UserIdentityDoc} from "../../types/Identity";
 
 import Stripe from "stripe";
-const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
+const stripe = new Stripe(keys.IDENTITY.STRIPE_RESTRICTED_API_KEY);
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -42,8 +42,7 @@ async function getIdentityDetails(verificationSessionId: string) {
         verificationSessionId,
         {
           expand: [
-            "verified_outputs.first_name",
-            "verified_outputs_last_name",
+            "verified_outputs",
             "verified_outputs.dob",
             "verified_outputs.id_number",
           ],
