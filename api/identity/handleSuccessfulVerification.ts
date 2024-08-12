@@ -1,7 +1,7 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
-import {firestore} from "../../firebase/adminApp";
-import {UserIdentityDoc} from "../../types/Identity";
+import { onRequest } from "firebase-functions/v2/https";
+import { keys } from "../../config";
+import { firestore } from "../../firebase/adminApp";
+import { UserIdentityDoc } from "../../types/Identity";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.IDENTITY.STRIPE_RESTRICTED_API_KEY);
@@ -35,16 +35,19 @@ function checkProps(
   return true;
 }
 
-async function getIdentityDetails(verificationSessionId: string) {
+async function getIdentityDetails(
+  verificationSessionId: string,
+  isLiveMode: boolean
+) {
   try {
     const verificationSession =
       await stripe.identity.verificationSessions.retrieve(
         verificationSessionId,
         {
           expand: [
-            "verified_outputs",
             "verified_outputs.dob",
             "verified_outputs.id_number",
+            "last_verification_report.document.number",
           ],
         }
       );
@@ -60,11 +63,18 @@ async function getIdentityDetails(verificationSessionId: string) {
 
     const firstName = verifiedOutputs.first_name || "";
     const lastName = verifiedOutputs.last_name || "";
-    const dateOfBirth = verifiedOutputs.dob?.year || 0;
+    const dateOfBirth =
+      `${verifiedOutputs.dob?.day}-${verifiedOutputs.dob?.month}-${verifiedOutputs.dob?.year}` ||
+      "";
     const idNumber = verifiedOutputs.id_number || "";
 
-    if (!firstName || !lastName || !dateOfBirth || !idNumber) {
+    if (!firstName || !lastName || !dateOfBirth) {
       console.error("Missing verified outputs");
+      return false;
+    }
+
+    if (isLiveMode && !idNumber) {
+      console.error("Missing id number on live mode.");
       return false;
     }
 
@@ -87,7 +97,7 @@ async function updateUserIdentitynDoc(
   livemode: boolean,
   firstName: string,
   lastName: string,
-  dateOfBirth: number,
+  dateOfBirth: string,
   idNumber: string
 ) {
   const identityDocRef = firestore.doc(`users/${username}/personal/identity`);
@@ -114,9 +124,9 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleSuccessfulVerification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const { authorization } = req.headers;
 
-  const {username, id, created, status, livemode} = req.body;
+  const { username, id, created, status, livemode } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -129,7 +139,7 @@ export const handleSuccessfulVerification = onRequest(async (req, res) => {
     return;
   }
 
-  const identityDetails = await getIdentityDetails(id);
+  const identityDetails = await getIdentityDetails(id, livemode);
   if (!identityDetails) {
     res.status(500).send("Internal Server Error");
     return;

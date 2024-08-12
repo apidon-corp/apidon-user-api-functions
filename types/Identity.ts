@@ -12,6 +12,6 @@ export type UserIdentityDoc =
       livemode: boolean;
       firstName: string;
       lastName: string;
-      dateOfBirth: number;
+      dateOfBirth: string;
       idNumber: string;
     };
