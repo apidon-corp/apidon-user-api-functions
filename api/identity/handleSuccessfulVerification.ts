@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
-import { UserIdentityDoc } from "../../types/Identity";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {UserIdentityDoc} from "../../types/Identity";
 
 import Stripe from "stripe";
 const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
@@ -115,9 +115,9 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleSuccessfulVerification = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
-  const { username, id, created, status, livemode } = req.body;
+  const {username, id, created, status, livemode} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
