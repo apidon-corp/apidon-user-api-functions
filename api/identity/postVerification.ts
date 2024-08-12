@@ -2,8 +2,10 @@ import {onRequest} from "firebase-functions/v2/https";
 import {internalAPIRoutes, keys} from "../../config";
 
 import Stripe from "stripe";
-import AsyncLock = require("async-lock");
 const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
+
+import AsyncLock = require("async-lock");
+
 
 const lock = new AsyncLock();
 
@@ -275,6 +277,8 @@ export const postVerification = onRequest(async (req, res) => {
             event.data.object.status,
             event.data.object.livemode
           );
+
+
 
         if (!handleSuccessfullVerificationResult) {
           console.error(

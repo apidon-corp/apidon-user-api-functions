@@ -1,7 +1,10 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
-import {firestore} from "../../firebase/adminApp";
-import {UserIdentityDoc} from "../../types/Identity";
+import { onRequest } from "firebase-functions/v2/https";
+import { keys } from "../../config";
+import { firestore } from "../../firebase/adminApp";
+import { UserIdentityDoc } from "../../types/Identity";
+
+import Stripe from "stripe";
+const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -21,23 +24,84 @@ function checkProps(
   if (!username || !id || !created || !status) {
     return false;
   }
+
+  if (status !== "verified") {
+    console.error(
+      "Status is not verified. But a request came to handleSuccessfulVerification API."
+    );
+    return false;
+  }
+
   return true;
+}
+
+async function getIdentityDetails(verificationSessionId: string) {
+  try {
+    const verificationSession =
+      await stripe.identity.verificationSessions.retrieve(
+        verificationSessionId,
+        {
+          expand: [
+            "verified_outputs.first_name",
+            "verified_outputs_last_name",
+            "verified_outputs.dob",
+            "verified_outputs.id_number",
+          ],
+        }
+      );
+
+    console.log("Verification Session: ", verificationSession);
+
+    const verifiedOutputs = verificationSession.verified_outputs;
+
+    if (!verifiedOutputs) {
+      console.error("No verified outputs");
+      return false;
+    }
+
+    const firstName = verifiedOutputs.first_name || "";
+    const lastName = verifiedOutputs.last_name || "";
+    const dateOfBirth = verifiedOutputs.dob?.year || 0;
+    const idNumber = verifiedOutputs.id_number || "";
+
+    if (!firstName || !lastName || !dateOfBirth || !idNumber) {
+      console.error("Missing verified outputs");
+      return false;
+    }
+
+    return {
+      firstName,
+      lastName,
+      dateOfBirth,
+      idNumber,
+    };
+  } catch (error) {
+    console.error("Error on retrieving verification session.", error);
+    return false;
+  }
 }
 
 async function updateUserIdentitynDoc(
   username: string,
   id: string,
   created: number,
-  status: UserIdentityDoc["status"],
-  livemode: boolean
+  livemode: boolean,
+  firstName: string,
+  lastName: string,
+  dateOfBirth: number,
+  idNumber: string
 ) {
   const identityDocRef = firestore.doc(`users/${username}/personal/identity`);
 
   const data: UserIdentityDoc = {
     id,
     created,
-    status,
+    status: "verified",
     livemode,
+    firstName,
+    lastName,
+    dateOfBirth,
+    idNumber,
   };
 
   try {
@@ -51,9 +115,9 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleSuccessfulVerification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const { authorization } = req.headers;
 
-  const {username, id, created, status, livemode} = req.body;
+  const { username, id, created, status, livemode } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -66,12 +130,21 @@ export const handleSuccessfulVerification = onRequest(async (req, res) => {
     return;
   }
 
+  const identityDetails = await getIdentityDetails(id);
+  if (!identityDetails) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
   const updateUserIdentitynDocResult = await updateUserIdentitynDoc(
     username,
     id,
     created,
-    status,
-    livemode
+    livemode,
+    identityDetails.firstName,
+    identityDetails.lastName,
+    identityDetails.dateOfBirth,
+    identityDetails.idNumber
   );
   if (!updateUserIdentitynDocResult) {
     res.status(500).send("Internal Server Error");
