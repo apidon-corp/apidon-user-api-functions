@@ -1,5 +1,5 @@
-import { DecodedIdToken } from "firebase-admin/auth";
-import { auth } from "../firebase/adminApp";
+import {DecodedIdToken} from "firebase-admin/auth";
+import {auth} from "../firebase/adminApp";
 
 async function checkAccountDisabled(uid: string) {
   try {
