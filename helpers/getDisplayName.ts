@@ -1,6 +1,16 @@
 import {DecodedIdToken} from "firebase-admin/auth";
 import {auth} from "../firebase/adminApp";
 
+async function checkAccountDisabled(uid: string) {
+  try {
+    const userRecord = await auth.getUser(uid);
+    return userRecord.disabled;
+  } catch (error) {
+    console.error("Error checking account status.", error);
+    return true;
+  }
+}
+
 /**
  * Get the display name of a user from the authorization token.
  * @param authorization - The authorization header containing the Bearer token.
@@ -26,6 +36,12 @@ export default async function getDisplayName(authorization: string) {
 
   if (!username) {
     console.error("User has no display name.");
+    return "";
+  }
+
+  const disabled = await checkAccountDisabled(decodedToken.uid);
+  if (disabled) {
+    console.error("User account is disabled: ", username);
     return "";
   }
 

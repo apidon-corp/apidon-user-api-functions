@@ -14,6 +14,7 @@ import {
 } from "../../types/Trade";
 import {NotificationData} from "@/types/Notifications";
 import {internalAPIRoutes, keys} from "../../config";
+import {UserIdentityDoc} from "@/types/Identity";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -43,6 +44,41 @@ function checkProps(postDocPath: string) {
     return false;
   }
   return true;
+}
+
+async function checkIdentityStatusOfCustomer(username: string) {
+  try {
+    const identityDocSnapshot = await firestore
+      .doc(`users/${username}/personal/identity`)
+      .get();
+
+    if (!identityDocSnapshot.exists) {
+      console.warn(`Identity doc does not exist for ${username}`);
+      return false;
+    }
+
+    const identityDocData = identityDocSnapshot.data() as UserIdentityDoc;
+
+    if (!identityDocData) {
+      console.error(`Identity doc data is undefined for ${username}`);
+      return false;
+    }
+
+    const status = identityDocData.status;
+
+    if (status !== "verified") {
+      console.error(`Identity status is not verified for ${username}`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(
+      `Error while checking identity status for ${username}`,
+      error
+    );
+    return false;
+  }
 }
 
 /**
@@ -671,6 +707,12 @@ export const buyCollectible = onRequest(
     const checkPropsResult = checkProps(postDocPath);
     if (!checkPropsResult) {
       res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const isIdentityVerified = await checkIdentityStatusOfCustomer(username);
+    if (!isIdentityVerified) {
+      res.status(403).send("Forbidden");
       return;
     }
 

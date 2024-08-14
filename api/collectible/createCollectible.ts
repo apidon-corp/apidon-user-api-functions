@@ -21,6 +21,20 @@ async function handleAuthorization(key: string | undefined) {
 
 function checkProps(postDocPath: string, price: number, stock: number) {
   if (!postDocPath || !price || !stock) return false;
+
+  const priceInInt = parseInt(price.toString());
+
+  if (isNaN(priceInInt)) {
+    console.error("Price is not a number");
+    return false;
+  }
+
+  const stockInt = parseInt(stock.toString());
+  if (isNaN(stockInt)) {
+    console.error("Stock is not a number");
+    return false;
+  }
+
   return true;
 }
 
@@ -75,13 +89,25 @@ async function createCollectibleDoc(
 ) {
   const newId = username + "-" + timestamp.toString();
 
+  const priceInInt = parseInt(price.toString());
+  if (isNaN(priceInInt)) {
+    console.error("Price is not a number");
+    return false;
+  }
+
+  const stockInt = parseInt(stock.toString());
+  if (isNaN(stockInt)) {
+    console.error("Stock is not a number");
+    return false;
+  }
+
   const newCollectibleData: CollectibleDocData = {
     postDocPath: postDocPath,
     buyers: [],
     creator: username,
     id: newId,
     price: {
-      price: price,
+      price: priceInInt,
       currency: "USD",
     },
     stock: {
@@ -141,9 +167,7 @@ async function updateTradeDoc(
   };
 
   try {
-    const tradeDocRef = firestore.doc(
-      `users/${username}/collectible/trade`
-    );
+    const tradeDocRef = firestore.doc(`users/${username}/collectible/trade`);
 
     await tradeDocRef.update({
       createdCollectibles: FieldValue.arrayUnion(
