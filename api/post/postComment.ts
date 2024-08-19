@@ -4,7 +4,7 @@ import getDisplayName from "../../helpers/getDisplayName";
 import {
   CommentDataV2,
   CommentInteractionData,
-  PostServerDataV3,
+  PostServerData,
 } from "../../types/Post";
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
@@ -123,7 +123,7 @@ async function getPostSender(postDocPath: string) {
     const postDocSnapshot = await firestore.doc(postDocPath).get();
     if (!postDocSnapshot.exists) return false;
 
-    const postDocData = postDocSnapshot.data() as PostServerDataV3;
+    const postDocData = postDocSnapshot.data() as PostServerData;
     if (!postDocData) return false;
 
     const postSender = postDocData.senderUsername;

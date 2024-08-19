@@ -3,7 +3,7 @@ import getDisplayName from "../../helpers/getDisplayName";
 import {
   CommentDataV2,
   CommentInteractionData,
-  PostServerDataV3,
+  PostServerData
 } from "../../types/Post";
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
@@ -45,7 +45,7 @@ async function checkCanDeleteComment(
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerDataV3;
+    const postDocData = postDocSnapshot.data() as PostServerData;
     if (!postDocData) {
       console.error("Post doc data is undefined");
       return false;
