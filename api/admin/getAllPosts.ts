@@ -1,10 +1,12 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
 
-import { PostsDocData, PostServerData } from "../../types/Post";
-import { PostReviewData } from "../../types/Admin";
+import {PostsDocData, PostServerData} from "../../types/Post";
+import {PostReviewData} from "../../types/Admin";
+
+import * as express from "express";
 
 /**
  * Handles the authorization of incoming requests.
@@ -22,7 +24,7 @@ function handleAuthorization(authorization: string | undefined) {
 
 async function getPostDocPaths() {
   try {
-    const postsDocSnapshot = await firestore.doc(`/posts/posts`).get();
+    const postsDocSnapshot = await firestore.doc("/posts/posts").get();
 
     if (!postsDocSnapshot.exists) {
       console.error("Posts document does not exist");
@@ -100,8 +102,24 @@ function createPostReviewDatas(postDocDatas: PostServerData[]) {
   return postReviewDatas;
 }
 
+/**
+ * Handling CORS.
+ * @param res
+ */
+function setCorsHeaders(res: express.Response) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+}
+
 export const getAllPosts = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  setCorsHeaders(res);
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+
+  const {authorization} = req.headers;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

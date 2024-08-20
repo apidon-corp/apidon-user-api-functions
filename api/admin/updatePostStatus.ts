@@ -1,9 +1,11 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
 
-import { ReviewStatus } from "../../types/Admin";
+import {ReviewStatus} from "../../types/Admin";
+
+import * as express from "express";
 
 /**
  * Handles the authorization of incoming requests.
@@ -88,9 +90,25 @@ async function updatePostReviewStatus(
   }
 }
 
+/**
+ * Handling CORS.
+ * @param res
+ */
+function setCorsHeaders(res: express.Response) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+}
+
 export const updatePostStatus = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { id, senderUsername, reviewStatus } = req.body;
+  setCorsHeaders(res);
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+
+  const {authorization} = req.headers;
+  const {id, senderUsername, reviewStatus} = req.body;
 
   const authResult = handleAuthorization(authorization);
 

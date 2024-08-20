@@ -3,7 +3,7 @@ import getDisplayName from "../../helpers/getDisplayName";
 import {
   CommentDataV2,
   CommentInteractionData,
-  PostServerData
+  PostServerData,
 } from "../../types/Post";
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
