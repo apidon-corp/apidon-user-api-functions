@@ -26,6 +26,15 @@ export type RevenueCatNotificationPayload = {
   price: number;
   price_in_purchased_currency: number;
   currency: string;
+  period_type: string;
+  purchased_at_ms: number;
+  expiration_at_ms: number;
+  store: string;
+  environment: string;
+  cancel_reason: string;
+  expiration_reason: string;
+  country_code: string;
+  offer_code: string | null;
 };
 
 export type PaymentIntentTopUpDocData = {

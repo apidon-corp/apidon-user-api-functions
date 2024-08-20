@@ -1,6 +1,7 @@
 import {internalAPIRoutes, keys} from "../../config";
 import {onRequest} from "firebase-functions/v2/https";
 import {RevenueCatNotificationPayload} from "../../types/IAP";
+import {subscriptionIdS} from "../../types/Subscriptions";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -53,6 +54,16 @@ async function handleSuccessfullPayment(
 }
 
 async function handleRefund(payload: RevenueCatNotificationPayload) {
+  // If refund or cancellation came from a subscription, we will do nothing.
+  // We will wait "expiration" hook.
+
+  const productId = payload.product_id;
+
+  if (subscriptionIdS.includes(productId)) {
+    console.log("Refund or cancellation is related to a subscription");
+    return true;
+  }
+
   const refundApiRoute = internalAPIRoutes.payment.refund;
   const refundApiKey = keys.REFUND_API_AUTH_KEY;
 
@@ -88,6 +99,146 @@ async function handleRefund(payload: RevenueCatNotificationPayload) {
   }
 }
 
+async function handleInitialPurchase(payload: RevenueCatNotificationPayload) {
+  const initialPurchaseAPIRoute =
+    internalAPIRoutes.payment.successOnInitialPurchase;
+  const initialPurchaseAPIKey = keys.SUBSCRIPTIONS.INITIAL_PURHCASE_API_KEY;
+
+  if (!initialPurchaseAPIKey || !initialPurchaseAPIRoute) {
+    console.error("Initial purchase API key or route is missing");
+    return false;
+  }
+
+  try {
+    const response = await fetch(initialPurchaseAPIRoute, {
+      headers: {
+        "authorization": initialPurchaseAPIKey,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify({
+        productId: payload.product_id,
+        periodType: payload.period_type,
+        purchasedTs: payload.purchased_at_ms,
+        expirationTs: payload.expiration_at_ms,
+        store: payload.store,
+        environment: payload.environment,
+        countryCode: payload.country_code,
+        customerId: payload.app_user_id,
+        transactionId: payload.transaction_id,
+        offerCode: payload.offer_code || "",
+        ts: payload.event_timestamp_ms,
+        price: payload.price,
+        priceInPurchasedCurrency: payload.price_in_purchased_currency,
+        currency: payload.currency,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Response from initialPurchase API is not okay: ",
+        await response.text()
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending initial purchase notification:", error);
+    return false;
+  }
+}
+
+async function handleRenewal(payload: RevenueCatNotificationPayload) {
+  const renewalAPIRoute = internalAPIRoutes.payment.successOnRenewal;
+  const renewalAPIKey = keys.SUBSCRIPTIONS.RENEWAL_API_KEY;
+
+  try {
+    const response = await fetch(renewalAPIRoute, {
+      headers: {
+        "authorization": renewalAPIKey,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify({
+        productId: payload.product_id,
+        periodType: payload.period_type,
+        purchasedTs: payload.purchased_at_ms,
+        expirationTs: payload.expiration_at_ms,
+        store: payload.store,
+        environment: payload.environment,
+        countryCode: payload.country_code,
+        customerId: payload.app_user_id,
+        transactionId: payload.transaction_id,
+        offerCode: payload.offer_code || "",
+        ts: payload.event_timestamp_ms,
+        price: payload.price,
+        priceInPurchasedCurrency: payload.price_in_purchased_currency,
+        currency: payload.currency,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Response from renewal API is not okay: ",
+        await response.text()
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending renewal notification:", error);
+    return false;
+  }
+}
+
+async function handleExpiration(payload: RevenueCatNotificationPayload) {
+  const expirationApiRoute = internalAPIRoutes.payment.successOnExpiration;
+  const expirationApiKey = keys.SUBSCRIPTIONS.EXPIRATION_API_KEY;
+
+  console.log("Payload from expiration type: ", payload);
+
+  try {
+    const response = await fetch(expirationApiRoute, {
+      headers: {
+        "authorization": expirationApiKey,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify({
+        productId: payload.product_id,
+        periodType: payload.period_type,
+        purchasedTs: payload.purchased_at_ms,
+        expirationTs: payload.expiration_at_ms,
+        store: payload.store,
+        environment: payload.environment,
+        countryCode: payload.country_code,
+        customerId: payload.app_user_id,
+        transactionId: payload.transaction_id,
+        offerCode: payload.offer_code || "",
+        ts: payload.event_timestamp_ms,
+        price: payload.price,
+        priceInPurchasedCurrency: payload.price_in_purchased_currency,
+        currency: payload.currency,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Response from expiration API is not okay: ",
+        await response.text()
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending expiration notification:", error);
+    return false;
+  }
+}
+
 export const paymentNotificationHandler = onRequest(async (req, res) => {
   const {authorization} = req.headers;
 
@@ -109,7 +260,9 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
     }
     res.status(200).send("OK");
     return;
-  } else if (type === "CANCELLATION") {
+  }
+
+  if (type === "CANCELLATION") {
     const result = await handleRefund(event);
     if (!result) {
       res.status(500).send("Internal Server Error");
@@ -117,14 +270,47 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
     }
     res.status(200).send("OK");
     return;
-  } else if (type === "TEST") {
+  }
+
+  if (type === "INITIAL_PURCHASE") {
+    const result = await handleInitialPurchase(event);
+    if (!result) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    res.status(200).send("OK");
+    return;
+  }
+
+  if (type === "RENEWAL") {
+    const result = await handleRenewal(event);
+    if (!result) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    res.status(200).send("OK");
+    return;
+  }
+
+  if (type === "EXPIRATION") {
+    const result = await handleExpiration(event);
+    if (!result) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    res.status(200).send("OK");
+    return;
+  }
+
+  if (type === "TEST") {
     console.log("Test notification received");
     res.status(200).send("OK");
     return;
-  } else {
-    console.log("Unknown notification type received");
-    console.log("Body: \n", event);
-    res.status(500).send("Internal Server Error");
-    return;
   }
+
+  console.log("Unknown notification type received");
+  console.log("Body: \n", event);
+
+  res.status(500).send("Internal Server Error");
+  return;
 });
