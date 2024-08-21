@@ -1,6 +1,7 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {keys} from "../../config";
 import {firestore} from "../../firebase/adminApp";
+import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -53,9 +54,41 @@ async function expireSubscriptionDoc(subscriptionDocPath: string) {
     await firestore.doc(subscriptionDocPath).update({
       isActive: false,
     });
-    return true;
+    return subscriptionDocPath;
   } catch (error) {
     console.error("Error expiring subscription", error);
+    return false;
+  }
+}
+
+async function updateSubscriptionUsage(username: string) {
+  try {
+    const collectibleUsageDoc = firestore.doc(
+      `users/${username}/collectible/usage`
+    );
+
+    const newUsageDocData: CollectibleUsageDocData = {
+      limit: keys.SUBSCRIPTIONS.usageLimits.free,
+      used: 0,
+      planId: "free",
+      subscriptionDocPath: "",
+    };
+
+    await collectibleUsageDoc.set(newUsageDocData);
+
+    return true;
+  } catch (error) {
+    console.error("Error updating subscription usage", error);
+    return false;
+  }
+}
+
+async function rollback(expiredSubscriptionDocPath: string) {
+  try {
+    await firestore.doc(expiredSubscriptionDocPath).update({isActive: true});
+    return true;
+  } catch (error) {
+    console.error("Error rolling back subscription", error);
     return false;
   }
 }
@@ -86,6 +119,13 @@ export const successOnExpiration = onRequest(async (req, res) => {
 
   const success = await expireSubscriptionDoc(subscriptionDocPath);
   if (!success) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
+  const updateUsageResult = await updateSubscriptionUsage(customerId);
+  if (!updateUsageResult) {
+    await rollback(subscriptionDocPath);
     res.status(500).send("Internal Server Error");
     return;
   }

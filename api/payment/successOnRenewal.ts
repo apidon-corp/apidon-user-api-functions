@@ -3,7 +3,11 @@ import {onRequest} from "firebase-functions/v2/https";
 import {keys} from "../../config";
 
 import {firestore} from "../../firebase/adminApp";
-import {SubscriptionDocData} from "../../types/Subscriptions";
+import {
+  SubscriptionDocData,
+  SubscriptionProductIds,
+} from "../../types/Subscriptions";
+import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -92,30 +96,77 @@ async function createSubscriptionDocOnDatabase(
   subscriptionDocData: SubscriptionDocData,
   customerId: string
 ) {
-  try {
-    await firestore
-      .doc(
-        `users/${customerId}/subscriptions/${subscriptionDocData.transactionId}`
-      )
-      .set(subscriptionDocData);
+  const path = `users/${customerId}/subscriptions/${subscriptionDocData.transactionId}`;
 
-    return true;
+  try {
+    await firestore.doc(path).set(subscriptionDocData);
+
+    return path;
   } catch (error) {
     console.error("Error creating subscription document", error);
     return false;
   }
 }
 
-async function rollback(updatedDocPath: string) {
-  if (updatedDocPath === "not-found") return true;
-
-  console.error("Rolling back changes...");
+async function updateSubscriptionUsage(
+  username: string,
+  subscriptionIdentifier: SubscriptionProductIds,
+  subscriptionDocPath: string
+) {
   try {
-    await firestore.doc(updatedDocPath).update({isActive: true});
+    const collectibleUsageDoc = firestore.doc(
+      `users/${username}/collectible/usage`
+    );
+
+    let limit = 0;
+
+    if (subscriptionIdentifier === "dev_apidon_collector_10_1m") {
+      limit = keys.SUBSCRIPTIONS.usageLimits.collector;
+    }
+    if (subscriptionIdentifier === "dev_apidon_creator_10_1m") {
+      limit = keys.SUBSCRIPTIONS.usageLimits.creator;
+    }
+    if (subscriptionIdentifier === "dev_apidon_visionary_10_1m") {
+      limit = keys.SUBSCRIPTIONS.usageLimits.visionary;
+    }
+
+    const newUsageDocData: CollectibleUsageDocData = {
+      limit: limit,
+      used: 0,
+      planId: subscriptionIdentifier,
+      subscriptionDocPath: subscriptionDocPath,
+    };
+
+    await collectibleUsageDoc.set(newUsageDocData);
+
     return true;
   } catch (error) {
-    console.error("Error rolling back changes", error);
+    console.error("Error updating subscription usage", error);
     return false;
+  }
+}
+
+async function rollback(
+  updatedDocPath: string,
+  createSubscriptionDocPath?: string
+) {
+  if (updatedDocPath === "not-found") return;
+
+  if (updatedDocPath) {
+    try {
+      await firestore.doc(updatedDocPath).update({isActive: true});
+    } catch (error) {
+      console.error("Error rolling back expired subscription doc.", error);
+    }
+  }
+  if (createSubscriptionDocPath) {
+    try {
+      await firestore.doc(createSubscriptionDocPath).update({
+        isActive: false,
+      });
+    } catch (error) {
+      console.error("Error rolling back new subscription doc.", error);
+    }
   }
 }
 
@@ -193,11 +244,18 @@ export const successOnRenewal = onRequest(async (req, res) => {
     customerId
   );
   if (!docCreationResult) {
-    const rollbackResult = await rollback(updateResult);
-    if (!rollbackResult) {
-      console.error("Rollback failed.");
-    }
+    await rollback(updateResult);
+    res.status(500).send("Internal Server Error");
+    return;
+  }
 
+  const usageUpdateResult = await updateSubscriptionUsage(
+    customerId,
+    productId,
+    docCreationResult
+  );
+  if (!usageUpdateResult) {
+    await rollback(updateResult, docCreationResult);
     res.status(500).send("Internal Server Error");
     return;
   }

@@ -6,6 +6,7 @@ import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {CollectibleDocData} from "../../types/Collectible";
 import {PostServerData} from "../../types/Post";
 import {CreatedCollectiblesArrayObject} from "../../types/Trade";
+import {CollectibleUsageDocData} from "@/types/CollectibleUsage";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -80,6 +81,39 @@ function checkPostForCollectible(postDocData: PostServerData) {
   return true;
 }
 
+async function checkUsage(username: string) {
+  try {
+    const collectibleDocUsageSnapshot = await firestore
+      .doc(`/users/${username}/collectible/usage`)
+      .get();
+
+    if (!collectibleDocUsageSnapshot.exists) {
+      console.error("Collectible doc usage does not exist.");
+      return false;
+    }
+
+    const data = collectibleDocUsageSnapshot.data() as CollectibleUsageDocData;
+
+    if (!data) {
+      console.error("Collectible doc usage data is undefined.");
+      return false;
+    }
+
+    const used = data.used;
+    const limit = data.limit;
+
+    if (used >= limit) {
+      console.error("Collectible usage limit reached.");
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error while checking collectible usage", error);
+    return false;
+  }
+}
+
 async function createCollectibleDoc(
   postDocPath: string,
   timestamp: number,
@@ -122,6 +156,36 @@ async function createCollectibleDoc(
     return newId;
   } catch (error) {
     console.error("Error while creating NFT doc", error);
+    return false;
+  }
+}
+
+async function updateUsageDoc(username: string) {
+  try {
+    const collectibleDocUsageRef = firestore.doc(
+      `/users/${username}/collectible/usage`
+    );
+    await collectibleDocUsageRef.update({
+      used: FieldValue.increment(1),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error while updating usage doc", error);
+    return false;
+  }
+}
+
+async function rollbackUsageDoc(username: string) {
+  try {
+    const collectibleDocUsageRef = firestore.doc(
+      `/users/${username}/collectible/usage`
+    );
+    await collectibleDocUsageRef.update({
+      used: FieldValue.increment(-1),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error while updating usage doc", error);
     return false;
   }
 }
@@ -219,9 +283,12 @@ export const createCollectible = onRequest(
       res.status(422).send("Invalid Request");
       return;
     }
-    const canAuthorizedForThisOperationResult =
-      checkCanAuthorizedForThisOperation(postData, username);
-    if (!canAuthorizedForThisOperationResult) {
+
+    const isAuthorizedForThisOperation = checkCanAuthorizedForThisOperation(
+      postData,
+      username
+    );
+    if (!isAuthorizedForThisOperation) {
       res.status(403).send("Forbidden");
       return;
     }
@@ -229,6 +296,12 @@ export const createCollectible = onRequest(
     const checkPostForCollectibleResult = checkPostForCollectible(postData);
     if (!checkPostForCollectibleResult) {
       res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const checkUsageResult = await checkUsage(username);
+    if (!checkUsageResult) {
+      res.status(403).send("Forbidden");
       return;
     }
 
@@ -251,12 +324,15 @@ export const createCollectible = onRequest(
       newCollectibleDocPath
     );
     if (!updatePostDocResult) {
-      const rollBackResult = await rollBackCollectibleDoc(
-        newCollectibleDocPath
-      );
-      if (!rollBackResult) {
-        console.error("Error while roll back collectible doc");
-      }
+      await rollBackCollectibleDoc(newCollectibleDocPath);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const updateUsageDocResult = await updateUsageDoc(username);
+    if (!updateUsageDocResult) {
+      await rollBackCollectibleDoc(newCollectibleDocPath);
+      await rollBackPostDoc(postDocPath);
       res.status(500).send("Internal Server Error");
       return;
     }
@@ -268,16 +344,9 @@ export const createCollectible = onRequest(
       timestamp
     );
     if (!updateTradeDocResult) {
-      const rollBackResult = await rollBackCollectibleDoc(
-        newCollectibleDocPath
-      );
-      if (!rollBackResult) {
-        console.error("Error while roll back collectible doc");
-      }
-      const rollBackPostDocResult = await rollBackPostDoc(postDocPath);
-      if (!rollBackPostDocResult) {
-        console.error("Error while roll back post doc");
-      }
+      await rollBackCollectibleDoc(newCollectibleDocPath);
+      await rollBackPostDoc(postDocPath);
+      await rollbackUsageDoc(username);
       res.status(500).send("Internal Server Error");
       return;
     }

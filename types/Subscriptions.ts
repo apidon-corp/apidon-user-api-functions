@@ -25,3 +25,8 @@ export const subscriptionIdS = [
   "dev_apidon_creator_10_1m",
   "dev_apidon_visionary_10_1m",
 ];
+
+export type SubscriptionProductIds =
+  | "dev_apidon_collector_10_1m"
+  | "dev_apidon_creator_10_1m"
+  | "dev_apidon_visionary_10_1m";
