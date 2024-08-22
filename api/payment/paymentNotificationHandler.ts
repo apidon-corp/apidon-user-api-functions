@@ -1,7 +1,6 @@
 import {internalAPIRoutes, keys} from "../../config";
 import {onRequest} from "firebase-functions/v2/https";
 import {RevenueCatNotificationPayload} from "../../types/IAP";
-import {subscriptionIdS} from "../../types/Subscriptions";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -53,15 +52,44 @@ async function handleSuccessfullPayment(
   }
 }
 
-async function handleRefund(payload: RevenueCatNotificationPayload) {
-  // If refund or cancellation came from a subscription, we will do nothing.
-  // We will wait "expiration" hook.
+async function handleRefund(payload: RevenueCatNotificationPayload): Promise<{
+  status: "successful" | "failed";
+  message: string;
+}> {
+  if (payload.expiration_at_ms) {
+    // Here we handle subscription refunds....
 
-  const productId = payload.product_id;
+    if (!payload.cancel_reason) {
+      console.error("Cancel reason is missing in the payload");
+      return {
+        status: "failed",
+        message: "Cancel reason is missing in the payload",
+      };
+    }
 
-  if (subscriptionIdS.includes(productId)) {
-    console.log("Refund or cancellation is related to a subscription");
-    return true;
+    if (payload.cancel_reason === "CUSTOMER_SUPPORT") {
+      // We need to handle this situation like instant-expiration
+      // Because "expired" event won't come.
+      const handleExpirationResult = await handleExpiration(payload);
+      if (!handleExpirationResult) {
+        return {
+          status: "failed",
+          message:
+            "Failed to handle expiration for customer_support cancellation event.",
+        };
+      }
+
+      return {
+        status: "successful",
+        message: "",
+      };
+    }
+
+    const message = `We received a CANCELLATION event that it's reason: ${payload.cancel_reason} We need to handle this manually.`;
+    return {
+      status: "successful",
+      message: message,
+    };
   }
 
   const refundApiRoute = internalAPIRoutes.payment.refund;
@@ -82,20 +110,28 @@ async function handleRefund(payload: RevenueCatNotificationPayload) {
     });
 
     if (!response.ok) {
-      console.error(
-        "Response from refundAPI route is not good: ",
-        await response.text()
-      );
-      return false;
+      const message = await response.text();
+
+      console.error("Response from refundAPI route is not good: ", message);
+      return {
+        status: "failed",
+        message: message,
+      };
     }
 
-    return true;
+    return {
+      status: "successful",
+      message: "",
+    };
   } catch (error) {
     console.error(
       "Error sending refund request to our internal servers (apidon):",
       error
     );
-    return false;
+    return {
+      status: "failed",
+      message: "Fetch error",
+    };
   }
 }
 
@@ -264,8 +300,8 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
 
   if (type === "CANCELLATION") {
     const result = await handleRefund(event);
-    if (!result) {
-      res.status(500).send("Internal Server Error");
+    if (result.status === "failed") {
+      res.status(500).send(result.message);
       return;
     }
     res.status(200).send("OK");

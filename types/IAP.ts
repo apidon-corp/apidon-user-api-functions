@@ -13,6 +13,15 @@ export type RevenuCatNotificationType =
   | "SUBSCRIPTION_EXTENDED"
   | "TEMPORARY_ENTITLEMENT_GRANT";
 
+export type CancelReason =
+  | "UNSUBSCRIBE"
+  | "BILLING_ERROR"
+  | "DEVELOPER_INITIATED"
+  | "PRICE_INCREASE"
+  | "CUSTOMER_SUPPORT"
+  | "UNKNOWN"
+  | "SUBSCRIPTION_PAUSED";
+
 export type RevenueCatNotificationPayload = {
   type: RevenuCatNotificationType;
   app_id: string;
@@ -28,10 +37,11 @@ export type RevenueCatNotificationPayload = {
   currency: string;
   period_type: string;
   purchased_at_ms: number;
-  expiration_at_ms: number;
+  /** Only On Subscriptions */
+  expiration_at_ms?: number;
   store: string;
   environment: string;
-  cancel_reason: string;
+  cancel_reason?: CancelReason;
   expiration_reason: string;
   country_code: string;
   offer_code: string | null;

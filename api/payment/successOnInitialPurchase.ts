@@ -1,13 +1,12 @@
 import {onRequest} from "firebase-functions/v2/https";
 
 import {keys} from "../../config";
-import {
-  SubscriptionDocData,
-  SubscriptionProductIds,
-} from "../../types/Subscriptions";
+import {SubscriptionDocData} from "../../types/Subscriptions";
 
 import {firestore} from "./../../firebase/adminApp";
 import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
+
+import {PlanDocData} from "../../types/Plan";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -93,9 +92,45 @@ async function createSubscriptionDocOnDatabase(
   }
 }
 
+async function getSubscriptionPlanDetails(subscriptionIdentifier: string) {
+  try {
+    const planDetailSnapshot = await firestore
+      .doc(`plans/${subscriptionIdentifier}`)
+      .get();
+
+    if (!planDetailSnapshot.exists) {
+      console.error("planDetail not found");
+      return false;
+    }
+
+    const data = planDetailSnapshot.data() as PlanDocData;
+
+    if (!data) {
+      console.error("Subscription plan details is undefined.");
+      return false;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error getting subscription plan details", error);
+    return false;
+  }
+}
+
+function calculateLimit(planDocData: PlanDocData) {
+  let limit = 0;
+
+  if (planDocData.collectible.upToFive) limit = 5;
+  if (planDocData.collectible.upToTen) limit = 10;
+  if (planDocData.collectible.upToFifthy) limit = 50;
+  if (planDocData.collectible.upToHundred) limit = 100;
+
+  return limit;
+}
+
 async function updateSubscriptionUsage(
   username: string,
-  subscriptionIdentifier: SubscriptionProductIds,
+  planDocData: PlanDocData,
   subscriptionDocPath: string
 ) {
   try {
@@ -103,22 +138,12 @@ async function updateSubscriptionUsage(
       `users/${username}/collectible/usage`
     );
 
-    let limit = 0;
-
-    if (subscriptionIdentifier === "dev_apidon_collector_10_1m") {
-      limit = keys.SUBSCRIPTIONS.usageLimits.collector;
-    }
-    if (subscriptionIdentifier === "dev_apidon_creator_10_1m") {
-      limit = keys.SUBSCRIPTIONS.usageLimits.creator;
-    }
-    if (subscriptionIdentifier === "dev_apidon_visionary_10_1m") {
-      limit = keys.SUBSCRIPTIONS.usageLimits.visionary;
-    }
+    const limit = calculateLimit(planDocData);
 
     const newUsageDocData: CollectibleUsageDocData = {
       limit: limit,
       used: 0,
-      planId: subscriptionIdentifier,
+      planId: planDocData.storeProductId,
       subscriptionDocPath: subscriptionDocPath,
     };
 
@@ -195,6 +220,12 @@ export const successOnInitialPurchase = onRequest(async (req, res) => {
     return;
   }
 
+  const subscriptionPlanDetails = await getSubscriptionPlanDetails(productId);
+  if (!subscriptionPlanDetails) {
+    res.status(500).send("Internal Server Error");
+    return;
+  }
+
   const subscriptionDocData: SubscriptionDocData = {
     isActive: true,
     productId,
@@ -224,7 +255,7 @@ export const successOnInitialPurchase = onRequest(async (req, res) => {
 
   const updateSubscriptionUsageResult = await updateSubscriptionUsage(
     customerId,
-    productId,
+    subscriptionPlanDetails,
     docCreationResult
   );
   if (!updateSubscriptionUsageResult) {
