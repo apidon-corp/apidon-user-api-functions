@@ -1,8 +1,8 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { keys } from "../../config";
-import { firestore } from "../../firebase/adminApp";
-import { CollectibleUsageDocData } from "../../types/CollectibleUsage";
-import { calculateCollectibleLimit, PlanDocData } from "../../types/Plan";
+import {onRequest} from "firebase-functions/v2/https";
+import {keys} from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
+import {calculateCollectibleLimit, PlanDocData} from "../../types/Plan";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -64,7 +64,7 @@ async function expireSubscriptionDoc(subscriptionDocPath: string) {
 
 async function getFreeLimit() {
   try {
-    const freeDocSnapshot = await firestore.doc(`plans/free`).get();
+    const freeDocSnapshot = await firestore.doc("plans/free").get();
 
     if (!freeDocSnapshot.exists) {
       console.error("Free plan does not exist");
@@ -113,7 +113,7 @@ async function updateSubscriptionUsage(username: string) {
 
 async function rollback(expiredSubscriptionDocPath: string) {
   try {
-    await firestore.doc(expiredSubscriptionDocPath).update({ isActive: true });
+    await firestore.doc(expiredSubscriptionDocPath).update({isActive: true});
     return true;
   } catch (error) {
     console.error("Error rolling back subscription", error);
@@ -122,8 +122,8 @@ async function rollback(expiredSubscriptionDocPath: string) {
 }
 
 export const successOnExpiration = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { customerId, productId } = req.body;
+  const {authorization} = req.headers;
+  const {customerId, productId} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

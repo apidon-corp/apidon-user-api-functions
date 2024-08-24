@@ -1,11 +1,11 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { keys } from "../../config";
+import {keys} from "../../config";
 
-import { firestore } from "../../firebase/adminApp";
-import { SubscriptionDocData } from "../../types/Subscriptions";
-import { CollectibleUsageDocData } from "../../types/CollectibleUsage";
-import { calculateCollectibleLimit, PlanDocData } from "../../types/Plan";
+import {firestore} from "../../firebase/adminApp";
+import {SubscriptionDocData} from "../../types/Subscriptions";
+import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
+import {calculateCollectibleLimit, PlanDocData} from "../../types/Plan";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -81,7 +81,7 @@ async function updateExistingActiveSubscriptionDoc(username: string) {
 
     const activeDoc = query.docs[0];
 
-    await activeDoc.ref.update({ isActive: false });
+    await activeDoc.ref.update({isActive: false});
 
     return activeDoc.ref.path;
   } catch (error) {
@@ -167,7 +167,7 @@ async function rollback(
 
   if (updatedDocPath) {
     try {
-      await firestore.doc(updatedDocPath).update({ isActive: true });
+      await firestore.doc(updatedDocPath).update({isActive: true});
     } catch (error) {
       console.error("Error rolling back expired subscription doc.", error);
     }
@@ -184,7 +184,7 @@ async function rollback(
 }
 
 export const successOnRenewal = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
   const {
     productId,
     periodType,
