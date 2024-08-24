@@ -2,14 +2,12 @@ export interface PlanDocData {
   storeProductId: string;
   title: string;
   collectible: {
-    undo: boolean;
     upToFive: boolean;
     upToTen: boolean;
     upToFifthy: boolean;
     upToHundred: boolean;
   };
   stock: {
-    allowCollectingSoldOut: boolean;
     upToTen: boolean;
     upToFifty: boolean;
     upToHundred: boolean;
