@@ -32,3 +32,14 @@ export function calculateStockLimit(stockData: PlanDocData["stock"]) {
 
   return stockLimit;
 }
+
+export function calculateCollectibleLimit(collectibleData: PlanDocData["collectible"]) {
+  let limit = 0;
+
+  if (collectibleData.upToFive) limit = 5;
+  if (collectibleData.upToTen) limit = 10;
+  if (collectibleData.upToFifthy) limit = 50;
+  if (collectibleData.upToHundred) limit = 100;
+
+  return limit;
+}

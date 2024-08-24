@@ -1,7 +1,8 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
-import {firestore} from "../../firebase/adminApp";
-import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
+import { onRequest } from "firebase-functions/v2/https";
+import { keys } from "../../config";
+import { firestore } from "../../firebase/adminApp";
+import { CollectibleUsageDocData } from "../../types/CollectibleUsage";
+import { calculateCollectibleLimit, PlanDocData } from "../../types/Plan";
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -61,14 +62,41 @@ async function expireSubscriptionDoc(subscriptionDocPath: string) {
   }
 }
 
+async function getFreeLimit() {
+  try {
+    const freeDocSnapshot = await firestore.doc(`plans/free`).get();
+
+    if (!freeDocSnapshot.exists) {
+      console.error("Free plan does not exist");
+      return false;
+    }
+
+    const data = freeDocSnapshot.data() as PlanDocData;
+
+    if (!data) {
+      console.error("Free plan does not exist");
+      return false;
+    }
+
+    const limit = calculateCollectibleLimit(data.collectible);
+
+    return limit;
+  } catch (error) {
+    console.error("Error getting free limit", error);
+    return false;
+  }
+}
+
 async function updateSubscriptionUsage(username: string) {
+  const limit = await getFreeLimit();
+
   try {
     const collectibleUsageDoc = firestore.doc(
       `users/${username}/collectible/usage`
     );
 
     const newUsageDocData: CollectibleUsageDocData = {
-      limit: keys.SUBSCRIPTIONS.usageLimits.free,
+      limit: limit || 0,
       used: 0,
       planId: "free",
       subscriptionDocPath: "",
@@ -85,7 +113,7 @@ async function updateSubscriptionUsage(username: string) {
 
 async function rollback(expiredSubscriptionDocPath: string) {
   try {
-    await firestore.doc(expiredSubscriptionDocPath).update({isActive: true});
+    await firestore.doc(expiredSubscriptionDocPath).update({ isActive: true });
     return true;
   } catch (error) {
     console.error("Error rolling back subscription", error);
@@ -94,8 +122,8 @@ async function rollback(expiredSubscriptionDocPath: string) {
 }
 
 export const successOnExpiration = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
-  const {customerId, productId} = req.body;
+  const { authorization } = req.headers;
+  const { customerId, productId } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
