@@ -1,6 +1,14 @@
-import {internalAPIRoutes, keys} from "../../config";
+import {internalAPIRoutes} from "../../config";
 import {onRequest} from "firebase-functions/v2/https";
 import {RevenueCatNotificationPayload} from "../../types/IAP";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {Config} from "../../types/Config";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -8,7 +16,15 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === keys.REVENUE_CAT_WEBHOOK_AUTH_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  return {
+    authResult: authorization === configObject.REVENUE_CAT_WEBHOOK_AUTH_KEY,
+    configObject: configObject,
+  };
 }
 
 function getTypeOfNotification(payload: RevenueCatNotificationPayload) {
@@ -17,10 +33,11 @@ function getTypeOfNotification(payload: RevenueCatNotificationPayload) {
 }
 
 async function handleSuccessfullPayment(
-  payload: RevenueCatNotificationPayload
+  payload: RevenueCatNotificationPayload,
+  configObject: Config
 ) {
   const successOnPaymentAPIRoute = internalAPIRoutes.payment.successonPayment;
-  const apiKey = keys.SUCCESS_ON_PAYMENT_API_AUTH_KEY;
+  const apiKey = configObject.SUCCESS_ON_PAYMENT_API_AUTH_KEY;
 
   try {
     const response = await fetch(successOnPaymentAPIRoute, {
@@ -52,10 +69,10 @@ async function handleSuccessfullPayment(
   }
 }
 
-async function handleRefund(payload: RevenueCatNotificationPayload): Promise<{
-  status: "successful" | "failed";
-  message: string;
-}> {
+async function handleRefund(
+  payload: RevenueCatNotificationPayload,
+  configObject: Config
+) {
   if (payload.expiration_at_ms) {
     // Here we handle subscription refunds....
 
@@ -70,7 +87,10 @@ async function handleRefund(payload: RevenueCatNotificationPayload): Promise<{
     if (payload.cancel_reason === "CUSTOMER_SUPPORT") {
       // We need to handle this situation like instant-expiration
       // Because "expired" event won't come.
-      const handleExpirationResult = await handleExpiration(payload);
+      const handleExpirationResult = await handleExpiration(
+        payload,
+        configObject
+      );
       if (!handleExpirationResult) {
         return {
           status: "failed",
@@ -93,7 +113,7 @@ async function handleRefund(payload: RevenueCatNotificationPayload): Promise<{
   }
 
   const refundApiRoute = internalAPIRoutes.payment.refund;
-  const refundApiKey = keys.REFUND_API_AUTH_KEY;
+  const refundApiKey = configObject.REFUND_API_AUTH_KEY;
 
   try {
     const response = await fetch(refundApiRoute, {
@@ -135,10 +155,13 @@ async function handleRefund(payload: RevenueCatNotificationPayload): Promise<{
   }
 }
 
-async function handleInitialPurchase(payload: RevenueCatNotificationPayload) {
+async function handleInitialPurchase(
+  payload: RevenueCatNotificationPayload,
+  configObject: Config
+) {
   const initialPurchaseAPIRoute =
     internalAPIRoutes.payment.successOnInitialPurchase;
-  const initialPurchaseAPIKey = keys.SUBSCRIPTIONS.INITIAL_PURHCASE_API_KEY;
+  const initialPurchaseAPIKey = configObject.INITIAL_PURHCASE_API_KEY;
 
   if (!initialPurchaseAPIKey || !initialPurchaseAPIRoute) {
     console.error("Initial purchase API key or route is missing");
@@ -185,9 +208,12 @@ async function handleInitialPurchase(payload: RevenueCatNotificationPayload) {
   }
 }
 
-async function handleRenewal(payload: RevenueCatNotificationPayload) {
+async function handleRenewal(
+  payload: RevenueCatNotificationPayload,
+  configObject: Config
+) {
   const renewalAPIRoute = internalAPIRoutes.payment.successOnRenewal;
-  const renewalAPIKey = keys.SUBSCRIPTIONS.RENEWAL_API_KEY;
+  const renewalAPIKey = configObject.RENEWAL_API_KEY;
 
   try {
     const response = await fetch(renewalAPIRoute, {
@@ -229,9 +255,12 @@ async function handleRenewal(payload: RevenueCatNotificationPayload) {
   }
 }
 
-async function handleExpiration(payload: RevenueCatNotificationPayload) {
+async function handleExpiration(
+  payload: RevenueCatNotificationPayload,
+  configObject: Config
+) {
   const expirationApiRoute = internalAPIRoutes.payment.successOnExpiration;
-  const expirationApiKey = keys.SUBSCRIPTIONS.EXPIRATION_API_KEY;
+  const expirationApiKey = configObject.EXPIRATION_API_KEY;
 
   console.log("Payload from expiration type: ", payload);
 
@@ -281,7 +310,7 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
   const {event} = req.body;
 
   const authResult = handleAuthorization(authorization);
-  if (!authResult) {
+  if (!authResult || !authResult.authResult) {
     res.status(401).send("Unauthorized");
     return;
   }
@@ -289,7 +318,10 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
   const type = getTypeOfNotification(event);
 
   if (type === "NON_RENEWING_PURCHASE") {
-    const result = await handleSuccessfullPayment(event);
+    const result = await handleSuccessfullPayment(
+      event,
+      authResult.configObject
+    );
     if (!result) {
       res.status(500).send("Internal Server Error");
       return;
@@ -299,7 +331,7 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
   }
 
   if (type === "CANCELLATION") {
-    const result = await handleRefund(event);
+    const result = await handleRefund(event, authResult.configObject);
     if (result.status === "failed") {
       res.status(500).send(result.message);
       return;
@@ -309,7 +341,7 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
   }
 
   if (type === "INITIAL_PURCHASE") {
-    const result = await handleInitialPurchase(event);
+    const result = await handleInitialPurchase(event, authResult.configObject);
     if (!result) {
       res.status(500).send("Internal Server Error");
       return;
@@ -319,7 +351,7 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
   }
 
   if (type === "RENEWAL") {
-    const result = await handleRenewal(event);
+    const result = await handleRenewal(event, authResult.configObject);
     if (!result) {
       res.status(500).send("Internal Server Error");
       return;
@@ -329,7 +361,7 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
   }
 
   if (type === "EXPIRATION") {
-    const result = await handleExpiration(event);
+    const result = await handleExpiration(event, authResult.configObject);
     if (!result) {
       res.status(500).send("Internal Server Error");
       return;

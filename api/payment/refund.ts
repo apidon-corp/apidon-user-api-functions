@@ -1,9 +1,15 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {keys} from "../../config";
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
 import {PaymentIntentTopUpDocData} from "../../types/IAP";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -11,7 +17,12 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  if (authorization !== keys.REFUND_API_AUTH_KEY) {
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  if (authorization !== configObject.REFUND_API_AUTH_KEY) {
     console.error("Authorization key is invalid");
     return false;
   }

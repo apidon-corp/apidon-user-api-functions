@@ -9,8 +9,15 @@ import {
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
 import {NotificationData} from "../../types/Notifications";
-import {internalAPIRoutes, keys} from "../../config";
+import {internalAPIRoutes} from "../../config";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -156,7 +163,12 @@ async function sendNotification(
     ts
   );
 
-  const notificationAPIKey = keys.NOTIFICATION_API_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
 
   if (!notificationAPIKey) {
     console.error("Notification API key is undefined fron .env file.");

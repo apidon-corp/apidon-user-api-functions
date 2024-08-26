@@ -3,8 +3,15 @@ import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
 
 import Stripe from "stripe";
-import {keys} from "../../config";
-const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
+
+const stripe = new Stripe(configObject.STRIPE_SECRET_KEY);
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {

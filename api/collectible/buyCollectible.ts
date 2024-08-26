@@ -12,9 +12,16 @@ import {
   BoughtCollectiblesArrayObject,
   SoldCollectiblesArrayObject,
 } from "../../types/Trade";
-import {NotificationData} from "@/types/Notifications";
-import {internalAPIRoutes, keys} from "../../config";
-import {UserIdentityDoc} from "@/types/Identity";
+import {NotificationData} from "../../types/Notifications";
+import {internalAPIRoutes} from "../../config";
+import {UserIdentityDoc} from "../../types/Identity";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -656,7 +663,12 @@ function createNotificationObject(
 }
 
 async function sendNotification(notificationObject: NotificationData) {
-  const notificationAPIKey = keys.NOTIFICATION_API_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined.");
+    return false;
+  }
+
+  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
 
   if (!notificationAPIKey) {
     console.error("Notification API key is undefined from config file.");

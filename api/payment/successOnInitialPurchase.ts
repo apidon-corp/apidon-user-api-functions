@@ -1,12 +1,18 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {keys} from "../../config";
 import {SubscriptionDocData} from "../../types/Subscriptions";
 
 import {firestore} from "./../../firebase/adminApp";
 import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
 
 import {PlanDocData} from "../../types/Plan";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 function handleAuthorization(authorization: string | undefined) {
   if (!authorization) {
@@ -14,7 +20,12 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  if (authorization !== keys.SUBSCRIPTIONS.INITIAL_PURHCASE_API_KEY) {
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  if (authorization !== configObject.INITIAL_PURHCASE_API_KEY) {
     console.error("Authorization key is invalid");
     return false;
   }
