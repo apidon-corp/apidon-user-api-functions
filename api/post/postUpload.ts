@@ -42,6 +42,7 @@ function createPostServerData(description: string, username: string) {
     collectibleStatus: {isCollectible: false},
     senderUsername: username,
     id: ts.toString(),
+    reviewStatus: "pending",
   };
 
   return newPostServerData;

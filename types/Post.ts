@@ -1,3 +1,5 @@
+import {ReviewStatus} from "./Admin";
+
 export type PostServerData = {
   senderUsername: string;
 
@@ -18,24 +20,8 @@ export type PostServerData = {
 
   creationTime: number;
   id: string;
-};
 
-export type PostServerDataV3 = {
-  senderUsername: string;
-
-  description: string;
-  image: string;
-
-  rates: RateData[];
-  comments: CommentDataV2[];
-
-  nftStatus: {
-    convertedToNft: boolean;
-    nftDocPath?: string;
-  };
-
-  creationTime: number;
-  id: string;
+  reviewStatus?: ReviewStatus;
 };
 
 export type RateData = {

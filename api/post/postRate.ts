@@ -1,6 +1,6 @@
 import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
-import {PostServerDataV3, RateData} from "../../types/Post";
+import {PostServerData, RateData} from "../../types/Post";
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
 import {NotificationData} from "../../types/Notifications";
@@ -34,7 +34,7 @@ async function checkPreviousRating(username: string, postDocPath: string) {
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerDataV3;
+    const postDocData = postDocSnapshot.data() as PostServerData;
     if (!postDocData) {
       console.error("Post doc data doesn't exist.");
       return false;
