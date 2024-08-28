@@ -1,13 +1,14 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData} from "../../types/Collectible";
-import {PostServerData} from "../../types/Post";
-import {CreatedCollectiblesArrayObject} from "../../types/Trade";
-import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
-import {calculateStockLimit, PlanDocData} from "../../types/Plan";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { CollectibleDocData } from "../../types/Collectible";
+import { PostServerData } from "../../types/Post";
+import { CreatedCollectiblesArrayObject } from "../../types/Trade";
+import { CollectibleUsageDocData } from "../../types/CollectibleUsage";
+import { calculateStockLimit, PlanDocData } from "../../types/Plan";
+import { TopUpPlansConfigDocData } from "@/types/IAP";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -21,7 +22,54 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-function checkProps(postDocPath: string, price: number, stock: number) {
+async function checkForIAPLikePrice(priceInInt: number) {
+  try {
+    const topUpPlansConfigSnapshot = await firestore
+      .doc(`topUpPlans/config`)
+      .get();
+
+    if (!topUpPlansConfigSnapshot.exists) {
+      console.error("Top up plans config does not exist.");
+      return false;
+    }
+
+    const data = topUpPlansConfigSnapshot.data() as TopUpPlansConfigDocData;
+
+    if (!data) {
+      console.error("Top up plans config data is undefined.");
+      return false;
+    }
+
+    const activeTopUpProductIdS = data.activeTopUpProductIdS;
+
+    const validPrices = activeTopUpProductIdS.map((id) => {
+      // Format of top up product item is like: "1_dollar_in_app_credit"
+      // We need to get first element of this string
+
+      const price = id.split("_")[0];
+
+      const priceInt = parseInt(price);
+
+      if (!isNaN(priceInt)) {
+        return priceInt;
+      } else {
+        console.error(`Invalid price format: ${id}`);
+        return 0;
+      }
+    });
+
+    if (!validPrices.includes(priceInInt)) {
+      console.error("Invalid price");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error while checking top up plans config", error);
+    return false;
+  }
+}
+
+async function checkProps(postDocPath: string, price: number, stock: number) {
   if (!postDocPath || !price || !stock) return false;
 
   const priceInInt = parseInt(price.toString());
@@ -31,9 +79,25 @@ function checkProps(postDocPath: string, price: number, stock: number) {
     return false;
   }
 
+  if (priceInInt <= 0) {
+    console.error("Price must be greater than 0");
+    return false;
+  }
+
+  // We need to also check if price is IAP-like
+  const isIAPLikePrice = await checkForIAPLikePrice(price);
+  if (!isIAPLikePrice) {
+    return false;
+  }
+
   const stockInt = parseInt(stock.toString());
   if (isNaN(stockInt)) {
     console.error("Stock is not a number");
+    return false;
+  }
+
+  if (stockInt <= 0) {
+    console.error("Stock must be greater than 0");
     return false;
   }
 
@@ -289,8 +353,8 @@ async function rollBackPostDoc(postDocPath: string) {
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath, price, stock} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath, price, stock } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -298,7 +362,7 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const checkPropsResult = checkProps(postDocPath, price, stock);
+    const checkPropsResult = await checkProps(postDocPath, price, stock);
     if (!checkPropsResult) {
       res.status(422).send("Invalid Request");
       return;
