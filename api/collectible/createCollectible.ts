@@ -1,14 +1,14 @@
-import { FieldValue } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { CollectibleDocData } from "../../types/Collectible";
-import { PostServerData } from "../../types/Post";
-import { CreatedCollectiblesArrayObject } from "../../types/Trade";
-import { CollectibleUsageDocData } from "../../types/CollectibleUsage";
-import { calculateStockLimit, PlanDocData } from "../../types/Plan";
-import { TopUpPlansConfigDocData } from "@/types/IAP";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {CollectibleDocData} from "../../types/Collectible";
+import {PostServerData} from "../../types/Post";
+import {CreatedCollectiblesArrayObject} from "../../types/Trade";
+import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
+import {calculateStockLimit, PlanDocData} from "../../types/Plan";
+import {TopUpPlansConfigDocData} from "@/types/IAP";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -25,7 +25,7 @@ async function handleAuthorization(key: string | undefined) {
 async function checkForIAPLikePrice(priceInInt: number) {
   try {
     const topUpPlansConfigSnapshot = await firestore
-      .doc(`topUpPlans/config`)
+      .doc("topUpPlans/config")
       .get();
 
     if (!topUpPlansConfigSnapshot.exists) {
@@ -353,8 +353,8 @@ async function rollBackPostDoc(postDocPath: string) {
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath, price, stock } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath, price, stock} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
