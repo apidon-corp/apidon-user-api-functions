@@ -1,14 +1,14 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {bucket, firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { bucket, firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {
   PostDocPathsArrayItem,
   PostServerData,
   UploadedPostArrayObject,
 } from "../../types/Post";
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -97,7 +97,7 @@ async function deletePostDoc(postDocPath: string) {
 
 async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
   const postDocPathsArrayItem: PostDocPathsArrayItem = {
-    postDocPath: "/" + postDocPath,
+    postDocPath: postDocPath[0] === "/" ? postDocPath.slice(1) : postDocPath,
     timestamp: timestamp,
   };
 
@@ -142,8 +142,8 @@ async function updateUploadedPostArray(
 
 export const postDelete = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
