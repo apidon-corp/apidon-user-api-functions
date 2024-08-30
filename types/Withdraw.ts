@@ -33,7 +33,7 @@ export type WithdrawRequestDocData = {
   requestedDate: number;
 
   /** Current status of the withdraw request */
-  status: "pending" | "approved" | "rejected" | "inReview";
+  status: "pending" | "approved" | "rejected";
 
   /** Any additional notes or comments */
   notes: string;
