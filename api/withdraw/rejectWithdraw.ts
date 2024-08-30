@@ -1,10 +1,10 @@
-import { getConfigObject } from "../../configs/getConfigObject";
-import { onRequest } from "firebase-functions/v2/https";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 
-import { WithdrawRequestDocData } from "../../types/Withdraw";
-import { FieldValue } from "firebase-admin/firestore";
+import {WithdrawRequestDocData} from "../../types/Withdraw";
+import {FieldValue} from "firebase-admin/firestore";
 
 const configObject = getConfigObject();
 
@@ -121,8 +121,8 @@ async function updateBalance(username: string, amountToRefund: number) {
 }
 
 export const rejectWithdraw = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { username, requestId, notes } = req.body;
+  const {authorization} = req.headers;
+  const {username, requestId, notes} = req.body;
 
   if (!handleAuthorization(authorization)) {
     res.status(401).send("Unauthorized");
