@@ -83,3 +83,7 @@ export type PaymentIntentTopUpDocData = {
 
   currency: string;
 };
+
+export type TopUpPlansConfigDocData = {
+  activeTopUpProductIdS: string[];
+};

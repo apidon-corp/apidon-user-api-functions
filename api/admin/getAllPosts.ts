@@ -1,12 +1,18 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {keys} from "../../config";
 import {firestore} from "../../firebase/adminApp";
 
 import {PostsDocData, PostServerData} from "../../types/Post";
 import {PostReviewData} from "../../types/Admin";
 
 import * as express from "express";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 /**
  * Handles the authorization of incoming requests.
@@ -19,7 +25,12 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === keys.ADMIN.GET_ALL_POSTS_API_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  return authorization === configObject.GET_ALL_POSTS_API_KEY;
 }
 
 async function getPostDocPaths() {

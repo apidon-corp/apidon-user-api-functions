@@ -1,14 +1,12 @@
 import * as admin from "firebase-admin";
 
-import {environment, serviceAccounts, storageBucketIds} from "../config";
+import {getConfigObject} from "../configs/getConfigObject";
+
+const configObject = getConfigObject();
+if (!configObject) throw new Error("Config object not found for admin app.");
 
 if (!admin.apps.length) {
-  const serviceAccount =
-    environment === "development" || environment === "localPreview" ?
-      (serviceAccounts.developmentAndLocalPreviewAccount as admin.ServiceAccount) :
-      environment === "preview" ?
-        (serviceAccounts.testAccount as admin.ServiceAccount) :
-        (serviceAccounts.developmentAndLocalPreviewAccount as admin.ServiceAccount);
+  const serviceAccount = configObject.serviceAccount as admin.ServiceAccount;
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -20,11 +18,6 @@ export const firestore = admin.firestore();
 
 export const appCheck = admin.appCheck();
 
-const storageBucketId =
-  environment === "development" || environment === "localPreview" ?
-    storageBucketIds.developmentAndLocalPreviewAccount :
-    environment === "preview" ?
-      storageBucketIds.testAccount :
-      storageBucketIds.developmentAndLocalPreviewAccount;
+const storageBucketId = configObject.storageBucketId;
 
 export const bucket = admin.storage().bucket(storageBucketId);

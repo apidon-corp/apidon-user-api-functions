@@ -97,7 +97,7 @@ async function deletePostDoc(postDocPath: string) {
 
 async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
   const postDocPathsArrayItem: PostDocPathsArrayItem = {
-    postDocPath: "/" + postDocPath,
+    postDocPath: postDocPath[0] === "/" ? postDocPath.slice(1) : postDocPath,
     timestamp: timestamp,
   };
 

@@ -1,15 +1,29 @@
 import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes, keys} from "../../config";
-
-import Stripe from "stripe";
-const stripe = new Stripe(keys.IDENTITY.STRIPE_SECRET_KEY);
+import {internalAPIRoutes} from "../../config";
 
 import AsyncLock = require("async-lock");
+import {getConfigObject} from "../../configs/getConfigObject";
+
+import Stripe from "stripe";
+import {Config} from "../../types/Config";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
+
+const stripe = new Stripe(configObject.STRIPE_SECRET_KEY);
 
 const lock = new AsyncLock();
 
 async function getEvent(payload: string | Buffer, signature: string) {
-  const webHookSecret = keys.IDENTITY.POST_VERIFICATION_WEBHOOK_SECRET;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  const webHookSecret = configObject.POST_VERIFICATION_WEBHOOK_SECRET;
 
   if (!webHookSecret) {
     console.error("Web Hook Secret is undefined from config");
@@ -23,7 +37,10 @@ async function getEvent(payload: string | Buffer, signature: string) {
       webHookSecret
     );
 
-    return event;
+    return {
+      event,
+      configObject,
+    };
   } catch (error) {
     console.error("Stripe Web-Hook error: ", error);
     return false;
@@ -35,10 +52,11 @@ async function handleCreatedVerification(
   id: string,
   created: number,
   status: string,
-  livemode: boolean
+  livemode: boolean,
+  configObject: Config
 ) {
   const handleCreatedVerificationApiKey =
-    keys.IDENTITY.HANDLE_CREATED_VERIFICATION_API_KEY;
+    configObject.HANDLE_CREATED_VERIFICATION_API_KEY;
 
   try {
     const response = await fetch(
@@ -76,10 +94,11 @@ async function handleProcessingVerification(
   id: string,
   created: number,
   status: string,
-  livemode: boolean
+  livemode: boolean,
+  configObject: Config
 ) {
   const handleProcessingVerificationApiKey =
-    keys.IDENTITY.HANDLE_PROCESSING_VERIFICATION_API_KEY;
+    configObject.HANDLE_PROCESSING_VERIFICATION_API_KEY;
 
   try {
     const response = await fetch(
@@ -117,10 +136,11 @@ async function handleSuccessfullVerification(
   id: string,
   created: number,
   status: string,
-  livemode: boolean
+  livemode: boolean,
+  configObject: Config
 ) {
   const handleSuccessfulVerificationApiKey =
-    keys.IDENTITY.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
+    configObject.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
 
   try {
     const response = await fetch(
@@ -158,10 +178,11 @@ async function handleReuqiresInputVerification(
   id: string,
   created: number,
   status: string,
-  livemode: boolean
+  livemode: boolean,
+  configObject: Config
 ) {
   const handleReuqiresInputVerificationApiKey =
-    keys.IDENTITY.HANDLE_REQUIRES_INPUT_VERIFICATION_API_KEY;
+    configObject.HANDLE_REQUIRES_INPUT_VERIFICATION_API_KEY;
 
   try {
     const response = await fetch(
@@ -202,12 +223,14 @@ export const postVerification = onRequest(async (req, res) => {
     return;
   }
 
-  const event = await getEvent(req.rawBody, sig as string);
+  const eventResult = await getEvent(req.rawBody, sig as string);
 
-  if (!event) {
+  if (!eventResult) {
     res.status(500).send("Internal Server Error");
     return;
   }
+
+  const {event, configObject} = eventResult;
 
   if (
     event.type !== "identity.verification_session.created" &&
@@ -237,7 +260,8 @@ export const postVerification = onRequest(async (req, res) => {
           event.data.object.id,
           event.data.object.created,
           event.data.object.status,
-          event.data.object.livemode
+          event.data.object.livemode,
+          configObject
         );
       }
 
@@ -247,7 +271,8 @@ export const postVerification = onRequest(async (req, res) => {
           event.data.object.id,
           event.data.object.created,
           event.data.object.status,
-          event.data.object.livemode
+          event.data.object.livemode,
+          configObject
         );
       }
 
@@ -257,7 +282,8 @@ export const postVerification = onRequest(async (req, res) => {
           event.data.object.id,
           event.data.object.created,
           event.data.object.status,
-          event.data.object.livemode
+          event.data.object.livemode,
+          configObject
         );
       }
 
@@ -267,7 +293,8 @@ export const postVerification = onRequest(async (req, res) => {
           event.data.object.id,
           event.data.object.created,
           event.data.object.status,
-          event.data.object.livemode
+          event.data.object.livemode,
+          configObject
         );
       }
     });

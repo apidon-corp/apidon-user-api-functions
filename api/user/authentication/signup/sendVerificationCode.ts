@@ -1,9 +1,14 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {firestore, auth} from "../../../../firebase/adminApp";
 import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
-import {keys} from "../../../../config";
-
 import * as SG from "@sendgrid/mail";
+import {getConfigObject} from "../../../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 function checkProps(email: string, password: string) {
   if (!email || !password) return false;
@@ -63,7 +68,12 @@ async function createVerificationDoc(email: string, code: number) {
 }
 
 async function sendEmailVerificationCode(email: string, code: number) {
-  const sgApiKey = keys.SENDGRID_EMAIL_SERVICE_API_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  const sgApiKey = configObject.SENDGRID_EMAIL_SERVICE_API_KEY;
 
   try {
     SG.setApiKey(sgApiKey);

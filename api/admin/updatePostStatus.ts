@@ -1,11 +1,17 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {keys} from "../../config";
 import {firestore} from "../../firebase/adminApp";
 
 import {ReviewStatus} from "../../types/Admin";
 
 import * as express from "express";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 /**
  * Handles the authorization of incoming requests.
@@ -18,7 +24,12 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === keys.ADMIN.UPDATE_POST_STATUS_API_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  return authorization === configObject.UPDATE_POST_STATUS_API_KEY;
 }
 
 function checkProps(id: string, senderUsername: string, reviewStatus: string) {

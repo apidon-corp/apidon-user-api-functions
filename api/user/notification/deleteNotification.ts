@@ -1,10 +1,16 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {keys} from "../../../config";
 import {firestore} from "../../../firebase/adminApp";
 import {FieldValue as fieldValue} from "firebase-admin/firestore";
 
 import {NotificationData} from "../../../types/Notifications";
+import {getConfigObject} from "../../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -12,7 +18,12 @@ function handleAuthorization(key: string | undefined) {
     return false;
   }
 
-  const notificationAPIKey = keys.NOTIFICATION_API_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
 
   if (!notificationAPIKey) {
     console.error("Notification API key not found from .env file.");

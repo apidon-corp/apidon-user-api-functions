@@ -1,10 +1,16 @@
 import {onRequest} from "firebase-functions/v2/https";
-import {keys} from "../../config";
 import {firestore} from "../../firebase/adminApp";
 import {UserIdentityDoc} from "../../types/Identity";
-
+import {getConfigObject} from "../../configs/getConfigObject";
 import Stripe from "stripe";
-const stripe = new Stripe(keys.IDENTITY.STRIPE_RESTRICTED_API_KEY);
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
+
+const stripe = new Stripe(configObject.STRIPE_RESTRICTED_API_KEY);
 
 function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -12,7 +18,12 @@ function handleAuthorization(key: string | undefined) {
     return false;
   }
 
-  return key === keys.IDENTITY.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  return key === configObject.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
 }
 
 function checkProps(

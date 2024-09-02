@@ -15,6 +15,9 @@ serviceAccount.json
 config.ts
 *.p8
 
+configs
+*.aes
+
 lib
 
 *.log
