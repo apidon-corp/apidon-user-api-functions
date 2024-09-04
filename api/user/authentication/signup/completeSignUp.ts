@@ -9,8 +9,8 @@ import {
   NotificationSettingsData,
 } from "../../../../types/Notifications";
 import {BalanceDocData} from "../../../../types/Wallet";
-import {CollectibleUsageDocData} from "@/types/CollectibleUsage";
-import {calculateCollectibleLimit, PlanDocData} from "@/types/Plan";
+import {CollectibleUsageDocData} from "../../../../types/CollectibleUsage";
+import {calculateCollectibleLimit, PlanDocData} from "../../../../types/Plan";
 
 /**
  * Handles the authorization by verifying the provided key.
