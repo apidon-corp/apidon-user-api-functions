@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { getConfigObject } from "../../configs/getConfigObject";
-import { firestore } from "../../firebase/adminApp";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {firestore} from "../../firebase/adminApp";
 
 const configObject = getConfigObject();
 
@@ -52,8 +52,8 @@ async function updateUserDoc(username: string, isVerified: boolean) {
 }
 
 export const updateVerifiedStatus = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { username, isVerified } = req.body;
+  const {authorization} = req.headers;
+  const {username, isVerified} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
