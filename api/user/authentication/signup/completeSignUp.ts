@@ -112,6 +112,7 @@ function createUserDocData(
     profilePhoto: "",
     uid: uid,
     username: username,
+    verified: false,
   };
 
   const userDocRef = firestore.doc(`users/${username}`);

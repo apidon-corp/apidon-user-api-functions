@@ -1,3 +1,4 @@
 import {getAllPosts} from "./getAllPosts";
 import {updatePostStatus} from "./updatePostStatus";
-export {getAllPosts, updatePostStatus};
+import {updateVerifiedStatus} from "./updateVerifiedStatus";
+export {getAllPosts, updatePostStatus, updateVerifiedStatus};
