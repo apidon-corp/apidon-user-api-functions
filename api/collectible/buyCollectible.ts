@@ -1,21 +1,20 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { onRequest } from "firebase-functions/v2/https";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
-import {firestore} from "../../firebase/adminApp";
-import {PostServerData} from "../../types/Post";
-import {BuyersArrayObject, CollectibleDocData} from "../../types/Collectible";
-import {BalanceDocData} from "../../types/Wallet";
-import {FieldValue} from "firebase-admin/firestore";
+import { firestore } from "../../firebase/adminApp";
+import { PostServerData } from "../../types/Post";
+import { BuyersArrayObject, CollectibleDocData } from "../../types/Collectible";
+import { BalanceDocData } from "../../types/Wallet";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   BoughtCollectiblesArrayObject,
   SoldCollectiblesArrayObject,
 } from "../../types/Trade";
-import {NotificationData} from "../../types/Notifications";
-import {internalAPIRoutes} from "../../config";
-import {UserIdentityDoc} from "../../types/Identity";
-import {getConfigObject} from "../../configs/getConfigObject";
+import { NotificationData } from "../../types/Notifications";
+import { internalAPIRoutes } from "../../config";
+import { getConfigObject } from "../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -51,41 +50,6 @@ function checkProps(postDocPath: string) {
     return false;
   }
   return true;
-}
-
-async function checkIdentityStatusOfCustomer(username: string) {
-  try {
-    const identityDocSnapshot = await firestore
-      .doc(`users/${username}/personal/identity`)
-      .get();
-
-    if (!identityDocSnapshot.exists) {
-      console.warn(`Identity doc does not exist for ${username}`);
-      return false;
-    }
-
-    const identityDocData = identityDocSnapshot.data() as UserIdentityDoc;
-
-    if (!identityDocData) {
-      console.error(`Identity doc data is undefined for ${username}`);
-      return false;
-    }
-
-    const status = identityDocData.status;
-
-    if (status !== "verified") {
-      console.error(`Identity status is not verified for ${username}`);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error(
-      `Error while checking identity status for ${username}`,
-      error
-    );
-    return false;
-  }
 }
 
 /**
@@ -410,7 +374,7 @@ async function updateCollectibleDoc(
     };
 
     await collectibleDocRef.update({
-      "buyers": FieldValue.arrayUnion(newBuyerObject),
+      buyers: FieldValue.arrayUnion(newBuyerObject),
       "stock.remainingStock": FieldValue.increment(-1),
     });
 
@@ -599,7 +563,7 @@ async function rollback(
         updateCollectibleDocResult.collectibleDocPath
       );
       await collectibleDocRef.update({
-        "buyers": FieldValue.arrayRemove(updateCollectibleDocResult.username),
+        buyers: FieldValue.arrayRemove(updateCollectibleDocResult.username),
         "stock.remainingStock": FieldValue.increment(1),
       });
     } catch (error) {
@@ -682,7 +646,7 @@ async function sendNotification(notificationObject: NotificationData) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -707,8 +671,8 @@ async function sendNotification(notificationObject: NotificationData) {
 
 export const buyCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -719,12 +683,6 @@ export const buyCollectible = onRequest(
     const checkPropsResult = checkProps(postDocPath);
     if (!checkPropsResult) {
       res.status(422).send("Invalid Request");
-      return;
-    }
-
-    const isIdentityVerified = await checkIdentityStatusOfCustomer(username);
-    if (!isIdentityVerified) {
-      res.status(403).send("Forbidden");
       return;
     }
 
