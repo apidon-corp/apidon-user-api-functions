@@ -1,14 +1,15 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData} from "../../types/Collectible";
-import {PostServerData} from "../../types/Post";
-import {CreatedCollectiblesArrayObject} from "../../types/Trade";
-import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
-import {calculateStockLimit, PlanDocData} from "../../types/Plan";
-import {TopUpPlansConfigDocData} from "@/types/IAP";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { CollectibleDocData } from "../../types/Collectible";
+import { PostServerData } from "../../types/Post";
+import { CreatedCollectiblesArrayObject } from "../../types/Trade";
+import { CollectibleUsageDocData } from "../../types/CollectibleUsage";
+import { calculateStockLimit, PlanDocData } from "../../types/Plan";
+import { TopUpPlansConfigDocData } from "@/types/IAP";
+import { UserInServer } from "@/types/User";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -135,6 +136,32 @@ function checkCanAuthorizedForThisOperation(
   }
 
   return true;
+}
+
+/**
+ * Checking for if user has purple thick.
+ */
+async function checkIsVerified(username: string) {
+  try {
+    const userDocSnapshot = await firestore.doc(`users/${username}`).get();
+
+    if (!userDocSnapshot.exists) {
+      console.error("User doc does not exist");
+      return false;
+    }
+
+    const data = userDocSnapshot.data() as UserInServer;
+
+    if (!data) {
+      console.error("User doc data is undefined");
+      return false;
+    }
+
+    return data.verified;
+  } catch (error) {
+    console.error("Error while checking user verification", error);
+    return false;
+  }
 }
 
 function checkPostForCollectible(postDocData: PostServerData) {
@@ -353,8 +380,8 @@ async function rollBackPostDoc(postDocPath: string) {
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath, price, stock} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath, price, stock } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -379,6 +406,12 @@ export const createCollectible = onRequest(
       username
     );
     if (!isAuthorizedForThisOperation) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
+    const isVerified = await checkIsVerified(username);
+    if (!isVerified) {
       res.status(403).send("Forbidden");
       return;
     }
