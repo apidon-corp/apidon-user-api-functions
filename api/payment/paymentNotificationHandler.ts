@@ -1,8 +1,8 @@
-import {internalAPIRoutes} from "../../config";
-import {onRequest} from "firebase-functions/v2/https";
-import {RevenueCatNotificationPayload} from "../../types/IAP";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {Config} from "../../types/Config";
+import { internalAPIRoutes } from "../../config";
+import { onRequest } from "firebase-functions/v2/https";
+import { RevenueCatNotificationPayload } from "../../types/IAP";
+import { getConfigObject } from "../../configs/getConfigObject";
+import { Config } from "../../types/Config";
 
 const configObject = getConfigObject();
 
@@ -44,7 +44,7 @@ async function handleSuccessfullPayment(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": apiKey,
+        Authorization: apiKey,
       },
       body: JSON.stringify({
         productId: payload.product_id,
@@ -73,45 +73,6 @@ async function handleRefund(
   payload: RevenueCatNotificationPayload,
   configObject: Config
 ) {
-  if (payload.expiration_at_ms) {
-    // Here we handle subscription refunds....
-
-    if (!payload.cancel_reason) {
-      console.error("Cancel reason is missing in the payload");
-      return {
-        status: "failed",
-        message: "Cancel reason is missing in the payload",
-      };
-    }
-
-    if (payload.cancel_reason === "CUSTOMER_SUPPORT") {
-      // We need to handle this situation like instant-expiration
-      // Because "expired" event won't come.
-      const handleExpirationResult = await handleExpiration(
-        payload,
-        configObject
-      );
-      if (!handleExpirationResult) {
-        return {
-          status: "failed",
-          message:
-            "Failed to handle expiration for customer_support cancellation event.",
-        };
-      }
-
-      return {
-        status: "successful",
-        message: "",
-      };
-    }
-
-    const message = `We received a CANCELLATION event that it's reason: ${payload.cancel_reason} We need to handle this manually.`;
-    return {
-      status: "successful",
-      message: message,
-    };
-  }
-
   const refundApiRoute = internalAPIRoutes.payment.refund;
   const refundApiKey = configObject.REFUND_API_AUTH_KEY;
 
@@ -120,7 +81,7 @@ async function handleRefund(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": refundApiKey,
+        Authorization: refundApiKey,
       },
       body: JSON.stringify({
         productId: payload.product_id,
@@ -155,159 +116,10 @@ async function handleRefund(
   }
 }
 
-async function handleInitialPurchase(
-  payload: RevenueCatNotificationPayload,
-  configObject: Config
-) {
-  const initialPurchaseAPIRoute =
-    internalAPIRoutes.payment.successOnInitialPurchase;
-  const initialPurchaseAPIKey = configObject.INITIAL_PURHCASE_API_KEY;
-
-  if (!initialPurchaseAPIKey || !initialPurchaseAPIRoute) {
-    console.error("Initial purchase API key or route is missing");
-    return false;
-  }
-
-  try {
-    const response = await fetch(initialPurchaseAPIRoute, {
-      headers: {
-        "authorization": initialPurchaseAPIKey,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-      body: JSON.stringify({
-        productId: payload.product_id,
-        periodType: payload.period_type,
-        purchasedTs: payload.purchased_at_ms,
-        expirationTs: payload.expiration_at_ms,
-        store: payload.store,
-        environment: payload.environment,
-        countryCode: payload.country_code,
-        customerId: payload.app_user_id,
-        transactionId: payload.transaction_id,
-        offerCode: payload.offer_code || "",
-        ts: payload.event_timestamp_ms,
-        price: payload.price,
-        priceInPurchasedCurrency: payload.price_in_purchased_currency,
-        currency: payload.currency,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(
-        "Response from initialPurchase API is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error sending initial purchase notification:", error);
-    return false;
-  }
-}
-
-async function handleRenewal(
-  payload: RevenueCatNotificationPayload,
-  configObject: Config
-) {
-  const renewalAPIRoute = internalAPIRoutes.payment.successOnRenewal;
-  const renewalAPIKey = configObject.RENEWAL_API_KEY;
-
-  try {
-    const response = await fetch(renewalAPIRoute, {
-      headers: {
-        "authorization": renewalAPIKey,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-      body: JSON.stringify({
-        productId: payload.product_id,
-        periodType: payload.period_type,
-        purchasedTs: payload.purchased_at_ms,
-        expirationTs: payload.expiration_at_ms,
-        store: payload.store,
-        environment: payload.environment,
-        countryCode: payload.country_code,
-        customerId: payload.app_user_id,
-        transactionId: payload.transaction_id,
-        offerCode: payload.offer_code || "",
-        ts: payload.event_timestamp_ms,
-        price: payload.price,
-        priceInPurchasedCurrency: payload.price_in_purchased_currency,
-        currency: payload.currency,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(
-        "Response from renewal API is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error sending renewal notification:", error);
-    return false;
-  }
-}
-
-async function handleExpiration(
-  payload: RevenueCatNotificationPayload,
-  configObject: Config
-) {
-  const expirationApiRoute = internalAPIRoutes.payment.successOnExpiration;
-  const expirationApiKey = configObject.EXPIRATION_API_KEY;
-
-  console.log("Payload from expiration type: ", payload);
-
-  try {
-    const response = await fetch(expirationApiRoute, {
-      headers: {
-        "authorization": expirationApiKey,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-      body: JSON.stringify({
-        productId: payload.product_id,
-        periodType: payload.period_type,
-        purchasedTs: payload.purchased_at_ms,
-        expirationTs: payload.expiration_at_ms,
-        store: payload.store,
-        environment: payload.environment,
-        countryCode: payload.country_code,
-        customerId: payload.app_user_id,
-        transactionId: payload.transaction_id,
-        offerCode: payload.offer_code || "",
-        ts: payload.event_timestamp_ms,
-        price: payload.price,
-        priceInPurchasedCurrency: payload.price_in_purchased_currency,
-        currency: payload.currency,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(
-        "Response from expiration API is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error sending expiration notification:", error);
-    return false;
-  }
-}
-
 export const paymentNotificationHandler = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const { authorization } = req.headers;
 
-  const {event} = req.body;
+  const { event } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult || !authResult.authResult) {
@@ -334,36 +146,6 @@ export const paymentNotificationHandler = onRequest(async (req, res) => {
     const result = await handleRefund(event, authResult.configObject);
     if (result.status === "failed") {
       res.status(500).send(result.message);
-      return;
-    }
-    res.status(200).send("OK");
-    return;
-  }
-
-  if (type === "INITIAL_PURCHASE") {
-    const result = await handleInitialPurchase(event, authResult.configObject);
-    if (!result) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-    res.status(200).send("OK");
-    return;
-  }
-
-  if (type === "RENEWAL") {
-    const result = await handleRenewal(event, authResult.configObject);
-    if (!result) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-    res.status(200).send("OK");
-    return;
-  }
-
-  if (type === "EXPIRATION") {
-    const result = await handleExpiration(event, authResult.configObject);
-    if (!result) {
-      res.status(500).send("Internal Server Error");
       return;
     }
     res.status(200).send("OK");

@@ -1,8 +1,5 @@
-import {paymentNotificationHandler} from "./paymentNotificationHandler";
-import {successOnPayment} from "./successOnPayment";
-import {refund} from "./refund";
-import {successOnInitialPurchase} from "./successOnInitialPurchase";
-import {successOnRenewal} from "./successOnRenewal";
-import {successOnExpiration} from "./successOnExpiration";
+import { paymentNotificationHandler } from "./paymentNotificationHandler";
+import { successOnPayment } from "./successOnPayment";
+import { refund } from "./refund";
 
-export {paymentNotificationHandler, successOnPayment, refund, successOnInitialPurchase, successOnRenewal, successOnExpiration};
+export { paymentNotificationHandler, successOnPayment, refund };
