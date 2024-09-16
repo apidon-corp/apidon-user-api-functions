@@ -1,13 +1,13 @@
-import { TopUpPlansConfigDocData } from "@/types/IAP";
-import { UserInServer } from "@/types/User";
-import { FieldValue } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
+import {TopUpPlansConfigDocData} from "@/types/IAP";
+import {UserInServer} from "@/types/User";
+import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { CollectibleDocData } from "../../types/Collectible";
-import { PostServerData } from "../../types/Post";
-import { CreatedCollectiblesArrayObject } from "../../types/Trade";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {CollectibleDocData} from "../../types/Collectible";
+import {PostServerData} from "../../types/Post";
+import {CreatedCollectiblesArrayObject} from "../../types/Trade";
 
 const STOCK_LIMIT = 100;
 
@@ -331,8 +331,8 @@ async function rollBackPostDoc(postDocPath: string) {
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath, price, stock } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath, price, stock} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

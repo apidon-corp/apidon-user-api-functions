@@ -1,17 +1,17 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
 import {
   CommentServerData,
   CommentInteractionData,
   PostServerData,
 } from "../../types/Post";
-import { firestore } from "../../firebase/adminApp";
-import { FieldValue } from "firebase-admin/firestore";
-import { NotificationData } from "../../types/Notifications";
-import { internalAPIRoutes } from "../../config";
+import {firestore} from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {NotificationData} from "../../types/Notifications";
+import {internalAPIRoutes} from "../../config";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { getConfigObject } from "../../configs/getConfigObject";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {getConfigObject} from "../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -191,7 +191,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationDataToDelete,
@@ -216,8 +216,8 @@ async function deleteNotification(
 
 export const postCommentDelete = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath, commentObject } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath, commentObject} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
