@@ -2,7 +2,7 @@ import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
 import {
-  CommentDataV2,
+  CommentServerData,
   CommentInteractionData,
   PostServerData,
 } from "../../types/Post";
@@ -41,7 +41,7 @@ function checkProps(postDocPath: string, message: string) {
 }
 
 function createCommentData(message: string, sender: string, ts: number) {
-  const commentData: CommentDataV2 = {
+  const commentData: CommentServerData = {
     message: message,
     sender: sender,
     ts: ts,
@@ -51,7 +51,7 @@ function createCommentData(message: string, sender: string, ts: number) {
 
 async function changeCommentsArray(
   postDocPath: string,
-  commendData: CommentDataV2
+  commendData: CommentServerData
 ) {
   try {
     const postDocRef = firestore.doc(postDocPath);

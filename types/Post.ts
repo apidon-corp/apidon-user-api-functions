@@ -7,7 +7,7 @@ export type PostServerData = {
   image: string;
 
   rates: RateData[];
-  comments: CommentDataV2[];
+  comments: CommentServerData[];
 
   collectibleStatus:
     | {
@@ -30,7 +30,7 @@ export type RateData = {
   ts: number;
 };
 
-export type CommentDataV2 = {
+export type CommentServerData = {
   sender: string;
   message: string;
   ts: number;

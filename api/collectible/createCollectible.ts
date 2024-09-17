@@ -1,3 +1,5 @@
+import {TopUpPlansConfigDocData} from "@/types/IAP";
+import {UserInServer} from "@/types/User";
 import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
@@ -6,9 +8,8 @@ import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {CollectibleDocData} from "../../types/Collectible";
 import {PostServerData} from "../../types/Post";
 import {CreatedCollectiblesArrayObject} from "../../types/Trade";
-import {CollectibleUsageDocData} from "../../types/CollectibleUsage";
-import {calculateStockLimit, PlanDocData} from "../../types/Plan";
-import {TopUpPlansConfigDocData} from "@/types/IAP";
+
+const STOCK_LIMIT = 100;
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -137,6 +138,32 @@ function checkCanAuthorizedForThisOperation(
   return true;
 }
 
+/**
+ * Checking for if user has purple thick.
+ */
+async function checkIsVerified(username: string) {
+  try {
+    const userDocSnapshot = await firestore.doc(`users/${username}`).get();
+
+    if (!userDocSnapshot.exists) {
+      console.error("User doc does not exist");
+      return false;
+    }
+
+    const data = userDocSnapshot.data() as UserInServer;
+
+    if (!data) {
+      console.error("User doc data is undefined");
+      return false;
+    }
+
+    return data.verified;
+  } catch (error) {
+    console.error("Error while checking user verification", error);
+    return false;
+  }
+}
+
 function checkPostForCollectible(postDocData: PostServerData) {
   if (postDocData.collectibleStatus.isCollectible) {
     console.error("Post already is a collectible");
@@ -146,62 +173,13 @@ function checkPostForCollectible(postDocData: PostServerData) {
   return true;
 }
 
-async function checkUsage(username: string) {
-  try {
-    const collectibleDocUsageSnapshot = await firestore
-      .doc(`/users/${username}/collectible/usage`)
-      .get();
-
-    if (!collectibleDocUsageSnapshot.exists) {
-      console.error("Collectible doc usage does not exist.");
-      return false;
-    }
-
-    const data = collectibleDocUsageSnapshot.data() as CollectibleUsageDocData;
-
-    if (!data) {
-      console.error("Collectible doc usage data is undefined.");
-      return false;
-    }
-
-    const used = data.used;
-    const limit = data.limit;
-
-    if (used >= limit) {
-      console.error("Collectible usage limit reached.");
-      return false;
-    }
-
-    return data.planId;
-  } catch (error) {
-    console.error("Error while checking collectible usage", error);
+function checkStock(requestedStock: number) {
+  if (requestedStock > STOCK_LIMIT) {
+    console.error("Stock limit exceeded");
     return false;
   }
-}
 
-async function checkStock(planId: string, requestedStock: number) {
-  try {
-    const planDocSnapshot = await firestore.doc(`plans/${planId}`).get();
-
-    if (!planDocSnapshot.exists) {
-      console.error("Plan doc does not exist");
-      return false;
-    }
-
-    const planDocData = planDocSnapshot.data() as PlanDocData;
-
-    if (!planDocData) {
-      console.error("Plan doc data is undefined");
-      return false;
-    }
-
-    const stockLimit = calculateStockLimit(planDocData.stock);
-
-    return requestedStock <= stockLimit;
-  } catch (error) {
-    console.error("Error while checking stock", error);
-    return false;
-  }
+  return true;
 }
 
 async function createCollectibleDoc(
@@ -383,19 +361,19 @@ export const createCollectible = onRequest(
       return;
     }
 
+    const isVerified = await checkIsVerified(username);
+    if (!isVerified) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
     const checkPostForCollectibleResult = checkPostForCollectible(postData);
     if (!checkPostForCollectibleResult) {
       res.status(422).send("Invalid Request");
       return;
     }
 
-    const checkUsageResult = await checkUsage(username);
-    if (!checkUsageResult) {
-      res.status(403).send("Forbidden");
-      return;
-    }
-
-    const checkStockResult = await checkStock(checkUsageResult, stock);
+    const checkStockResult = checkStock(stock);
     if (!checkStockResult) {
       res.status(403).send("Forbidden");
       return;

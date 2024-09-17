@@ -1,7 +1,7 @@
 import {onRequest} from "firebase-functions/v2/https";
 import getDisplayName from "../../helpers/getDisplayName";
 import {
-  CommentDataV2,
+  CommentServerData,
   CommentInteractionData,
   PostServerData,
 } from "../../types/Post";
@@ -31,7 +31,7 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-function checkProps(postDocPath: string, commentObject: CommentDataV2) {
+function checkProps(postDocPath: string, commentObject: CommentServerData) {
   if (!postDocPath || !commentObject) {
     console.error("Both postDocPath and commentObject is undefined.");
     return false;
@@ -43,7 +43,7 @@ function checkProps(postDocPath: string, commentObject: CommentDataV2) {
 async function checkCanDeleteComment(
   username: string,
   postDocPath: string,
-  commentObject: CommentDataV2
+  commentObject: CommentServerData
 ) {
   try {
     const postDocSnapshot = await firestore.doc(postDocPath).get();
@@ -82,7 +82,7 @@ async function checkCanDeleteComment(
 
 async function deleteCommentFromPost(
   postDocPath: string,
-  commentObject: CommentDataV2
+  commentObject: CommentServerData
 ) {
   try {
     const postDocRef = firestore.doc(postDocPath);
@@ -111,7 +111,7 @@ async function decreaseCommentCount(postDocPath: string) {
 
 async function deleteCommentFromInteractions(
   username: string,
-  commentObject: CommentDataV2,
+  commentObject: CommentServerData,
   postDocPath: string
 ) {
   const commentInteractionData: CommentInteractionData = {
@@ -158,7 +158,7 @@ function craeteNotificationObject(
 
 async function deleteNotification(
   postSender: string,
-  commentObject: CommentDataV2,
+  commentObject: CommentServerData,
   postDocPath: string
 ) {
   // No notification to yourself.

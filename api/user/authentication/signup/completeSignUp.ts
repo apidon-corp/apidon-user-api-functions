@@ -9,8 +9,6 @@ import {
   NotificationSettingsData,
 } from "../../../../types/Notifications";
 import {BalanceDocData} from "../../../../types/Wallet";
-import {CollectibleUsageDocData} from "../../../../types/CollectibleUsage";
-import {calculateCollectibleLimit, PlanDocData} from "../../../../types/Plan";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -132,48 +130,6 @@ function createCollectibleTradeDoc(batch: WriteBatch, username: string) {
   batch.set(collectibleTradeDocRef, collectibleTradeData);
 }
 
-async function getFreeLimit() {
-  try {
-    const freeDocSnapshot = await firestore.doc("plans/free").get();
-
-    if (!freeDocSnapshot.exists) {
-      console.error("Free plan does not exist");
-      return false;
-    }
-
-    const data = freeDocSnapshot.data() as PlanDocData;
-
-    if (!data) {
-      console.error("Free plan does not exist");
-      return false;
-    }
-
-    const limit = calculateCollectibleLimit(data.collectible);
-
-    return limit;
-  } catch (error) {
-    console.error("Error getting free limit", error);
-    return false;
-  }
-}
-
-function createUsageDoc(
-  batch: WriteBatch,
-  username: string,
-  freeLimit: number
-) {
-  const usageDocRef = firestore.doc(`users/${username}/collectible/usage`);
-
-  const data: CollectibleUsageDocData = {
-    limit: freeLimit,
-    planId: "free",
-    subscriptionDocPath: "",
-    used: 0,
-  };
-
-  batch.set(usageDocRef, data);
-}
-
 function createNotificationsDoc(batch: WriteBatch, username: string) {
   const notificationsDocData: NotificationDocData = {
     lastOpenedTime: Date.now(),
@@ -225,8 +181,7 @@ function createBalanceDoc(batch: WriteBatch, username: string) {
 async function createUserOnFirestore(
   username: string,
   authResult: { uid: string; email: string },
-  fullname: string,
-  freeLimit: number
+  fullname: string
 ) {
   try {
     const batch = firestore.batch();
@@ -239,7 +194,7 @@ async function createUserOnFirestore(
       fullname
     );
     createCollectibleTradeDoc(batch, username);
-    createUsageDoc(batch, username, freeLimit);
+
     createNotificationsDoc(batch, username);
     createNotificationSettingsDoc(batch, username);
     createPostInteractions(batch, username);
@@ -301,17 +256,10 @@ export const completeSignUp = onRequest(
       return;
     }
 
-    const freeLimit = await getFreeLimit();
-    if (freeLimit === false) {
-      res.status(500).send("Internal server error");
-      return;
-    }
-
     const createUserOnFirestoreResult = await createUserOnFirestore(
       username,
       authResult,
-      fullname,
-      freeLimit
+      fullname
     );
     if (!createUserOnFirestoreResult) {
       await rollBackAuthModification(authResult.uid);
