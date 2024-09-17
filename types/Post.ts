@@ -35,7 +35,8 @@ export type PostServerData = {
   description: string;
   image: string;
 
-  rates: RateData[];
+  ratingCount: number;
+  ratingSum: number;
 
   commentCount: number;
 
@@ -51,13 +52,19 @@ export type PostServerData = {
   creationTime: number;
   id: string;
 
-  reviewStatus?: ReviewStatus;
+  reviewStatus: ReviewStatus;
 };
 
 export type RateData = {
   sender: string;
   rate: number;
   ts: number;
+};
+
+export type RatingData = {
+  sender: string;
+  rating: number;
+  timestamp: number;
 };
 
 export type CommentServerData = {
