@@ -1,6 +1,6 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {bucket, firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { bucket, firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {
   PostDocPathsArrayItem,
@@ -8,7 +8,7 @@ import {
   UploadedPostArrayObject,
 } from "../../types/Post";
 
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -34,12 +34,12 @@ function createPostServerData(description: string, username: string) {
   const ts = Date.now();
 
   const newPostServerData: PostServerData = {
-    comments: [],
     creationTime: ts,
     description: description,
+    commentCount: 0,
     image: "",
     rates: [],
-    collectibleStatus: {isCollectible: false},
+    collectibleStatus: { isCollectible: false },
     senderUsername: username,
     id: ts.toString(),
     reviewStatus: "pending",
@@ -154,8 +154,8 @@ async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
 
 export const postUpload = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {description, tempImageLocation} = req.body;
+    const { authorization } = req.headers;
+    const { description, tempImageLocation } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

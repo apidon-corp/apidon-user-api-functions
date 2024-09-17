@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
 import getDisplayName from "../../helpers/getDisplayName";
 import {
@@ -6,12 +6,12 @@ import {
   CommentInteractionData,
   PostServerData,
 } from "../../types/Post";
-import {firestore} from "../../firebase/adminApp";
-import {FieldValue} from "firebase-admin/firestore";
-import {NotificationData} from "../../types/Notifications";
-import {internalAPIRoutes} from "../../config";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {getConfigObject} from "../../configs/getConfigObject";
+import { firestore } from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { NotificationData } from "../../types/Notifications";
+import { internalAPIRoutes } from "../../config";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { getConfigObject } from "../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -49,18 +49,21 @@ function createCommentData(message: string, sender: string, ts: number) {
   return commentData;
 }
 
-async function changeCommentsArray(
+async function createCommentDoc(
   postDocPath: string,
   commendData: CommentServerData
 ) {
   try {
-    const postDocRef = firestore.doc(postDocPath);
-    await postDocRef.update({
-      comments: FieldValue.arrayUnion(commendData),
-    });
+    const postCommentsCollectionRef = firestore.collection(
+      `${postDocPath}/comments`
+    );
+    await postCommentsCollectionRef.add(commendData);
     return true;
   } catch (error) {
-    console.error("Error while changing comments array: ", error);
+    console.error(
+      "Error while creating comment doc in comments collection: ",
+      error
+    );
     return false;
   }
 }
@@ -182,7 +185,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -207,8 +210,8 @@ async function sendNotification(
 
 export const postComment = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {message, postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { message, postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -229,12 +232,12 @@ export const postComment = onRequest(
     );
 
     const [
-      changeCommentsArrayResult,
+      createCommentDocResult,
       increaseCommentCountResult,
       updateInteractionsResult,
       sendNotificationResult,
     ] = await Promise.all([
-      changeCommentsArray(postDocPath, commendData),
+      createCommentDoc(postDocPath, commendData),
       increaseCommentCount(postDocPath),
       updateInteractions(commentInteractionData, username),
       sendNotification(
@@ -246,7 +249,7 @@ export const postComment = onRequest(
     ]);
 
     if (
-      !changeCommentsArrayResult ||
+      !createCommentDocResult ||
       !increaseCommentCountResult ||
       !updateInteractionsResult ||
       !sendNotificationResult

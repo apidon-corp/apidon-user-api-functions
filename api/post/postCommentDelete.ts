@@ -1,17 +1,17 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { internalAPIRoutes } from "../../config";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
+import { NotificationData } from "../../types/Notifications";
 import {
-  CommentServerData,
   CommentInteractionData,
+  CommentServerData,
   PostServerData,
 } from "../../types/Post";
-import {firestore} from "../../firebase/adminApp";
-import {FieldValue} from "firebase-admin/firestore";
-import {NotificationData} from "../../types/Notifications";
-import {internalAPIRoutes} from "../../config";
 
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {getConfigObject} from "../../configs/getConfigObject";
+import { getConfigObject } from "../../configs/getConfigObject";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 
 const configObject = getConfigObject();
 
@@ -46,52 +46,44 @@ async function checkCanDeleteComment(
   commentObject: CommentServerData
 ) {
   try {
+    const query = await firestore
+      .collection(`${postDocPath}/comments`)
+      .where("sender", "==", username)
+      .where("ts", "==", commentObject.ts)
+      .get();
+
+    if (query.empty) {
+      console.error(
+        "Comment not found or user not authorized to delete this comment."
+      );
+      return false;
+    }
+
+    const commentDocPath = query.docs[0].ref.path;
+
     const postDocSnapshot = await firestore.doc(postDocPath).get();
     if (!postDocSnapshot.exists) {
-      console.error("Post doc not found");
+      console.error("Post document does not exist.");
       return false;
     }
 
     const postDocData = postDocSnapshot.data() as PostServerData;
-    if (!postDocData) {
-      console.error("Post doc data is undefined");
-      return false;
-    }
-
-    const foundComment = postDocData.comments.find(
-      (comment) =>
-        comment.message === commentObject.message &&
-        comment.sender === commentObject.sender &&
-        comment.ts === commentObject.ts
-    );
-
-    if (!foundComment) {
-      console.error("Comment not found to delete");
-      return false;
-    }
-
     return {
       postDocData: postDocData,
-      canDeleteComment: foundComment.sender === username,
+      commentDocPath: commentDocPath,
     };
   } catch (error) {
-    console.error("Error while checking can delete comment");
+    console.error("Error while checking if comment can be deleted:", error);
     return false;
   }
 }
 
-async function deleteCommentFromPost(
-  postDocPath: string,
-  commentObject: CommentServerData
-) {
+async function deleteCommentDoc(commentDocPath: string) {
   try {
-    const postDocRef = firestore.doc(postDocPath);
-    await postDocRef.update({
-      comments: FieldValue.arrayRemove(commentObject),
-    });
+    await firestore.doc(commentDocPath).delete();
     return true;
   } catch (error) {
-    console.error("Error while deleting comment from post");
+    console.error("Error while deleting comment doc.");
     return false;
   }
 }
@@ -191,7 +183,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationDataToDelete,
@@ -216,8 +208,8 @@ async function deleteNotification(
 
 export const postCommentDelete = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath, commentObject} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath, commentObject } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -241,7 +233,7 @@ export const postCommentDelete = onRequest(
       return;
     }
 
-    if (!checkCanDeleteCommentResult.canDeleteComment) {
+    if (!checkCanDeleteCommentResult) {
       res.status(403).send("Forbidden");
       return;
     }
@@ -252,13 +244,9 @@ export const postCommentDelete = onRequest(
       deleteCommentFromInteractionsResult,
       deleteNotificationResult,
     ] = await Promise.all([
-      deleteCommentFromPost(postDocPath, commentObject),
+      deleteCommentDoc(checkCanDeleteCommentResult.commentDocPath),
       decreaseCommentCount(postDocPath),
-      deleteCommentFromInteractions(
-        username,
-        commentObject,
-        `/users/${checkCanDeleteCommentResult.postDocData.senderUsername}/posts/${checkCanDeleteCommentResult.postDocData.id}`
-      ),
+      deleteCommentFromInteractions(username, commentObject, postDocPath),
       deleteNotification(
         checkCanDeleteCommentResult.postDocData.senderUsername,
         commentObject,

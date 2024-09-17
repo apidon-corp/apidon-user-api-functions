@@ -1,4 +1,33 @@
-import {ReviewStatus} from "./Admin";
+import { ReviewStatus } from "./Admin";
+
+/**
+ * @deprecated
+ */
+export type PostServerDataOld = {
+  senderUsername: string;
+
+  description: string;
+  image: string;
+
+  rates: RateData[];
+  comments: CommentServerData[];
+
+  commentCount: number;
+
+  collectibleStatus:
+    | {
+        isCollectible: false;
+      }
+    | {
+        isCollectible: true;
+        collectibleDocPath: string;
+      };
+
+  creationTime: number;
+  id: string;
+
+  reviewStatus?: ReviewStatus;
+};
 
 export type PostServerData = {
   senderUsername: string;
@@ -7,7 +36,8 @@ export type PostServerData = {
   image: string;
 
   rates: RateData[];
-  comments: CommentServerData[];
+
+  commentCount: number;
 
   collectibleStatus:
     | {
