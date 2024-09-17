@@ -1,20 +1,20 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import { onRequest } from "firebase-functions/v2/https";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
-import {firestore} from "../../firebase/adminApp";
-import {PostServerData} from "../../types/Post";
-import {BuyersArrayObject, CollectibleDocData} from "../../types/Collectible";
-import {BalanceDocData} from "../../types/Wallet";
-import {FieldValue} from "firebase-admin/firestore";
+import { firestore } from "../../firebase/adminApp";
+import { PostServerData } from "../../types/Post";
+import { CollectibleDocData, CollectorDocData } from "../../types/Collectible";
+import { BalanceDocData } from "../../types/Wallet";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   BoughtCollectiblesArrayObject,
   SoldCollectiblesArrayObject,
 } from "../../types/Trade";
-import {NotificationData} from "../../types/Notifications";
-import {internalAPIRoutes} from "../../config";
-import {getConfigObject} from "../../configs/getConfigObject";
+import { NotificationData } from "../../types/Notifications";
+import { internalAPIRoutes } from "../../config";
+import { getConfigObject } from "../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -147,20 +147,27 @@ function checkCollectibleData(collectibleData: CollectibleDocData) {
   return true;
 }
 
-function checkPurchasingSingleTime(
+async function checkPurchasingSingleTime(
   collectibleData: CollectibleDocData,
   customer: string
 ) {
-  const buyersUsernames = collectibleData.buyers.map((b) => b.username);
+  try {
+    const query = await firestore
+      .collection(`/collectibles/${collectibleData.id}/collectors`)
+      .where("username", "==", customer)
+      .get();
 
-  const alreadyBought = buyersUsernames.includes(customer);
+    const size = query.size;
 
-  if (alreadyBought) {
-    console.error("Customer has already bought that collectible.");
+    if (size > 0) {
+      console.error("User has already bought this collectible.");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error while checking purchasing single time", error);
     return false;
   }
-
-  return true;
 }
 
 /**
@@ -368,23 +375,32 @@ async function updateCollectibleDoc(
   try {
     const collectibleDocRef = firestore.doc(collectibleDocPath);
 
-    const newBuyerObject: BuyersArrayObject = {
-      ts: Date.now(),
-      username: username,
-    };
-
     await collectibleDocRef.update({
-      "buyers": FieldValue.arrayUnion(newBuyerObject),
       "stock.remainingStock": FieldValue.increment(-1),
     });
 
     return {
       username: username,
       collectibleDocPath: collectibleDocPath,
-      newBuyerObject: newBuyerObject,
     };
   } catch (error) {
     console.error("Error while updating collectible doc", error);
+    return false;
+  }
+}
+
+async function addCollectorDocToCollectorsCollection(
+  collectibleDocPath: string,
+  collectorDocData: CollectorDocData
+) {
+  try {
+    const collectorDocRef = firestore.collection(
+      `${collectibleDocPath}/collectors`
+    );
+    await collectorDocRef.add(collectorDocData);
+    return collectorDocRef.path;
+  } catch (error) {
+    console.error("Error while adding collector doc", error);
     return false;
   }
 }
@@ -493,9 +509,7 @@ async function rollback(
   updateCollectibleDocResult:
     | false
     | {
-        username: string;
         collectibleDocPath: string;
-        newBuyerObject: BuyersArrayObject;
       },
   updateCollectibleTradeDocOfBuyerResult:
     | false
@@ -508,7 +522,8 @@ async function rollback(
     | {
         seller: string;
         newSoldObject: SoldCollectiblesArrayObject;
-      }
+      },
+  addCollectorDocToCollectorsCollectionResult: false | string
 ) {
   if (updateBalanceResult) {
     const updateBalanceRollback = await updateBalance(
@@ -563,7 +578,6 @@ async function rollback(
         updateCollectibleDocResult.collectibleDocPath
       );
       await collectibleDocRef.update({
-        "buyers": FieldValue.arrayRemove(updateCollectibleDocResult.username),
         "stock.remainingStock": FieldValue.increment(1),
       });
     } catch (error) {
@@ -601,6 +615,17 @@ async function rollback(
         "Error while rolling back collectible trade doc of seller",
         error
       );
+    }
+  }
+
+  if (addCollectorDocToCollectorsCollectionResult) {
+    try {
+      const collectorDocRef = firestore.doc(
+        addCollectorDocToCollectorsCollectionResult
+      );
+      await collectorDocRef.delete();
+    } catch (error) {
+      console.error("Error while rolling back collector doc", error);
     }
   }
 }
@@ -646,7 +671,7 @@ async function sendNotification(notificationObject: NotificationData) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -671,8 +696,8 @@ async function sendNotification(notificationObject: NotificationData) {
 
 export const buyCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -715,7 +740,7 @@ export const buyCollectible = onRequest(
       return;
     }
 
-    const checkPurchasingSingleTimeResult = checkPurchasingSingleTime(
+    const checkPurchasingSingleTimeResult = await checkPurchasingSingleTime(
       collectibleData,
       username
     );
@@ -752,6 +777,7 @@ export const buyCollectible = onRequest(
       updateCollectibleDocResult,
       updateCollectibleTradeDocOfBuyerResult,
       updateCollectibleTradeDocOfSellerResult,
+      addCollectorDocToCollectorsCollectionResult,
     ] = await Promise.all([
       updateBalance(username, price),
       updateBalanceOfSeller(postData.senderUsername, price),
@@ -786,6 +812,10 @@ export const buyCollectible = onRequest(
         postData.senderUsername,
         commonTimestamp
       ),
+      addCollectorDocToCollectorsCollection(collectibleDocPath, {
+        timestamp: commonTimestamp,
+        username: username,
+      }),
     ]);
     if (
       !updateBalanceResult ||
@@ -794,42 +824,9 @@ export const buyCollectible = onRequest(
       !createSellPaymentIntentDocResult ||
       !updateCollectibleDocResult ||
       !updateCollectibleTradeDocOfBuyerResult ||
-      !updateCollectibleTradeDocOfSellerResult
+      !updateCollectibleTradeDocOfSellerResult ||
+      !addCollectorDocToCollectorsCollectionResult
     ) {
-      console.error("Error on puchasing Collectible!...");
-      console.error(
-        `${username} wanted to purchase ${collectibleDocPath} but failed...`
-      );
-
-      console.error("Operations results: \n");
-      console.error("Update Balance Result: ", updateBalanceResult);
-      console.error(
-        "Update Balance Of Seller Result: ",
-        updateBalanceOfSellerResult
-      );
-      console.error(
-        "Create Purchase Payment Intent Doc Result: ",
-        createPurchasePaymentIntentDocResult
-      );
-      console.error(
-        "Create Sell Payment Intent Doc Result: ",
-        createSellPaymentIntentDocResult
-      );
-      console.error(
-        "Update Collectible Doc Result: ",
-        updateCollectibleDocResult
-      );
-      console.error(
-        "Update Collectible Trade Doc Of Buyer Result: ",
-        updateCollectibleTradeDocOfBuyerResult
-      );
-      console.error(
-        "Update Collectible Trade Doc Of Seller Result: ",
-        updateCollectibleTradeDocOfSellerResult
-      );
-
-      console.error("We are rolling back successfull events...");
-
       await rollback(
         username,
         postData.senderUsername,
@@ -839,7 +836,8 @@ export const buyCollectible = onRequest(
         createSellPaymentIntentDocResult,
         updateCollectibleDocResult,
         updateCollectibleTradeDocOfBuyerResult,
-        updateCollectibleTradeDocOfSellerResult
+        updateCollectibleTradeDocOfSellerResult,
+        addCollectorDocToCollectorsCollectionResult
       );
       res.status(500).send("Internal Server Error");
       return;
