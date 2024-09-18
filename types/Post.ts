@@ -55,6 +55,9 @@ export type PostServerData = {
   reviewStatus: ReviewStatus;
 };
 
+/**
+ * @deprecated
+ */
 export type RateData = {
   sender: string;
   rate: number;
@@ -83,11 +86,23 @@ export type UploadedPostArrayObject = {
   postDocPath: string;
 };
 
+/**
+ * @deprecated
+ */
 export type PostDocPathsArrayItem = {
   postDocPath: string;
   timestamp: number;
 };
 
+/**
+ * @deprecated
+ */
 export type PostsDocData = {
   postDocPaths: PostDocPathsArrayItem[];
+};
+
+export type PostDataOnMainPostsCollection = {
+  postDocPath: string;
+  sender: string;
+  timestamp: number;
 };

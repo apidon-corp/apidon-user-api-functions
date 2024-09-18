@@ -1,12 +1,15 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {firestore} from "../../firebase/adminApp";
+import { firestore } from "../../firebase/adminApp";
 
-import {PostsDocData, PostServerData} from "../../types/Post";
-import {PostReviewData} from "../../types/Admin";
+import {
+  PostDataOnMainPostsCollection,
+  PostServerData,
+} from "../../types/Post";
+import { PostReviewData } from "../../types/Admin";
 
 import * as express from "express";
-import {getConfigObject} from "../../configs/getConfigObject";
+import { getConfigObject } from "../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -35,23 +38,11 @@ function handleAuthorization(authorization: string | undefined) {
 
 async function getPostDocPaths() {
   try {
-    const postsDocSnapshot = await firestore.doc("/posts/posts").get();
+    const postsDocCollection = await firestore.collection("posts").get();
 
-    if (!postsDocSnapshot.exists) {
-      console.error("Posts document does not exist");
-      return false;
-    }
-
-    const postsDocData = postsDocSnapshot.data() as PostsDocData;
-
-    if (!postsDocData) {
-      console.error("Posts document data is undefined");
-      return false;
-    }
-
-    const postDocPathArrayItems = postsDocData.postDocPaths;
-
-    return postDocPathArrayItems.map((p) => p.postDocPath);
+    return postsDocCollection.docs.map(
+      (d) => (d.data() as PostDataOnMainPostsCollection).postDocPath
+    );
   } catch (error) {
     console.error("Error getting post doc paths:", error);
     return false;
@@ -130,7 +121,7 @@ export const getAllPosts = onRequest(async (req, res) => {
     return;
   }
 
-  const {authorization} = req.headers;
+  const { authorization } = req.headers;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
