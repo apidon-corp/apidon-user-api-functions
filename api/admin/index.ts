@@ -6,6 +6,7 @@ import { convertComments } from "./convertComments";
 import { convertRate } from "./convertRate";
 import { convertPosts } from "./convertPosts";
 import { convertCollectibles } from "./convertCollectibles";
+import { convertNotifications } from "./convertNotifications";
 
 export {
   getAllPosts,
@@ -16,4 +17,5 @@ export {
   convertRate,
   convertPosts,
   convertCollectibles,
+  convertNotifications,
 };

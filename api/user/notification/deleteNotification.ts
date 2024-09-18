@@ -1,10 +1,9 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {firestore} from "../../../firebase/adminApp";
-import {FieldValue as fieldValue} from "firebase-admin/firestore";
+import { firestore } from "../../../firebase/adminApp";
 
-import {NotificationData} from "../../../types/Notifications";
-import {getConfigObject} from "../../../configs/getConfigObject";
+import { getConfigObject } from "../../../configs/getConfigObject";
+import { ReceivedNotificationDocData } from "../../../types/Notifications";
 
 const configObject = getConfigObject();
 
@@ -33,29 +32,38 @@ function handleAuthorization(key: string | undefined) {
   return key === notificationAPIKey;
 }
 
-async function deleteNotificationObject(notificationData: NotificationData) {
+async function deleteNotificationObject(
+  notificationData: ReceivedNotificationDocData
+) {
   try {
-    const notificationDocRef = firestore.doc(
-      `/users/${notificationData.target}/notifications/notifications`
-    );
+    const query = await firestore
+      .collection(
+        `users/${notificationData.target}/notifications/notifications/receivedNotifications`
+      )
+      .where("timestamp", "==", notificationData.timestamp)
+      .where("type", "==", notificationData.type)
+      .where("source", "==", notificationData.source)
+      .get();
 
-    await notificationDocRef.update({
-      notifications: fieldValue.arrayRemove(notificationData),
-    });
+    const deletedDoc = query.docs[0];
+
+    if (!deletedDoc) {
+      console.error("Notification object not found to delete");
+      return false;
+    }
+
+    await deletedDoc.ref.delete();
 
     return true;
   } catch (error) {
-    console.error(
-      "Error on deleting notification object from notifications array: ",
-      error
-    );
+    console.error("Error on deleting notification doc.: ", error);
     return false;
   }
 }
 
 export const deleteNotification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
-  const {notificationData} = req.body;
+  const { authorization } = req.headers;
+  const { notificationData } = req.body;
 
   const isAuthorized = handleAuthorization(authorization);
   if (!isAuthorized) {

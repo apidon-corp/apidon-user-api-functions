@@ -5,7 +5,7 @@ import { getConfigObject } from "../../configs/getConfigObject";
 import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { NotificationData } from "../../types/Notifications";
+import { ReceivedNotificationDocData } from "../../types/Notifications";
 import { PostServerData, RatingData } from "../../types/Post";
 
 const configObject = getConfigObject();
@@ -184,7 +184,7 @@ function createNotificationObject(
   postSender: string,
   timestamp: number
 ) {
-  const notificationObject: NotificationData = {
+  const notificationObject: ReceivedNotificationDocData = {
     type: "ratePost",
     params: {
       rate: rate,

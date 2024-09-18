@@ -3,7 +3,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { internalAPIRoutes } from "../../config";
 import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { NotificationData } from "../../types/Notifications";
+import { ReceivedNotificationDocData } from "../../types/Notifications";
 import {
   CommentInteractionData,
   CommentServerData,
@@ -134,7 +134,7 @@ function craeteNotificationObject(
   postDocPath: string,
   timestamp: number
 ) {
-  const notificationObject: NotificationData = {
+  const notificationObject: ReceivedNotificationDocData = {
     type: "comment",
     params: {
       comment: comment,

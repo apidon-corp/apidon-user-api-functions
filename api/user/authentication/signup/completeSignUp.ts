@@ -3,7 +3,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { auth, firestore } from "../../../../firebase/adminApp";
 import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
 import {
-  NotificationDocData,
+  NotificationsDocData,
   NotificationSettingsData,
 } from "../../../../types/Notifications";
 import { UserInServer } from "../../../../types/User";
@@ -117,9 +117,8 @@ function createUserDocData(
 }
 
 function createNotificationsDoc(batch: WriteBatch, username: string) {
-  const notificationsDocData: NotificationDocData = {
+  const notificationsDocData: NotificationsDocData = {
     lastOpenedTime: Date.now(),
-    notifications: [],
   };
 
   const notificationsDocRef = firestore.doc(

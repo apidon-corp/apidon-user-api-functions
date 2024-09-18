@@ -6,7 +6,8 @@ import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 import { CollectibleDocData, CollectorDocData } from "../../types/Collectible";
-import { NotificationData } from "../../types/Notifications";
+
+import { ReceivedNotificationDocData } from "@/types/Notifications";
 import { PostServerData } from "../../types/Post";
 import {
   BoughtCollectibleDocData,
@@ -593,7 +594,7 @@ function createNotificationObject(
   customer: string,
   seller: string
 ) {
-  const notificationObject: NotificationData = {
+  const notificationObject: ReceivedNotificationDocData = {
     type: "collectibleBought",
     params: {
       collectiblePostDocPath: postDocPath,
@@ -608,7 +609,9 @@ function createNotificationObject(
   return notificationObject;
 }
 
-async function sendNotification(notificationObject: NotificationData) {
+async function sendNotification(
+  notificationObject: ReceivedNotificationDocData
+) {
   if (!configObject) {
     console.error("Config object is undefined.");
     return false;
