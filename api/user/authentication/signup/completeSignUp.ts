@@ -1,14 +1,13 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
-import {auth, firestore} from "../../../../firebase/adminApp";
-import {WriteBatch} from "firebase-admin/firestore";
-import {UserInServer} from "../../../../types/User";
-import {CollectibleTradeDocData} from "../../../../types/Trade";
+import { WriteBatch } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { auth, firestore } from "../../../../firebase/adminApp";
+import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
 import {
   NotificationDocData,
   NotificationSettingsData,
 } from "../../../../types/Notifications";
-import {BalanceDocData} from "../../../../types/Wallet";
+import { UserInServer } from "../../../../types/User";
+import { BalanceDocData } from "../../../../types/Wallet";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -75,7 +74,7 @@ async function checkUsername(username: string) {
 
 async function modifyingAuthObject(uid: string, username: string) {
   try {
-    await auth.updateUser(uid, {displayName: username});
+    await auth.updateUser(uid, { displayName: username });
     await auth.setCustomUserClaims(uid, {
       name: username,
       isValidAuthObject: true,
@@ -115,19 +114,6 @@ function createUserDocData(
 
   const userDocRef = firestore.doc(`users/${username}`);
   batch.set(userDocRef, userDocData);
-}
-
-function createCollectibleTradeDoc(batch: WriteBatch, username: string) {
-  const collectibleTradeData: CollectibleTradeDocData = {
-    createdCollectibles: [],
-    boughtCollectibles: [],
-    soldCollectibles: [],
-  };
-
-  const collectibleTradeDocRef = firestore.doc(
-    `users/${username}/collectible/trade`
-  );
-  batch.set(collectibleTradeDocRef, collectibleTradeData);
 }
 
 function createNotificationsDoc(batch: WriteBatch, username: string) {
@@ -193,7 +179,6 @@ async function createUserOnFirestore(
       authResult.email,
       fullname
     );
-    createCollectibleTradeDoc(batch, username);
 
     createNotificationsDoc(batch, username);
     createNotificationSettingsDoc(batch, username);
@@ -226,8 +211,8 @@ async function rollBackAuthModification(uid: string) {
 
 export const completeSignUp = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {username, fullname} = req.body;
+    const { authorization } = req.headers;
+    const { username, fullname } = req.body;
 
     const authResult = await handleAuthorization(authorization);
     if (!authResult) {

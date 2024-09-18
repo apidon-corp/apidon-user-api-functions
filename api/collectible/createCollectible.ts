@@ -7,7 +7,7 @@ import getDisplayName from "../../helpers/getDisplayName";
 import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
 import { CollectibleDocData } from "../../types/Collectible";
 import { PostServerData } from "../../types/Post";
-import { CreatedCollectiblesArrayObject } from "../../types/Trade";
+import { CreatedCollectibleDocData } from "../../types/Trade";
 
 const STOCK_LIMIT = 100;
 
@@ -285,30 +285,26 @@ async function rollBackCollectibleDoc(collectibleDocPath: string) {
   }
 }
 
-async function updateTradeDoc(
-  username: string,
+async function addDocToCreatedCollectibles(
   collectibleDocPath: string,
   postDocPath: string,
-  timestamp: number
+  ts: number,
+  creator: string
 ) {
-  const newCreatedCollectibleArrayObject: CreatedCollectiblesArrayObject = {
+  const newData: CreatedCollectibleDocData = {
     collectibleDocPath: collectibleDocPath,
     postDocPath: postDocPath,
-    ts: timestamp,
+    ts: ts,
   };
 
   try {
-    const tradeDocRef = firestore.doc(`users/${username}/collectible/trade`);
-
-    await tradeDocRef.update({
-      createdCollectibles: FieldValue.arrayUnion(
-        newCreatedCollectibleArrayObject
-      ),
-    });
-
+    const collectionRef = firestore.collection(
+      `users/${creator}/collectible/trade/createdCollectibles`
+    );
+    await collectionRef.add(newData);
     return true;
   } catch (error) {
-    console.error("Error while updating trade doc", error);
+    console.error("Error while adding doc to created collectibles", error);
     return false;
   }
 }
@@ -410,13 +406,13 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const updateTradeDocResult = await updateTradeDoc(
-      username,
+    const addDocToCreatedCollectiblesResult = await addDocToCreatedCollectibles(
       newCollectibleDocPath,
       postDocPath,
-      timestamp
+      timestamp,
+      username
     );
-    if (!updateTradeDocResult) {
+    if (!addDocToCreatedCollectiblesResult) {
       await rollBackCollectibleDoc(newCollectibleDocPath);
       await rollBackPostDoc(postDocPath);
       await rollbackUsageDoc(username);
