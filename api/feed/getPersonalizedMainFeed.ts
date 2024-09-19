@@ -1,8 +1,8 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { PostDataOnMainPostsCollection } from "../../types/Post";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {PostDataOnMainPostsCollection} from "../../types/Post";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -34,7 +34,7 @@ async function getPostDocPaths() {
 
 export const getPersonalizedFeed = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
+    const {authorization} = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

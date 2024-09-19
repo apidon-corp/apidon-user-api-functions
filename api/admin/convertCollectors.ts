@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
-import { CollectibleDocDataOld, CollectorDocData } from "../../types/Collectible";
-import { FieldValue } from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
+import {CollectibleDocDataOld, CollectorDocData} from "../../types/Collectible";
+import {FieldValue} from "firebase-admin/firestore";
 
 async function getAllCollectibles() {
   try {
@@ -80,17 +80,17 @@ export const convertCollectors = onRequest(async (req, res) => {
 
   if (!collectibles) {
     console.error("Error getting collectibles");
-    res.status(500).json({ error: "Error getting collectibles" });
+    res.status(500).json({error: "Error getting collectibles"});
     return;
   }
 
   const result = await covnertAllCollectibles(collectibles);
   if (!result) {
     console.error("Error converting collectibles");
-    res.status(500).json({ error: "Error converting collectibles" });
+    res.status(500).json({error: "Error converting collectibles"});
     return;
   }
 
-  res.status(200).json({ message: "Collectibles converted successfully" });
+  res.status(200).json({message: "Collectibles converted successfully"});
   return;
 });

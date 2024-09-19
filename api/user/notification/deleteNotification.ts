@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import { getConfigObject } from "../../../configs/getConfigObject";
-import { ReceivedNotificationDocData } from "../../../types/Notifications";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {ReceivedNotificationDocData} from "../../../types/Notifications";
 
 const configObject = getConfigObject();
 
@@ -62,8 +62,8 @@ async function deleteNotificationObject(
 }
 
 export const deleteNotification = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { notificationData } = req.body;
+  const {authorization} = req.headers;
+  const {notificationData} = req.body;
 
   const isAuthorized = handleAuthorization(authorization);
   if (!isAuthorized) {

@@ -1,13 +1,13 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 
 import {
   CommentServerData,
   PostsDocData,
   PostServerDataOld,
 } from "../../types/Post";
-import { FieldValue } from "firebase-admin/firestore";
+import {FieldValue} from "firebase-admin/firestore";
 
 async function getPostDocPaths() {
   try {
@@ -98,7 +98,7 @@ async function convertPost(postDocData: PostServerDataOld) {
   try {
     await firestore
       .doc(postDocPath)
-      .update({ comments: FieldValue.delete(), commentCount: comments.length });
+      .update({comments: FieldValue.delete(), commentCount: comments.length});
     return true;
   } catch (error) {
     console.error("Error converting post:", error);

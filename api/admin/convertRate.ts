@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 
-import { FieldValue } from "firebase-admin/firestore";
-import { PostsDocData, PostServerDataOld, RatingData } from "../../types/Post";
+import {FieldValue} from "firebase-admin/firestore";
+import {PostsDocData, PostServerDataOld, RatingData} from "../../types/Post";
 
 async function getPostDocPaths() {
   try {
@@ -100,9 +100,9 @@ async function convertPost(postDocData: PostServerDataOld) {
       rates: FieldValue.delete(),
       ratingCount: rates.length === 0 ? 0 : rates.length,
       ratingSum:
-        rates.length === 0
-          ? 0
-          : rates.reduce((acc, rate) => acc + rate.rate, 0),
+        rates.length === 0 ?
+          0 :
+          rates.reduce((acc, rate) => acc + rate.rate, 0),
     });
     return true;
   } catch (error) {

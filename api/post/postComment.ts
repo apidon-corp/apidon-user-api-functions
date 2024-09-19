@@ -1,12 +1,12 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { FieldValue } from "firebase-admin/firestore";
-import { internalAPIRoutes } from "../../config";
-import { getConfigObject } from "../../configs/getConfigObject";
-import { firestore } from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {internalAPIRoutes} from "../../config";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { ReceivedNotificationDocData } from "../../types/Notifications";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {
   CommentInteractionData,
   CommentServerData,
@@ -185,7 +185,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -210,8 +210,8 @@ async function sendNotification(
 
 export const postComment = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { message, postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {message, postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

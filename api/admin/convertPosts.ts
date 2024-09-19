@@ -1,6 +1,6 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 import {
   PostDataOnMainPostsCollection,
   PostsDocData,

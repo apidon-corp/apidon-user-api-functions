@@ -55,7 +55,6 @@ export type SoldCollectibleDocData = {
 };
 
 
-
 export type PurhcasePaymentIntentDocData = {
   id: string;
   ts: number;

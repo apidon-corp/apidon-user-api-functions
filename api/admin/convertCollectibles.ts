@@ -1,6 +1,6 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 
 import {
   BoughtCollectibleDocData,
@@ -8,7 +8,7 @@ import {
   CreatedCollectibleDocData,
   SoldCollectibleDocData,
 } from "../../types/Trade";
-import { FieldValue } from "firebase-admin/firestore";
+import {FieldValue} from "firebase-admin/firestore";
 
 /**
  * Fetches all usernames from the Firestore collection.
