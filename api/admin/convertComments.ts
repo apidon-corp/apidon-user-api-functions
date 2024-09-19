@@ -96,7 +96,9 @@ async function convertPost(postDocData: PostServerDataOld) {
   }
 
   try {
-    await firestore.doc(postDocPath).update({ comments: FieldValue.delete() });
+    await firestore
+      .doc(postDocPath)
+      .update({ comments: FieldValue.delete(), commentCount: comments.length });
     return true;
   } catch (error) {
     console.error("Error converting post:", error);
