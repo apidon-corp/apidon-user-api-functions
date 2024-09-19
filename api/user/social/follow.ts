@@ -1,14 +1,14 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import getDisplayName from "../../../helpers/getDisplayName";
-import {firestore} from "../../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
-import {NotificationData} from "../../../types/Notifications";
 import {internalAPIRoutes} from "../../../config";
+import {firestore} from "../../../firebase/adminApp";
+import getDisplayName from "../../../helpers/getDisplayName";
+import {ReceivedNotificationDocData} from "../../../types/Notifications";
 import AsyncLock = require("async-lock");
 
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {getConfigObject} from "../../../configs/getConfigObject";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 
 const configObject = getConfigObject();
 
@@ -157,7 +157,7 @@ function createNotificationData(
   username: string,
   timestamp: number
 ) {
-  const notificationData: NotificationData = {
+  const notificationData: ReceivedNotificationDocData = {
     type: "follow",
     params: {
       followOperationTo: followTo,

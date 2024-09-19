@@ -1,12 +1,12 @@
-import {onRequest} from "firebase-functions/v2/https";
-import getDisplayName from "../../helpers/getDisplayName";
-import {PostServerData, RateData} from "../../types/Post";
-import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
-import {NotificationData} from "../../types/Notifications";
+import {onRequest} from "firebase-functions/v2/https";
 import {internalAPIRoutes} from "../../config";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {getConfigObject} from "../../configs/getConfigObject";
+import {firestore} from "../../firebase/adminApp";
+import getDisplayName from "../../helpers/getDisplayName";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {ReceivedNotificationDocData} from "../../types/Notifications";
+import {PostServerData, RatingData} from "../../types/Post";
 
 const configObject = getConfigObject();
 
@@ -33,108 +33,149 @@ function checkProps(rating: number, postDocPath: string) {
   return true;
 }
 
-async function checkPreviousRating(username: string, postDocPath: string) {
+async function getPostSenderUsername(postDocPath: string) {
   try {
     const postDocSnapshot = await firestore.doc(postDocPath).get();
+
     if (!postDocSnapshot.exists) {
-      console.error("Post doc doesn't exist.");
+      console.error("Post doc does not exist: ", postDocPath);
       return false;
     }
 
     const postDocData = postDocSnapshot.data() as PostServerData;
-    if (!postDocData) {
-      console.error("Post doc data doesn't exist.");
-      return false;
+    return postDocData.senderUsername;
+  } catch (error) {
+    console.error("Error while getting post sender username: ", error);
+    return false;
+  }
+}
+
+/**
+ *
+ * @param postDocPath
+ * @param username
+ * @returns
+ */
+async function checkForPreviousRating(
+  postDocPath: string,
+  username: string
+): Promise<
+  | { isTherePreviousRating: false }
+  | {
+      isTherePreviousRating: true;
+      previousRatingDocPath: string;
+      previousRatingDocData: RatingData;
+    }
+  | false
+> {
+  try {
+    const query = await firestore
+      .doc(postDocPath)
+      .collection("ratings")
+      .where("sender", "==", username)
+      .get();
+
+    if (query.empty) {
+      return {
+        isTherePreviousRating: false,
+      };
     }
 
-    const previousRateObject = postDocData.rates.find(
-      (r) => r.sender === username
-    );
+    const data = query.docs[0].data() as RatingData;
 
     return {
-      previousRateObject: previousRateObject,
-      postDocData: postDocData,
+      isTherePreviousRating: true,
+      previousRatingDocPath: query.docs[0].ref.path,
+      previousRatingDocData: data,
     };
   } catch (error) {
-    console.error(
-      "Error while checking previous rating for post: ",
-      postDocPath,
-      "\nError: ",
-      error
-    );
+    console.error("Error while checking for previous rating: ", error);
     return false;
   }
 }
 
-async function deletePreviousRating(
-  postDocPath: string,
-  previousRateObject: RateData | undefined
+async function updatePreviousRatingDoc(
+  previousRatingDocPath: string,
+  newRatingData: RatingData
 ) {
-  if (!previousRateObject) return true;
-
   try {
-    const postDocRef = firestore.doc(postDocPath);
-
-    await postDocRef.update({
-      rates: FieldValue.arrayRemove(previousRateObject),
-    });
-
+    await firestore.doc(previousRatingDocPath).set(newRatingData);
     return true;
   } catch (error) {
-    console.error(
-      "Error while deleting previous rating for post: ",
-      postDocPath,
-      "\nError: ",
-      error
-    );
+    console.error("Error while updating previous rating doc: ", error);
     return false;
   }
 }
 
-async function addNewRating(postDocPath: string, rating: RateData) {
+async function createRatingDoc(postDocPath: string, newRatingData: RatingData) {
   try {
-    const postDocRef = firestore.doc(postDocPath);
-
-    await postDocRef.update({
-      rates: FieldValue.arrayUnion(rating),
-    });
-
+    await firestore.doc(postDocPath).collection("ratings").add(newRatingData);
     return true;
   } catch (error) {
-    console.error(
-      "Error while adding new rating for post: ",
-      postDocPath,
-      "\nError: ",
-      error
-    );
+    console.error("Error while creating rating doc: ", error);
     return false;
   }
+}
+
+async function handleRatingDoc(
+  postDocPath: string,
+  username: string,
+  newRating: number,
+  commonTimestamp: number,
+  checkForPreviousRatingResult:
+    | { isTherePreviousRating: false }
+    | {
+        isTherePreviousRating: true;
+        previousRatingDocPath: string;
+        previousRatingDocData: RatingData;
+      }
+) {
+  if (checkForPreviousRatingResult.isTherePreviousRating) {
+    const updatePreviousRatingDocResult = await updatePreviousRatingDoc(
+      checkForPreviousRatingResult.previousRatingDocPath,
+      {
+        ...checkForPreviousRatingResult.previousRatingDocData,
+        rating: newRating,
+        timestamp: commonTimestamp,
+      }
+    );
+
+    if (!updatePreviousRatingDocResult) return false;
+    return true;
+  }
+
+  const newRatingData: RatingData = {
+    rating: newRating,
+    sender: username,
+    timestamp: commonTimestamp,
+  };
+
+  const createRatingDocResult = await createRatingDoc(
+    postDocPath,
+    newRatingData
+  );
+
+  if (!createRatingDocResult) return false;
+  return true;
 }
 
 async function updatePostDoc(
-  username: string,
   postDocPath: string,
-  rate: number,
-  previousRateObject: RateData | undefined,
-  timestamp: number
+  previousRating: number,
+  newRating: number
 ) {
-  const deletePreviousRatingResult = await deletePreviousRating(
-    postDocPath,
-    previousRateObject
-  );
-
-  if (!deletePreviousRatingResult) return false;
-
-  const newRatingData: RateData = {
-    rate: rate,
-    sender: username,
-    ts: timestamp,
-  };
-
-  const addNewRatingResult = await addNewRating(postDocPath, newRatingData);
-  if (!addNewRatingResult) return false;
-
-  return true;
+  try {
+    await firestore.doc(postDocPath).update({
+      ratingSum: FieldValue.increment(newRating - previousRating),
+      ratingCount: previousRating ?
+        FieldValue.increment(0) :
+        FieldValue.increment(1),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error while updating post doc: ", error);
+    return false;
+  }
 }
 
 function createNotificationObject(
@@ -144,7 +185,7 @@ function createNotificationObject(
   postSender: string,
   timestamp: number
 ) {
-  const notificationObject: NotificationData = {
+  const notificationObject: ReceivedNotificationDocData = {
     type: "ratePost",
     params: {
       rate: rate,
@@ -220,17 +261,17 @@ async function deleteNotification(
   postDocPath: string,
   rateSender: string,
   postSender: string,
-  previousRatingResult: undefined | RateData
+  previousRatingDocData: undefined | RatingData
 ) {
   if (rateSender === postSender) return true;
-  if (!previousRatingResult) return true;
+  if (!previousRatingDocData) return true;
 
   const notificationObject = createNotificationObject(
-    previousRatingResult.rate,
+    previousRatingDocData.rating,
     postDocPath,
     rateSender,
     postSender,
-    previousRatingResult.ts
+    previousRatingDocData.timestamp
   );
 
   if (!configObject) {
@@ -279,10 +320,12 @@ async function handleNotification(
   rate: number,
   postDocPath: string,
   rateSender: string,
-  postSender: string,
   timestamp: number,
-  previousRatingResult: undefined | RateData
+  previousRatingResult: undefined | RatingData
 ) {
+  const postSender = await getPostSenderUsername(postDocPath);
+  if (!postSender) return false;
+
   const [sendNotificationResult, removeNotificationResult] = await Promise.all([
     sendNotification(rate, postDocPath, rateSender, postSender, timestamp),
     deleteNotification(
@@ -313,40 +356,45 @@ export const postRate = onRequest(
       return;
     }
 
-    const previousRatingResult = await checkPreviousRating(
-      username,
-      postDocPath
+    const checkForPreviousRatingResult = await checkForPreviousRating(
+      postDocPath,
+      username
     );
-    if (previousRatingResult === false) {
+    if (!checkForPreviousRatingResult) {
       res.status(500).send("Internal Server Error");
       return;
     }
 
-    const ts = Date.now();
+    const commonTimestamp = Date.now();
 
-    const updatePostDocResult = await updatePostDoc(
-      username,
-      postDocPath,
-      rating,
-      previousRatingResult.previousRateObject,
-      ts
-    );
+    const [handleRatingDocResult, updatePostDocResult, notificationResult] =
+      await Promise.all([
+        handleRatingDoc(
+          postDocPath,
+          username,
+          rating,
+          commonTimestamp,
+          checkForPreviousRatingResult
+        ),
+        updatePostDoc(
+          postDocPath,
+          checkForPreviousRatingResult.isTherePreviousRating ?
+            checkForPreviousRatingResult.previousRatingDocData.rating :
+            0,
+          rating
+        ),
+        handleNotification(
+          rating,
+          postDocPath,
+          username,
+          commonTimestamp,
+          checkForPreviousRatingResult.isTherePreviousRating ?
+            checkForPreviousRatingResult.previousRatingDocData :
+            undefined
+        ),
+      ]);
 
-    if (!updatePostDocResult) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const notificationResult = await handleNotification(
-      rating,
-      postDocPath,
-      username,
-      previousRatingResult.postDocData.senderUsername,
-      ts,
-      previousRatingResult.previousRateObject
-    );
-
-    if (!notificationResult) {
+    if (!handleRatingDocResult || !updatePostDocResult || !notificationResult) {
       res.status(500).send("Internal Server Error");
       return;
     }

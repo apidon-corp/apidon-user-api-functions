@@ -3,7 +3,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {
-  PostDocPathsArrayItem,
+  PostDataOnMainPostsCollection,
   PostServerData,
   UploadedPostArrayObject,
 } from "../../types/Post";
@@ -34,11 +34,12 @@ function createPostServerData(description: string, username: string) {
   const ts = Date.now();
 
   const newPostServerData: PostServerData = {
-    comments: [],
     creationTime: ts,
     description: description,
+    commentCount: 0,
     image: "",
-    rates: [],
+    ratingCount: 0,
+    ratingSum: 0,
     collectibleStatus: {isCollectible: false},
     senderUsername: username,
     id: ts.toString(),
@@ -133,21 +134,23 @@ async function updateUploadedPostArray(
   return true;
 }
 
-async function updatePostDocPathsArray(postDocPath: string, timestamp: number) {
-  const postDocPathsArrayItem: PostDocPathsArrayItem = {
+async function addPostDocToMainPostsCollection(
+  postDocPath: string,
+  timestamp: number,
+  sender: string
+) {
+  const postData: PostDataOnMainPostsCollection = {
     postDocPath: postDocPath,
     timestamp: timestamp,
+    sender: sender,
   };
 
   try {
-    const postsDocRef = firestore.doc("posts/posts");
-    await postsDocRef.update({
-      postDocPaths: FieldValue.arrayUnion(postDocPathsArrayItem),
-    });
-
+    const mainPostsCollectionRef = firestore.collection("posts");
+    await mainPostsCollectionRef.add(postData);
     return true;
   } catch (error) {
-    console.error("Error while updating postDocPathsArray: \n", error);
+    console.error("Error while adding post to main posts collection", error);
     return false;
   }
 }
@@ -191,7 +194,7 @@ export const postUpload = onRequest(
     const [
       createPostOnFirestoreResult,
       updateUploadedPostArrayResult,
-      updatePostDocPathsArrayResult,
+      addPostDocToMainPostsCollectionResult,
     ] = await Promise.all([
       createPostOnFirestore(postServerData, username),
       updateUploadedPostArray(
@@ -199,16 +202,17 @@ export const postUpload = onRequest(
         `users/${username}/posts/${postServerData.id}`,
         postServerData.creationTime
       ),
-      updatePostDocPathsArray(
+      addPostDocToMainPostsCollection(
         `users/${username}/posts/${postServerData.id}`,
-        postServerData.creationTime
+        postServerData.creationTime,
+        username
       ),
     ]);
 
     if (
       !createPostOnFirestoreResult ||
       !updateUploadedPostArrayResult ||
-      !updatePostDocPathsArrayResult
+      !addPostDocToMainPostsCollectionResult
     ) {
       res.status(500).send("Internal Server Error");
       return;

@@ -1,8 +1,8 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {PostsDocData} from "@/types/Post";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {PostDataOnMainPostsCollection} from "../../types/Post";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -16,35 +16,18 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-async function getPostRecommendations() {
+async function getPostDocPaths() {
   try {
-    const postsDocSnapshot = await firestore.doc("posts/posts").get();
+    const postsDocCollection = await firestore
+      .collection("posts")
+      .orderBy("timestamp", "desc")
+      .get();
 
-    if (!postsDocSnapshot.exists) {
-      console.error("Posts doc doesn't exist in firestore.");
-      return false;
-    }
-
-    const postsDocData = postsDocSnapshot.data() as PostsDocData;
-
-    if (!postsDocData) {
-      console.error("Posts doc data is undefined.");
-      return false;
-    }
-
-    const postDocPaths = postsDocData.postDocPaths;
-
-    if (!postDocPaths) {
-      console.error("Post doc paths is undefined.");
-      return false;
-    }
-
-    const sortedPostDocPaths = postDocPaths;
-    sortedPostDocPaths.sort((a, b) => b.timestamp - a.timestamp);
-
-    return sortedPostDocPaths.map((item) => item.postDocPath);
+    return postsDocCollection.docs.map(
+      (d) => (d.data() as PostDataOnMainPostsCollection).postDocPath
+    );
   } catch (error) {
-    console.error("Error while getting post recommendations: \n", error);
+    console.error("Error getting post doc paths:", error);
     return false;
   }
 }
@@ -59,7 +42,7 @@ export const getPersonalizedFeed = onRequest(
       return;
     }
 
-    const postDocPathArray = await getPostRecommendations();
+    const postDocPathArray = await getPostDocPaths();
     if (!postDocPathArray) {
       res.status(500).send("Internal Server Error");
       return;

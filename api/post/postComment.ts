@@ -1,17 +1,17 @@
 import {onRequest} from "firebase-functions/v2/https";
 
+import {FieldValue} from "firebase-admin/firestore";
+import {internalAPIRoutes} from "../../config";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {
-  CommentServerData,
   CommentInteractionData,
+  CommentServerData,
   PostServerData,
 } from "../../types/Post";
-import {firestore} from "../../firebase/adminApp";
-import {FieldValue} from "firebase-admin/firestore";
-import {NotificationData} from "../../types/Notifications";
-import {internalAPIRoutes} from "../../config";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {getConfigObject} from "../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -49,18 +49,21 @@ function createCommentData(message: string, sender: string, ts: number) {
   return commentData;
 }
 
-async function changeCommentsArray(
+async function createCommentDoc(
   postDocPath: string,
   commendData: CommentServerData
 ) {
   try {
-    const postDocRef = firestore.doc(postDocPath);
-    await postDocRef.update({
-      comments: FieldValue.arrayUnion(commendData),
-    });
+    const postCommentsCollectionRef = firestore.collection(
+      `${postDocPath}/comments`
+    );
+    await postCommentsCollectionRef.add(commendData);
     return true;
   } catch (error) {
-    console.error("Error while changing comments array: ", error);
+    console.error(
+      "Error while creating comment doc in comments collection: ",
+      error
+    );
     return false;
   }
 }
@@ -111,7 +114,7 @@ function craeteNotificationObject(
   postDocPath: string,
   timestamp: number
 ) {
-  const notificationObject: NotificationData = {
+  const notificationObject: ReceivedNotificationDocData = {
     type: "comment",
     params: {
       comment: comment,
@@ -229,12 +232,12 @@ export const postComment = onRequest(
     );
 
     const [
-      changeCommentsArrayResult,
+      createCommentDocResult,
       increaseCommentCountResult,
       updateInteractionsResult,
       sendNotificationResult,
     ] = await Promise.all([
-      changeCommentsArray(postDocPath, commendData),
+      createCommentDoc(postDocPath, commendData),
       increaseCommentCount(postDocPath),
       updateInteractions(commentInteractionData, username),
       sendNotification(
@@ -246,7 +249,7 @@ export const postComment = onRequest(
     ]);
 
     if (
-      !changeCommentsArrayResult ||
+      !createCommentDocResult ||
       !increaseCommentCountResult ||
       !updateInteractionsResult ||
       !sendNotificationResult

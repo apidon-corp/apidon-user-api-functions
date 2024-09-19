@@ -1,13 +1,12 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
-import {auth, firestore} from "../../../../firebase/adminApp";
 import {WriteBatch} from "firebase-admin/firestore";
-import {UserInServer} from "../../../../types/User";
-import {CollectibleTradeDocData} from "../../../../types/Trade";
+import {onRequest} from "firebase-functions/v2/https";
+import {auth, firestore} from "../../../../firebase/adminApp";
+import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
 import {
-  NotificationDocData,
+  NotificationsDocData,
   NotificationSettingsData,
 } from "../../../../types/Notifications";
+import {UserInServer} from "../../../../types/User";
 import {BalanceDocData} from "../../../../types/Wallet";
 
 /**
@@ -117,23 +116,9 @@ function createUserDocData(
   batch.set(userDocRef, userDocData);
 }
 
-function createCollectibleTradeDoc(batch: WriteBatch, username: string) {
-  const collectibleTradeData: CollectibleTradeDocData = {
-    createdCollectibles: [],
-    boughtCollectibles: [],
-    soldCollectibles: [],
-  };
-
-  const collectibleTradeDocRef = firestore.doc(
-    `users/${username}/collectible/trade`
-  );
-  batch.set(collectibleTradeDocRef, collectibleTradeData);
-}
-
 function createNotificationsDoc(batch: WriteBatch, username: string) {
-  const notificationsDocData: NotificationDocData = {
+  const notificationsDocData: NotificationsDocData = {
     lastOpenedTime: Date.now(),
-    notifications: [],
   };
 
   const notificationsDocRef = firestore.doc(
@@ -193,7 +178,6 @@ async function createUserOnFirestore(
       authResult.email,
       fullname
     );
-    createCollectibleTradeDoc(batch, username);
 
     createNotificationsDoc(batch, username);
     createNotificationSettingsDoc(batch, username);
