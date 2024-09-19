@@ -1,7 +1,36 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
-import {CollectibleDocDataOld, CollectorDocData} from "../../types/Collectible";
+import {
+  CollectibleDocDataOld,
+  CollectorDocData,
+} from "../../types/Collectible";
 import {FieldValue} from "firebase-admin/firestore";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
+
+/**
+ * Handles the authorization of incoming requests.
+ * @param authorization - The authorization header value.
+ * @returns True if the authorization is valid, otherwise false.
+ */
+function handleAuthorization(authorization: string | undefined) {
+  if (!authorization) {
+    console.error("Authorization header is missing");
+    return false;
+  }
+
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  return authorization === configObject.GET_ALL_POSTS_API_KEY;
+}
 
 async function getAllCollectibles() {
   try {
@@ -39,7 +68,9 @@ async function addCollectorDocToCollectorsCollection(
   }
 }
 
-async function convertOneCollectible(collectibleDocData: CollectibleDocDataOld) {
+async function convertOneCollectible(
+  collectibleDocData: CollectibleDocDataOld
+) {
   const buyers = collectibleDocData.buyers;
 
   for (const buyer of buyers) {
@@ -76,6 +107,12 @@ async function covnertAllCollectibles(collectibles: CollectibleDocDataOld[]) {
 }
 
 export const convertCollectors = onRequest(async (req, res) => {
+  const authorized = handleAuthorization(req.headers.authorization);
+  if (!authorized) {
+    res.status(401).json({error: "Unauthorized"});
+    return;
+  }
+
   const collectibles = await getAllCollectibles();
 
   if (!collectibles) {

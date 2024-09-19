@@ -8,6 +8,33 @@ import {
   PostServerDataOld,
 } from "../../types/Post";
 import {FieldValue} from "firebase-admin/firestore";
+import {getConfigObject} from "../../configs/getConfigObject";
+
+
+const configObject = getConfigObject();
+
+if (!configObject) {
+  throw new Error("Config object is undefined");
+}
+
+/**
+ * Handles the authorization of incoming requests.
+ * @param authorization - The authorization header value.
+ * @returns True if the authorization is valid, otherwise false.
+ */
+function handleAuthorization(authorization: string | undefined) {
+  if (!authorization) {
+    console.error("Authorization header is missing");
+    return false;
+  }
+
+  if (!configObject) {
+    console.error("Config object is undefined");
+    return false;
+  }
+
+  return authorization === configObject.GET_ALL_POSTS_API_KEY;
+}
 
 async function getPostDocPaths() {
   try {
@@ -119,6 +146,12 @@ async function convertAllPosts(allPostDocDatas: PostServerDataOld[]) {
 }
 
 export const convertComments = onRequest(async (req, res) => {
+  const authorized = handleAuthorization(req.headers.authorization);
+  if (!authorized) {
+    res.status(401).json({error: "Unauthorized"});
+    return;
+  }
+
   const postDocPaths = await getPostDocPaths();
   if (!postDocPaths) {
     console.error("Error getting post doc paths");
