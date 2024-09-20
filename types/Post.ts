@@ -1,33 +1,4 @@
-import {ReviewStatus} from "./Admin";
-
-/**
- * @deprecated
- */
-export type PostServerDataOld = {
-  senderUsername: string;
-
-  description: string;
-  image: string;
-
-  rates: RateData[];
-  comments: CommentServerData[];
-
-  commentCount: number;
-
-  collectibleStatus:
-    | {
-        isCollectible: false;
-      }
-    | {
-        isCollectible: true;
-        collectibleDocPath: string;
-      };
-
-  creationTime: number;
-  id: string;
-
-  reviewStatus?: ReviewStatus;
-};
+import { ReviewStatus } from "./Admin";
 
 export type PostServerData = {
   senderUsername: string;
@@ -84,21 +55,6 @@ export type CommentInteractionData = {
 export type UploadedPostArrayObject = {
   timestamp: number;
   postDocPath: string;
-};
-
-/**
- * @deprecated
- */
-export type PostDocPathsArrayItem = {
-  postDocPath: string;
-  timestamp: number;
-};
-
-/**
- * @deprecated
- */
-export type PostsDocData = {
-  postDocPaths: PostDocPathsArrayItem[];
 };
 
 export type PostDataOnMainPostsCollection = {
