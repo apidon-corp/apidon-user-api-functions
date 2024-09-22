@@ -1,14 +1,14 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {FieldValue} from "firebase-admin/firestore";
-import {internalAPIRoutes} from "../../../config";
-import {firestore} from "../../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { internalAPIRoutes } from "../../../config";
+import { firestore } from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {ReceivedNotificationDocData} from "../../../types/Notifications";
+import { ReceivedNotificationDocData } from "../../../types/Notifications";
 import AsyncLock = require("async-lock");
 
-import {getConfigObject} from "../../../configs/getConfigObject";
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import { getConfigObject } from "../../../configs/getConfigObject";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
 
 const configObject = getConfigObject();
 
@@ -234,7 +234,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -287,7 +287,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -312,10 +312,14 @@ async function deleteNotification(
 
 const lock = new AsyncLock();
 
+const delay = async (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 export const follow = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {operationTo: operationToUsername, opCode} = req.body;
+    const { authorization } = req.headers;
+    const { operationTo: operationToUsername, opCode } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -351,36 +355,22 @@ export const follow = onRequest(
 
         const ts = Date.now();
 
-        const [
-          updateRequesterFollowingsResult,
-          updateOperationToFollowersResult,
-          updateRequesterFollowingCountResult,
-          updateOperationToFollowerCountResult,
-          sendNotificationResult,
-        ] = await Promise.all([
-          updateRequesterFollowings(username, operationToUsername, opCode, ts),
-          updateOperationToFollowers(operationToUsername, username, opCode, ts),
-          updateRequesterFollowingCount(username, opCode),
-          updateOperationToFollowerCount(operationToUsername, opCode),
-          handleNotification(
-            username,
-            operationToUsername,
-            opCode,
-            ts,
-            followStatus.followDocData
-          ),
-        ]);
+        updateOperationToFollowerCount(operationToUsername, opCode);
+        updateOperationToFollowers(operationToUsername, username, opCode, ts);
 
-        if (
-          !updateRequesterFollowingsResult ||
-          !updateOperationToFollowersResult ||
-          !updateRequesterFollowingCountResult ||
-          !updateOperationToFollowerCountResult ||
-          !sendNotificationResult
-        ) {
-          res.status(500).send("Internal Server Error");
-          return;
-        }
+        updateRequesterFollowingCount(username, opCode);
+        updateRequesterFollowings(username, operationToUsername, opCode, ts);
+
+        handleNotification(
+          username,
+          operationToUsername,
+          opCode,
+          ts,
+          followStatus.followDocData
+        );
+
+        // Ensuring all request has been sent.
+        await delay(250);
 
         res.status(200).send("OK");
         return;

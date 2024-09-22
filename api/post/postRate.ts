@@ -1,12 +1,12 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../config";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { internalAPIRoutes } from "../../config";
+import { getConfigObject } from "../../configs/getConfigObject";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {ReceivedNotificationDocData} from "../../types/Notifications";
-import {PostServerData, RatingData} from "../../types/Post";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { ReceivedNotificationDocData } from "../../types/Notifications";
+import { PostServerData, RatingData } from "../../types/Post";
 
 const configObject = getConfigObject();
 
@@ -167,9 +167,9 @@ async function updatePostDoc(
   try {
     await firestore.doc(postDocPath).update({
       ratingSum: FieldValue.increment(newRating - previousRating),
-      ratingCount: previousRating ?
-        FieldValue.increment(0) :
-        FieldValue.increment(1),
+      ratingCount: previousRating
+        ? FieldValue.increment(0)
+        : FieldValue.increment(1),
     });
     return true;
   } catch (error) {
@@ -234,7 +234,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -293,7 +293,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -339,10 +339,14 @@ async function handleNotification(
   return sendNotificationResult && removeNotificationResult;
 }
 
+const delay = (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 export const postRate = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {rating, postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { rating, postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -367,37 +371,34 @@ export const postRate = onRequest(
 
     const commonTimestamp = Date.now();
 
-    const [handleRatingDocResult, updatePostDocResult, notificationResult] =
-      await Promise.all([
-        handleRatingDoc(
-          postDocPath,
-          username,
-          rating,
-          commonTimestamp,
-          checkForPreviousRatingResult
-        ),
-        updatePostDoc(
-          postDocPath,
-          checkForPreviousRatingResult.isTherePreviousRating ?
-            checkForPreviousRatingResult.previousRatingDocData.rating :
-            0,
-          rating
-        ),
-        handleNotification(
-          rating,
-          postDocPath,
-          username,
-          commonTimestamp,
-          checkForPreviousRatingResult.isTherePreviousRating ?
-            checkForPreviousRatingResult.previousRatingDocData :
-            undefined
-        ),
-      ]);
+    updatePostDoc(
+      postDocPath,
+      checkForPreviousRatingResult.isTherePreviousRating
+        ? checkForPreviousRatingResult.previousRatingDocData.rating
+        : 0,
+      rating
+    );
 
-    if (!handleRatingDocResult || !updatePostDocResult || !notificationResult) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
+    handleRatingDoc(
+      postDocPath,
+      username,
+      rating,
+      commonTimestamp,
+      checkForPreviousRatingResult
+    );
+
+    handleNotification(
+      rating,
+      postDocPath,
+      username,
+      commonTimestamp,
+      checkForPreviousRatingResult.isTherePreviousRating
+        ? checkForPreviousRatingResult.previousRatingDocData
+        : undefined
+    );
+
+    // Ensure all request have been sent.
+    await delay(250);
 
     res.status(200).send("Success");
 
