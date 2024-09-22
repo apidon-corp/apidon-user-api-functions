@@ -312,6 +312,10 @@ async function deleteNotification(
 
 const lock = new AsyncLock();
 
+const delay = async (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 export const follow = onRequest(
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
@@ -351,36 +355,22 @@ export const follow = onRequest(
 
         const ts = Date.now();
 
-        const [
-          updateRequesterFollowingsResult,
-          updateOperationToFollowersResult,
-          updateRequesterFollowingCountResult,
-          updateOperationToFollowerCountResult,
-          sendNotificationResult,
-        ] = await Promise.all([
-          updateRequesterFollowings(username, operationToUsername, opCode, ts),
-          updateOperationToFollowers(operationToUsername, username, opCode, ts),
-          updateRequesterFollowingCount(username, opCode),
-          updateOperationToFollowerCount(operationToUsername, opCode),
-          handleNotification(
-            username,
-            operationToUsername,
-            opCode,
-            ts,
-            followStatus.followDocData
-          ),
-        ]);
+        updateOperationToFollowerCount(operationToUsername, opCode);
+        updateOperationToFollowers(operationToUsername, username, opCode, ts);
 
-        if (
-          !updateRequesterFollowingsResult ||
-          !updateOperationToFollowersResult ||
-          !updateRequesterFollowingCountResult ||
-          !updateOperationToFollowerCountResult ||
-          !sendNotificationResult
-        ) {
-          res.status(500).send("Internal Server Error");
-          return;
-        }
+        updateRequesterFollowingCount(username, opCode);
+        updateRequesterFollowings(username, operationToUsername, opCode, ts);
+
+        handleNotification(
+          username,
+          operationToUsername,
+          opCode,
+          ts,
+          followStatus.followDocData
+        );
+
+        // Ensuring all request has been sent.
+        await delay(250);
 
         res.status(200).send("OK");
         return;

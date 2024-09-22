@@ -8,6 +8,7 @@ import {
 } from "../../../../types/Notifications";
 import {UserInServer} from "../../../../types/User";
 import {BalanceDocData} from "../../../../types/Wallet";
+import AsyncLock = require("async-lock");
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -208,51 +209,62 @@ async function rollBackAuthModification(uid: string) {
   }
 }
 
+const lock = new AsyncLock();
+
+const processCompleteSignUp = async (
+  authorization: string | undefined,
+  username: string,
+  fullname: string
+) => {
+  const authResult = await handleAuthorization(authorization);
+  if (!authResult) {
+    throw new Error("Unauthorized");
+  }
+
+  const checkPropsResult = checkProps(username, fullname);
+  if (!checkPropsResult) {
+    throw new Error("Invalid Props");
+  }
+
+  const checkUsernameResult = await checkUsername(username);
+  if (!checkUsernameResult) {
+    throw new Error("Username is not available.");
+  }
+
+  const modifyingAuthObjectResult = await modifyingAuthObject(
+    authResult.uid,
+    username
+  );
+  if (!modifyingAuthObjectResult) {
+    throw new Error("Internal server error");
+  }
+
+  const createUserOnFirestoreResult = await createUserOnFirestore(
+    username,
+    authResult,
+    fullname
+  );
+  if (!createUserOnFirestoreResult) {
+    await rollBackAuthModification(authResult.uid);
+    throw new Error("Internal server error.");
+  }
+};
+
 export const completeSignUp = onRequest(
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {username, fullname} = req.body;
 
-    const authResult = await handleAuthorization(authorization);
-    if (!authResult) {
-      res.status(401).send("Unauthorized");
-      return;
+    const lockId = `signup-${username}`;
+
+    try {
+      await lock.acquire(lockId, async () => {
+        await processCompleteSignUp(authorization, username, fullname);
+        res.status(200).send("Successfull");
+      });
+    } catch (error) {
+      console.error("Error while completing sign up: ", error);
+      res.status(500).send("Internal Server Error");
     }
-
-    const checkPropsResult = checkProps(username, fullname);
-    if (!checkPropsResult) {
-      res.status(422).send("Invalid Props");
-      return;
-    }
-
-    const checkUsernameResult = await checkUsername(username);
-    if (!checkUsernameResult) {
-      res.status(409).send("Username is not available.");
-      return;
-    }
-
-    const modifyingAuthObjectResult = await modifyingAuthObject(
-      authResult.uid,
-      username
-    );
-    if (!modifyingAuthObjectResult) {
-      res.status(500).send("Internal server error");
-      return;
-    }
-
-    const createUserOnFirestoreResult = await createUserOnFirestore(
-      username,
-      authResult,
-      fullname
-    );
-    if (!createUserOnFirestoreResult) {
-      await rollBackAuthModification(authResult.uid);
-      res.status(500).send("Internal server error.");
-
-      return;
-    }
-
-    res.status(200).send("OK");
-    return;
   })
 );

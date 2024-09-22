@@ -339,6 +339,10 @@ async function handleNotification(
   return sendNotificationResult && removeNotificationResult;
 }
 
+const delay = (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 export const postRate = onRequest(
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
@@ -367,37 +371,34 @@ export const postRate = onRequest(
 
     const commonTimestamp = Date.now();
 
-    const [handleRatingDocResult, updatePostDocResult, notificationResult] =
-      await Promise.all([
-        handleRatingDoc(
-          postDocPath,
-          username,
-          rating,
-          commonTimestamp,
-          checkForPreviousRatingResult
-        ),
-        updatePostDoc(
-          postDocPath,
-          checkForPreviousRatingResult.isTherePreviousRating ?
-            checkForPreviousRatingResult.previousRatingDocData.rating :
-            0,
-          rating
-        ),
-        handleNotification(
-          rating,
-          postDocPath,
-          username,
-          commonTimestamp,
-          checkForPreviousRatingResult.isTherePreviousRating ?
-            checkForPreviousRatingResult.previousRatingDocData :
-            undefined
-        ),
-      ]);
+    updatePostDoc(
+      postDocPath,
+      checkForPreviousRatingResult.isTherePreviousRating ?
+        checkForPreviousRatingResult.previousRatingDocData.rating :
+        0,
+      rating
+    );
 
-    if (!handleRatingDocResult || !updatePostDocResult || !notificationResult) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
+    handleRatingDoc(
+      postDocPath,
+      username,
+      rating,
+      commonTimestamp,
+      checkForPreviousRatingResult
+    );
+
+    handleNotification(
+      rating,
+      postDocPath,
+      username,
+      commonTimestamp,
+      checkForPreviousRatingResult.isTherePreviousRating ?
+        checkForPreviousRatingResult.previousRatingDocData :
+        undefined
+    );
+
+    // Ensure all request have been sent.
+    await delay(250);
 
     res.status(200).send("Success");
 

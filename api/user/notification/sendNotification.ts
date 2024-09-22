@@ -299,8 +299,6 @@ export const sendNotification = onRequest(async (req, res) => {
       notificationData.target
     )) || 0;
 
-  console.log("Badge count: ", badgeCount);
-
   const sendPushNotificationResult = await sendPushNotification(
     notificationData,
     userNotificationSettings.notificationToken,
