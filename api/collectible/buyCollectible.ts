@@ -1,21 +1,22 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../config";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { internalAPIRoutes } from "../../config";
+import { getConfigObject } from "../../configs/getConfigObject";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData, CollectorDocData} from "../../types/Collectible";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { CollectibleDocData, CollectorDocData } from "../../types/Collectible";
 
-import {ReceivedNotificationDocData} from "@/types/Notifications";
-import {PostServerData} from "../../types/Post";
+import { ReceivedNotificationDocData } from "@/types/Notifications";
+import { PostServerData } from "../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   SoldCollectibleDocData,
 } from "../../types/Trade";
-import {BalanceDocData} from "../../types/Wallet";
+import { BalanceDocData } from "../../types/Wallet";
+import AsyncLock = require("async-lock");
 
 const configObject = getConfigObject();
 
@@ -631,7 +632,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -654,82 +655,133 @@ async function sendNotification(
   }
 }
 
-export const buyCollectible = onRequest(
-  appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+async function processPayment(
+  postDocPath: string,
+  authorization: string | undefined
+) {
+  const username = await handleAuthorization(authorization);
+  if (!username) {
+    throw new Error("Unauthorized");
+  }
 
-    const username = await handleAuthorization(authorization);
-    if (!username) {
-      res.status(401).send("Unauthorized");
-      return;
-    }
+  const checkPropsResult = checkProps(postDocPath);
+  if (!checkPropsResult) {
+    throw new Error("Invalid Request");
+  }
 
-    const checkPropsResult = checkProps(postDocPath);
-    if (!checkPropsResult) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
+  const postData = await getPostData(postDocPath);
+  if (!postData) {
+    throw new Error("Internal Server Error: Post data can not be fetched.");
+  }
 
-    const postData = await getPostData(postDocPath);
-    if (!postData) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
+  if (!isDifferentPersonThanCreator(postData, username)) {
+    throw new Error("Forbidden");
+  }
 
-    if (!isDifferentPersonThanCreator(postData, username)) {
-      res.status(403).send("Forbidden");
-      return;
-    }
+  const collectibleDocPath = getCollectibleDocPath(postData);
+  if (!collectibleDocPath) {
+    throw new Error("Invalid Request");
+  }
 
-    const collectibleDocPath = getCollectibleDocPath(postData);
-    if (!collectibleDocPath) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
-
-    const collectibleData = await getCollectibleData(collectibleDocPath);
-    if (!collectibleData) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
-
-    const checkCollectibleDataResult = checkCollectibleData(collectibleData);
-    if (!checkCollectibleDataResult) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
-
-    const checkPurchasingSingleTimeResult = await checkPurchasingSingleTime(
-      collectibleData,
-      username
+  const collectibleData = await getCollectibleData(collectibleDocPath);
+  if (!collectibleData) {
+    throw new Error(
+      "Internal Server Error: Collectible data can not be fetched."
     );
-    if (!checkPurchasingSingleTimeResult) {
-      res.status(403).send("Forbidden");
-      return;
-    }
+  }
 
-    const price = getPrice(collectibleData);
-    if (!price) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
+  const checkCollectibleDataResult = checkCollectibleData(collectibleData);
+  if (!checkCollectibleDataResult) {
+    throw new Error("Invalid Request");
+  }
 
-    const balance = await getBalance(username);
-    if (balance === false) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
+  const checkPurchasingSingleTimeResult = await checkPurchasingSingleTime(
+    collectibleData,
+    username
+  );
+  if (!checkPurchasingSingleTimeResult) {
+    throw new Error("Forbidden");
+  }
 
-    const hasMoneyResult = hasMoney(balance, price);
-    if (!hasMoneyResult) {
-      res.status(403).send("Forbidden");
-      return;
-    }
+  const price = getPrice(collectibleData);
+  if (!price) {
+    throw new Error("Internal Server Error: Price can not be fetched.");
+  }
 
-    const commonTimestamp = Date.now();
+  const balance = await getBalance(username);
+  if (balance === false) {
+    throw new Error("Internal Server Error: Balance can not be fetched.");
+  }
 
-    const [
+  const hasMoneyResult = hasMoney(balance, price);
+  if (!hasMoneyResult) {
+    throw new Error("Forbidden");
+  }
+
+  const commonTimestamp = Date.now();
+
+  const [
+    updateBalanceResult,
+    updateBalanceOfSellerResult,
+    createPurchasePaymentIntentDocResult,
+    createSellPaymentIntentDocResult,
+    updateCollectibleDocResult,
+    addBoughtCollectibleDocToBuyerResult,
+    addSoldCollectibleDocToSellerResult,
+    addCollectorDocToCollectorsCollectionResult,
+  ] = await Promise.all([
+    updateBalance(username, price),
+    updateBalanceOfSeller(postData.senderUsername, price),
+    createPurchasePaymentIntentDoc(
+      username,
+      commonTimestamp,
+      postDocPath,
+      collectibleDocPath,
+      price,
+      postData.senderUsername,
+      username
+    ),
+    createSellPaymentIntentDoc(
+      username,
+      commonTimestamp,
+      postDocPath,
+      collectibleDocPath,
+      price,
+      postData.senderUsername
+    ),
+    updateCollectibleDoc(collectibleDocPath, username),
+    addBoughtCollectibleDocToBuyer(
+      username,
+      postDocPath,
+      collectibleDocPath,
+      commonTimestamp
+    ),
+    addSoldCollectibleDocToSeller(
+      postData.senderUsername,
+      collectibleDocPath,
+      postDocPath,
+      commonTimestamp,
+      username
+    ),
+    addCollectorDocToCollectorsCollection(collectibleDocPath, {
+      timestamp: commonTimestamp,
+      username: username,
+    }),
+  ]);
+
+  if (
+    !updateBalanceResult ||
+    !updateBalanceOfSellerResult ||
+    !createPurchasePaymentIntentDocResult ||
+    !createSellPaymentIntentDocResult ||
+    !updateCollectibleDocResult ||
+    !addBoughtCollectibleDocToBuyerResult ||
+    !addSoldCollectibleDocToSellerResult ||
+    !addCollectorDocToCollectorsCollectionResult
+  ) {
+    await rollback(
+      username,
+      postData.senderUsername,
       updateBalanceResult,
       updateBalanceOfSellerResult,
       createPurchasePaymentIntentDocResult,
@@ -737,86 +789,40 @@ export const buyCollectible = onRequest(
       updateCollectibleDocResult,
       addBoughtCollectibleDocToBuyerResult,
       addSoldCollectibleDocToSellerResult,
-      addCollectorDocToCollectorsCollectionResult,
-    ] = await Promise.all([
-      updateBalance(username, price),
-      updateBalanceOfSeller(postData.senderUsername, price),
-      createPurchasePaymentIntentDoc(
-        username,
-        commonTimestamp,
-        postDocPath,
-        collectibleDocPath,
-        price,
-        postData.senderUsername,
-        username
-      ),
-      createSellPaymentIntentDoc(
-        username,
-        commonTimestamp,
-        postDocPath,
-        collectibleDocPath,
-        price,
-        postData.senderUsername
-      ),
-      updateCollectibleDoc(collectibleDocPath, username),
-      addBoughtCollectibleDocToBuyer(
-        username,
-        postDocPath,
-        collectibleDocPath,
-        commonTimestamp
-      ),
-      addSoldCollectibleDocToSeller(
-        postData.senderUsername,
-        collectibleDocPath,
-        postDocPath,
-        commonTimestamp,
-        username
-      ),
-      addCollectorDocToCollectorsCollection(collectibleDocPath, {
-        timestamp: commonTimestamp,
-        username: username,
-      }),
-    ]);
-    if (
-      !updateBalanceResult ||
-      !updateBalanceOfSellerResult ||
-      !createPurchasePaymentIntentDocResult ||
-      !createSellPaymentIntentDocResult ||
-      !updateCollectibleDocResult ||
-      !addBoughtCollectibleDocToBuyerResult ||
-      !addSoldCollectibleDocToSellerResult ||
-      !addCollectorDocToCollectorsCollectionResult
-    ) {
-      await rollback(
-        username,
-        postData.senderUsername,
-        updateBalanceResult,
-        updateBalanceOfSellerResult,
-        createPurchasePaymentIntentDocResult,
-        createSellPaymentIntentDocResult,
-        updateCollectibleDocResult,
-        addBoughtCollectibleDocToBuyerResult,
-        addSoldCollectibleDocToSellerResult,
-        addCollectorDocToCollectorsCollectionResult
-      );
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
-    const notificationObject = createNotificationObject(
-      postDocPath,
-      price,
-      username,
-      postData.senderUsername
+      addCollectorDocToCollectorsCollectionResult
     );
-    const notificationResult = await sendNotification(notificationObject);
-    if (!notificationResult) {
-      console.error(
-        "Notification result is false on buying collectibe... See above logs. (non-fatal)."
-      );
-    }
+  }
 
-    res.status(200).send("Successsfull paymaent handled correctly.");
-    return;
+  const notificationObject = createNotificationObject(
+    postDocPath,
+    price,
+    username,
+    postData.senderUsername
+  );
+
+  const notificationResult = await sendNotification(notificationObject);
+  if (!notificationResult) {
+    throw new Error("Internal Server Error: Notification can not be sent.");
+  }
+}
+
+const lock = new AsyncLock();
+
+export const buyCollectible = onRequest(
+  appCheckMiddleware(async (req, res) => {
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
+
+    const lockId = `buyCollectible-${postDocPath}`;
+
+    try {
+      await lock.acquire(lockId, async () => {
+        await processPayment(postDocPath, authorization);
+        res.status(200).send("Successfull");
+      });
+    } catch (error) {
+      console.error("Error while processing payment: ", error);
+      res.status(500).send("Internal Server Error");
+    }
   })
 );
