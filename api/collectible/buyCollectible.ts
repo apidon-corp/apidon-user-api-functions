@@ -1,21 +1,21 @@
-import { FieldValue } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/v2/https";
-import { internalAPIRoutes } from "../../config";
-import { getConfigObject } from "../../configs/getConfigObject";
-import { firestore } from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {internalAPIRoutes} from "../../config";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { CollectibleDocData, CollectorDocData } from "../../types/Collectible";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {CollectibleDocData, CollectorDocData} from "../../types/Collectible";
 
-import { ReceivedNotificationDocData } from "@/types/Notifications";
-import { PostServerData } from "../../types/Post";
+import {ReceivedNotificationDocData} from "@/types/Notifications";
+import {PostServerData} from "../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   SoldCollectibleDocData,
 } from "../../types/Trade";
-import { BalanceDocData } from "../../types/Wallet";
+import {BalanceDocData} from "../../types/Wallet";
 import AsyncLock = require("async-lock");
 
 const configObject = getConfigObject();
@@ -632,7 +632,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -810,8 +810,8 @@ const lock = new AsyncLock();
 
 export const buyCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath} = req.body;
 
     const lockId = `buyCollectible-${postDocPath}`;
 

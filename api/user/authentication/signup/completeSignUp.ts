@@ -1,13 +1,13 @@
-import { WriteBatch } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/v2/https";
-import { auth, firestore } from "../../../../firebase/adminApp";
-import { appCheckMiddleware } from "../../../../middleware/appCheckMiddleware";
+import {WriteBatch} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {auth, firestore} from "../../../../firebase/adminApp";
+import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
 import {
   NotificationsDocData,
   NotificationSettingsData,
 } from "../../../../types/Notifications";
-import { UserInServer } from "../../../../types/User";
-import { BalanceDocData } from "../../../../types/Wallet";
+import {UserInServer} from "../../../../types/User";
+import {BalanceDocData} from "../../../../types/Wallet";
 import AsyncLock = require("async-lock");
 
 /**
@@ -75,7 +75,7 @@ async function checkUsername(username: string) {
 
 async function modifyingAuthObject(uid: string, username: string) {
   try {
-    await auth.updateUser(uid, { displayName: username });
+    await auth.updateUser(uid, {displayName: username});
     await auth.setCustomUserClaims(uid, {
       name: username,
       isValidAuthObject: true,
@@ -252,8 +252,8 @@ const processCompleteSignUp = async (
 
 export const completeSignUp = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { username, fullname } = req.body;
+    const {authorization} = req.headers;
+    const {username, fullname} = req.body;
 
     const lockId = `signup-${username}`;
 

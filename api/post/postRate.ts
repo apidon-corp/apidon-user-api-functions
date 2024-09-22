@@ -1,12 +1,12 @@
-import { FieldValue } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/v2/https";
-import { internalAPIRoutes } from "../../config";
-import { getConfigObject } from "../../configs/getConfigObject";
-import { firestore } from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {internalAPIRoutes} from "../../config";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { ReceivedNotificationDocData } from "../../types/Notifications";
-import { PostServerData, RatingData } from "../../types/Post";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {ReceivedNotificationDocData} from "../../types/Notifications";
+import {PostServerData, RatingData} from "../../types/Post";
 
 const configObject = getConfigObject();
 
@@ -167,9 +167,9 @@ async function updatePostDoc(
   try {
     await firestore.doc(postDocPath).update({
       ratingSum: FieldValue.increment(newRating - previousRating),
-      ratingCount: previousRating
-        ? FieldValue.increment(0)
-        : FieldValue.increment(1),
+      ratingCount: previousRating ?
+        FieldValue.increment(0) :
+        FieldValue.increment(1),
     });
     return true;
   } catch (error) {
@@ -234,7 +234,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -293,7 +293,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -345,8 +345,8 @@ const delay = (ms: number) => {
 
 export const postRate = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { rating, postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {rating, postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -373,9 +373,9 @@ export const postRate = onRequest(
 
     updatePostDoc(
       postDocPath,
-      checkForPreviousRatingResult.isTherePreviousRating
-        ? checkForPreviousRatingResult.previousRatingDocData.rating
-        : 0,
+      checkForPreviousRatingResult.isTherePreviousRating ?
+        checkForPreviousRatingResult.previousRatingDocData.rating :
+        0,
       rating
     );
 
@@ -392,9 +392,9 @@ export const postRate = onRequest(
       postDocPath,
       username,
       commonTimestamp,
-      checkForPreviousRatingResult.isTherePreviousRating
-        ? checkForPreviousRatingResult.previousRatingDocData
-        : undefined
+      checkForPreviousRatingResult.isTherePreviousRating ?
+        checkForPreviousRatingResult.previousRatingDocData :
+        undefined
     );
 
     // Ensure all request have been sent.
