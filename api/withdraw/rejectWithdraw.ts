@@ -28,7 +28,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.REJECT_WITHDRAW_API_KEY;
+  return authorization === configObject.APPROVE_WITHDRAW_API_KEY;
 }
 
 function checkProps(username: string, requestId: string, notes: string) {

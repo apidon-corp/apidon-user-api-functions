@@ -52,7 +52,7 @@ async function getWithdrawRequestsOfOneUser(username: string) {
 
   try {
     const query = await firestore
-      .collection("/payouts/requests/yunuskorkmaz")
+      .collection(`/payouts/requests/${username}`)
       .get();
 
     return query.docs.map((doc) => doc.data() as WithdrawRequestDocData);
