@@ -2,7 +2,7 @@ import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 import {onRequest} from "firebase-functions/v2/https";
 import {RevenueCatNotificationPayload} from "../../types/IAP";
 import {getConfigObject} from "../../configs/getConfigObject";
-import { ConfigObject } from "@/types/Admin";
+import {ConfigObject} from "@/types/Admin";
 
 
 const configObject = getConfigObject();

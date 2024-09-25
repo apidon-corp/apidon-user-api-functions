@@ -1,4 +1,4 @@
-import { getConfigObject } from "../configs/getConfigObject";
+import {getConfigObject} from "../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
