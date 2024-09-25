@@ -15,8 +15,12 @@ import {
   SellPaymentIntentDocData,
   SoldCollectibleDocData,
 } from "../../types/Trade";
+
+import {ReceiptDocData} from "../../types/Receipt";
+
 import {BalanceDocData} from "../../types/Wallet";
 import AsyncLock = require("async-lock");
+import {UserIdentityDoc} from "@/types/Identity";
 
 const configObject = getConfigObject();
 
@@ -459,6 +463,140 @@ async function addSoldCollectibleDocToSeller(
   }
 }
 
+async function addReceiptDocToMainReceiptsCollection(
+  collectibleDocPath: string,
+  currency: string,
+  postDocPath: string,
+  price: number,
+  sellerUsername: string,
+  timestamp: number
+) {
+  let sellerRealFirstName: string;
+  let sellerRealLastName: string;
+
+  // Getting KYC information
+  try {
+    const identityDoc = await firestore
+      .doc(`users/${sellerUsername}/personal/identity`)
+      .get();
+
+    if (!identityDoc.exists) {
+      console.error("Identity doc does not exist");
+      return false;
+    }
+    const identityDocData = identityDoc.data() as UserIdentityDoc;
+
+    if (!identityDocData) {
+      console.error("Identity doc data is undefined");
+      return false;
+    }
+
+    if (identityDocData.status !== "verified") {
+      console.error("User is not verified");
+      return false;
+    }
+
+    sellerRealFirstName = identityDocData.firstName;
+    sellerRealLastName = identityDocData.lastName;
+  } catch (error) {
+    console.error("Error while getting KYC information", error);
+    return false;
+  }
+
+  if (!sellerRealFirstName || !sellerRealLastName) {
+    console.error("Seller real first name or last name is undefined");
+    return false;
+  }
+
+  const newData: ReceiptDocData = {
+    collectibleDocPath: collectibleDocPath,
+    currency: currency,
+    postDocPath: postDocPath,
+    price: price,
+    sellerRealFirstName: sellerRealFirstName,
+    sellerRealLastName: sellerRealLastName,
+    sellerUsername: sellerUsername,
+    timestamp: timestamp,
+  };
+
+  try {
+    const receiptsCollectionRef = firestore.collection("/receipts");
+
+    const createdDocRef = await receiptsCollectionRef.add(newData);
+
+    return createdDocRef;
+  } catch (error) {
+    console.error("Error while adding receipt doc", error);
+    return false;
+  }
+}
+
+function createNotificationObject(
+  postDocPath: string,
+  price: number,
+  customer: string,
+  seller: string
+) {
+  const notificationObject: ReceivedNotificationDocData = {
+    type: "collectibleBought",
+    params: {
+      collectiblePostDocPath: postDocPath,
+      currency: "USD",
+      price: price,
+    },
+    source: customer,
+    target: seller,
+    timestamp: Date.now(),
+  };
+
+  return notificationObject;
+}
+
+async function sendNotification(
+  notificationObject: ReceivedNotificationDocData
+) {
+  if (!configObject) {
+    console.error("Config object is undefined.");
+    return false;
+  }
+
+  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
+
+  if (!notificationAPIKey) {
+    console.error("Notification API key is undefined from config file.");
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      internalAPIRoutes.notification.sendNotification,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "authorization": notificationAPIKey,
+        },
+        body: JSON.stringify({
+          notificationData: notificationObject,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        "Notification API response is not okay: ",
+        await response.text()
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error while sending notification: ", error);
+    return false;
+  }
+}
+
 /**
  * Rolls back the transaction by reverting all changes.
  * @param username - The username of the buyer.
@@ -496,7 +634,14 @@ async function rollback(
         FirebaseFirestore.DocumentData,
         FirebaseFirestore.DocumentData
       >,
-  addCollectorDocToCollectorsCollectionResult: false | string
+  addCollectorDocToCollectorsCollectionResult: false | string,
+
+  addReceiptDocToMainReceiptsCollectionResult:
+    | false
+    | FirebaseFirestore.DocumentReference<
+        FirebaseFirestore.DocumentData,
+        FirebaseFirestore.DocumentData
+      >
 ) {
   if (updateBalanceResult) {
     const updateBalanceRollback = await updateBalance(
@@ -587,71 +732,13 @@ async function rollback(
       console.error("Error while rolling back collector doc", error);
     }
   }
-}
 
-function createNotificationObject(
-  postDocPath: string,
-  price: number,
-  customer: string,
-  seller: string
-) {
-  const notificationObject: ReceivedNotificationDocData = {
-    type: "collectibleBought",
-    params: {
-      collectiblePostDocPath: postDocPath,
-      currency: "USD",
-      price: price,
-    },
-    source: customer,
-    target: seller,
-    timestamp: Date.now(),
-  };
-
-  return notificationObject;
-}
-
-async function sendNotification(
-  notificationObject: ReceivedNotificationDocData
-) {
-  if (!configObject) {
-    console.error("Config object is undefined.");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined from config file.");
-    return false;
-  }
-
-  try {
-    const response = await fetch(
-      internalAPIRoutes.notification.sendNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        "Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
+  if (addReceiptDocToMainReceiptsCollectionResult) {
+    try {
+      await addReceiptDocToMainReceiptsCollectionResult.delete();
+    } catch (error) {
+      console.error("Error while rolling back receipt doc", error);
     }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending notification: ", error);
-    return false;
   }
 }
 
@@ -720,6 +807,8 @@ async function processPayment(
 
   const commonTimestamp = Date.now();
 
+  const seller = postData.senderUsername;
+
   const [
     updateBalanceResult,
     updateBalanceOfSellerResult,
@@ -729,16 +818,17 @@ async function processPayment(
     addBoughtCollectibleDocToBuyerResult,
     addSoldCollectibleDocToSellerResult,
     addCollectorDocToCollectorsCollectionResult,
+    addReceiptDocToMainReceiptsCollectionResult,
   ] = await Promise.all([
     updateBalance(username, price),
-    updateBalanceOfSeller(postData.senderUsername, price),
+    updateBalanceOfSeller(seller, price),
     createPurchasePaymentIntentDoc(
       username,
       commonTimestamp,
       postDocPath,
       collectibleDocPath,
       price,
-      postData.senderUsername,
+      seller,
       username
     ),
     createSellPaymentIntentDoc(
@@ -747,7 +837,7 @@ async function processPayment(
       postDocPath,
       collectibleDocPath,
       price,
-      postData.senderUsername
+      seller
     ),
     updateCollectibleDoc(collectibleDocPath, username),
     addBoughtCollectibleDocToBuyer(
@@ -757,7 +847,7 @@ async function processPayment(
       commonTimestamp
     ),
     addSoldCollectibleDocToSeller(
-      postData.senderUsername,
+      seller,
       collectibleDocPath,
       postDocPath,
       commonTimestamp,
@@ -767,6 +857,14 @@ async function processPayment(
       timestamp: commonTimestamp,
       username: username,
     }),
+    addReceiptDocToMainReceiptsCollection(
+      collectibleDocPath,
+      "USD",
+      postDocPath,
+      price,
+      seller,
+      commonTimestamp
+    ),
   ]);
 
   if (
@@ -777,7 +875,8 @@ async function processPayment(
     !updateCollectibleDocResult ||
     !addBoughtCollectibleDocToBuyerResult ||
     !addSoldCollectibleDocToSellerResult ||
-    !addCollectorDocToCollectorsCollectionResult
+    !addCollectorDocToCollectorsCollectionResult ||
+    !addReceiptDocToMainReceiptsCollectionResult
   ) {
     await rollback(
       username,
@@ -789,7 +888,8 @@ async function processPayment(
       updateCollectibleDocResult,
       addBoughtCollectibleDocToBuyerResult,
       addSoldCollectibleDocToSellerResult,
-      addCollectorDocToCollectorsCollectionResult
+      addCollectorDocToCollectorsCollectionResult,
+      addReceiptDocToMainReceiptsCollectionResult
     );
   }
 

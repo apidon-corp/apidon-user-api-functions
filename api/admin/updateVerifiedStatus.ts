@@ -2,6 +2,7 @@ import {onRequest} from "firebase-functions/v2/https";
 
 import {getConfigObject} from "../../configs/getConfigObject";
 import {firestore} from "../../firebase/adminApp";
+import {UserIdentityDoc} from "@/types/Identity";
 
 const configObject = getConfigObject();
 
@@ -37,6 +38,27 @@ function checkProps(username: string, isVerified: boolean) {
   return true;
 }
 
+async function checkUserCompletedKYC(username: string) {
+  try {
+    const identityDoc = await firestore
+      .doc(`users/${username}/personal/identity`)
+      .get();
+    if (!identityDoc.exists) {
+      console.error("User identity doc does not exist");
+      return false;
+    }
+    const identityData = identityDoc.data() as UserIdentityDoc;
+    if (!identityData) {
+      console.error("User identity data does not exist");
+      return false;
+    }
+    return identityData.status === "verified";
+  } catch (error) {
+    console.error("Error checking user KYC status", error);
+    return false;
+  }
+}
+
 async function updateUserDoc(username: string, isVerified: boolean) {
   try {
     const userDocRef = firestore.doc(`users/${username}`);
@@ -64,6 +86,11 @@ export const updateVerifiedStatus = onRequest(async (req, res) => {
   const checkPropsResult = checkProps(username, isVerified);
   if (!checkPropsResult) {
     res.status(422).send("Invalid Props");
+    return;
+  }
+  const checkUserCompletedKYCResult = await checkUserCompletedKYC(username);
+  if (!checkUserCompletedKYCResult) {
+    res.status(403).send("Forbidden");
     return;
   }
 
