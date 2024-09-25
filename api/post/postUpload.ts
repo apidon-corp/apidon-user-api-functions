@@ -1,11 +1,10 @@
-import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/v2/https";
 import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
+import {UploadedPostDocData} from "../../types/Interactions";
 import {
   PostDataOnMainPostsCollection,
   PostServerData,
-  UploadedPostArrayObject,
 } from "../../types/Post";
 
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
@@ -108,26 +107,33 @@ async function createPostOnFirestore(
   }
 }
 
-async function updateUploadedPostArray(
+/**
+ * For post interactions.
+ * @param username
+ * @param postDocPath
+ * @param timestamp
+ * @returns
+ */
+async function addDocToUploadedPosts(
   username: string,
   postDocPath: string,
   timestamp: number
 ) {
   try {
-    const newUploadedPostObject: UploadedPostArrayObject = {
+    const newUploadedPostObject: UploadedPostDocData = {
       postDocPath: postDocPath,
       timestamp: timestamp,
     };
 
-    const postInteractionsDocRef = firestore.doc(
-      `users/${username}/personal/postInteractions`
+    const uploadedPostsCollectionRef = firestore.collection(
+      `users/${username}/personal/postInteractions/uploadedPosts`
     );
 
-    await postInteractionsDocRef.update({
-      uploadedPostArray: FieldValue.arrayUnion(newUploadedPostObject),
-    });
+    await uploadedPostsCollectionRef.add(newUploadedPostObject);
   } catch (error) {
-    console.error("Error while updating uploadedPostArray");
+    console.error(
+      "Error while adding doc to uploadedPosts collection for tracking information."
+    );
     return false;
   }
 
@@ -197,7 +203,7 @@ export const postUpload = onRequest(
       addPostDocToMainPostsCollectionResult,
     ] = await Promise.all([
       createPostOnFirestore(postServerData, username),
-      updateUploadedPostArray(
+      addDocToUploadedPosts(
         username,
         `users/${username}/posts/${postServerData.id}`,
         postServerData.creationTime

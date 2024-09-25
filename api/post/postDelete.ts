@@ -1,8 +1,7 @@
-import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/v2/https";
 import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {PostServerData, UploadedPostArrayObject} from "../../types/Post";
+import {PostServerData} from "../../types/Post";
 
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
@@ -113,30 +112,40 @@ async function deletePostDocOnMainPostsCollection(postDocPath: string) {
   }
 }
 
-async function updateUploadedPostArray(
+/**
+ * For post interactions.
+ * @param username
+ * @param postDocPath
+ * @param timestamp
+ * @returns
+ */
+async function deleteDocFromUploadedPostsCollection(
   username: string,
-  postDocPath: string,
-  timestamp: number
+  postDocPath: string
 ) {
-  const deletedPostArrayObject: UploadedPostArrayObject = {
-    postDocPath: postDocPath,
-    timestamp: timestamp,
-  };
-
   try {
-    const postInteractionsDocRef = firestore.doc(
-      `users/${username}/personal/postInteractions`
-    );
+    const query = await firestore
+      .collection(`users/${username}/personal/postInteractions/uploadedPosts`)
+      .where("postDocPath", "==", postDocPath)
+      .get();
 
-    await postInteractionsDocRef.update({
-      uploadedPostArray: FieldValue.arrayRemove(deletedPostArrayObject),
-    });
+    if (query.empty) {
+      console.error("No such doc in uploadedPosts collection");
+      return true;
+    }
+
+    const deletedDocRef = query.docs[0];
+
+    await deletedDocRef.ref.delete();
+
+    return true;
   } catch (error) {
-    console.error("Error while updating uploadedPostArray");
+    console.error(
+      "Error while deleting doc from uploadedPosts collection",
+      error
+    );
     return false;
   }
-
-  return true;
 }
 
 export const postDelete = onRequest(
@@ -175,19 +184,19 @@ export const postDelete = onRequest(
       deleteStoredFilesResult,
       deletePostDocResult,
       deletePostDocOnMainPostsCollectionResult,
-      updateUploadedPostArrayResult,
+      deleteDocFromUploadedPostsCollectionResult,
     ] = await Promise.all([
       deleteStoredFiles(postData.id, username, postData),
       deletePostDoc(`/users/${username}/posts/${postData.id}`),
       deletePostDocOnMainPostsCollection(postDocPath),
-      updateUploadedPostArray(username, postDocPath, postData.creationTime),
+      deleteDocFromUploadedPostsCollection(username, postDocPath),
     ]);
 
     if (
       !deleteStoredFilesResult ||
       !deletePostDocResult ||
       !deletePostDocOnMainPostsCollectionResult ||
-      !updateUploadedPostArrayResult
+      !deleteDocFromUploadedPostsCollectionResult
     ) {
       res.status(500).send("Internal Server Error");
       return;

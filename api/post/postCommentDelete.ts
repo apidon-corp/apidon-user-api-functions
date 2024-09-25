@@ -4,11 +4,7 @@ import {internalAPIRoutes} from "../../config";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
-import {
-  CommentInteractionData,
-  CommentServerData,
-  PostServerData,
-} from "../../types/Post";
+import {CommentServerData, PostServerData} from "../../types/Post";
 
 import {getConfigObject} from "../../configs/getConfigObject";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
@@ -101,28 +97,30 @@ async function decreaseCommentCount(postDocPath: string) {
   }
 }
 
-async function deleteCommentFromInteractions(
+async function deleteInteractionDocFromCommentsCollection(
   username: string,
   commentObject: CommentServerData,
   postDocPath: string
 ) {
-  const commentInteractionData: CommentInteractionData = {
-    creationTime: commentObject.ts,
-    postDocPath: postDocPath,
-  };
-
   try {
-    const postInteractionsDoc = firestore.doc(
-      `/users/${username}/personal/postInteractions`
-    );
+    const query = await firestore
+      .collection(`users/${username}/personal/postInteractions/comments`)
+      .where("postDocPath", "==", postDocPath)
+      .where("creationTime", "==", commentObject.ts)
+      .get();
 
-    await postInteractionsDoc.update({
-      commentedPostsArray: FieldValue.arrayRemove(commentInteractionData),
-    });
+    if (query.empty) {
+      console.error("Comment interaction doc not found.");
+      return true;
+    }
+
+    const deletedDocRef = query.docs[0].ref;
+
+    await deletedDocRef.delete();
 
     return true;
   } catch (error) {
-    console.error("Error while deleting comment from interactions");
+    console.error("Error while deleting comment interaction doc: ", error);
     return false;
   }
 }
@@ -241,12 +239,16 @@ export const postCommentDelete = onRequest(
     const [
       deleteCommentFromPostResult,
       decreaseCommentCountResult,
-      deleteCommentFromInteractionsResult,
+      deleteInteractionDocFromCommentsCollectionResult,
       deleteNotificationResult,
     ] = await Promise.all([
       deleteCommentDoc(checkCanDeleteCommentResult.commentDocPath),
       decreaseCommentCount(postDocPath),
-      deleteCommentFromInteractions(username, commentObject, postDocPath),
+      deleteInteractionDocFromCommentsCollection(
+        username,
+        commentObject,
+        postDocPath
+      ),
       deleteNotification(
         checkCanDeleteCommentResult.postDocData.senderUsername,
         commentObject,
@@ -256,7 +258,7 @@ export const postCommentDelete = onRequest(
 
     if (
       !deleteCommentFromPostResult ||
-      !deleteCommentFromInteractionsResult ||
+      !deleteInteractionDocFromCommentsCollectionResult ||
       !deleteNotificationResult ||
       !decreaseCommentCountResult
     ) {

@@ -5,7 +5,7 @@ import {
   CommentInteractionData,
   PostInteractions,
   UploadedPostArrayObject,
-} from "../../types/Post";
+} from "../../types/Interactions";
 import {FieldValue} from "firebase-admin/firestore";
 
 import {getConfigObject} from "../../configs/getConfigObject";
