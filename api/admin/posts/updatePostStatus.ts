@@ -1,11 +1,11 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {firestore} from "../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import {ReviewStatus} from "../../types/Admin";
+import {ReviewStatus} from "../../../types/Admin";
 
 import * as express from "express";
-import {getConfigObject} from "../../configs/getConfigObject";
+import {getConfigObject} from "../../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -29,7 +29,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.UPDATE_POST_STATUS_API_KEY;
+  return authorization === configObject.ADMIN;
 }
 
 function checkProps(id: string, senderUsername: string, reviewStatus: string) {

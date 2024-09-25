@@ -1,10 +1,10 @@
 import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 import {
   ExpoPushMessage,
   NotificationSettingsData,
-} from "../../types/Notifications";
-import {getConfigObject} from "../../configs/getConfigObject";
+} from "../../../types/Notifications";
+import {getConfigObject} from "../../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -28,7 +28,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.ADMIN_NOTIFICATIONS_API_KEY;
+  return authorization === configObject.ADMIN;
 }
 
 /**

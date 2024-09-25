@@ -1,11 +1,11 @@
-import {getAllPosts} from "./getAllPosts";
-import {updatePostStatus} from "./updatePostStatus";
-import {updateVerifiedStatus} from "./updateVerifiedStatus";
-import {convertPostInteractions} from "./convertPostInteractions";
+import * as conversion from "./conversion";
+import * as receipts from "./receipts";
+import * as posts from "./posts";
+import * as users from "./users";
+import * as notifications from "./notifications";
 
-export {
-  getAllPosts,
-  updatePostStatus,
-  updateVerifiedStatus,
-  convertPostInteractions,
-};
+export {receipts};
+export {conversion};
+export {posts};
+export {users};
+export {notifications};

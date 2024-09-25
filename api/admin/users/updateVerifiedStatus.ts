@@ -1,8 +1,8 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {getConfigObject} from "../../configs/getConfigObject";
-import {firestore} from "../../firebase/adminApp";
-import {UserIdentityDoc} from "@/types/Identity";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {firestore} from "../../../firebase/adminApp";
+import {UserIdentityDoc} from "../../../types/Identity";
 
 const configObject = getConfigObject();
 
@@ -26,7 +26,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.UPDATE_VERIFIED_STATUS_KEY;
+  return authorization === configObject.ADMIN;
 }
 
 function checkProps(username: string, isVerified: boolean) {

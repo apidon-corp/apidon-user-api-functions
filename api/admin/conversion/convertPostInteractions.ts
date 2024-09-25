@@ -1,14 +1,14 @@
 import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
 import {
   CommentInteractionDocData,
   PostInteractions,
   UploadedPostArrayObject,
-} from "../../types/Interactions";
+} from "../../../types/Interactions";
 import {FieldValue} from "firebase-admin/firestore";
 
-import {getConfigObject} from "../../configs/getConfigObject";
+import {getConfigObject} from "../../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -32,7 +32,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.ADMIN_NOTIFICATIONS_API_KEY;
+  return authorization === configObject.ADMIN;
 }
 
 /**
