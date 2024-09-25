@@ -1,4 +1,4 @@
-import {requestWithdraw} from "./requestWithdraw";
+import {requestWithdraw} from "../../user/wallet/requestWithdraw";
 import {approveWithdraw} from "./approveWithdraw";
 import {rejectWithdraw} from "./rejectWithdraw";
 import {getWithdrawRequests} from "./getWithdrawRequests";

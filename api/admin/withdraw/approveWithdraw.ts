@@ -1,7 +1,7 @@
-import {getConfigObject} from "../../configs/getConfigObject";
+import {getConfigObject} from "../../../configs/getConfigObject";
 import {onRequest} from "firebase-functions/v2/https";
 
-import {firestore} from "../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
 const configObject = getConfigObject();
 
@@ -25,7 +25,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.APPROVE_WITHDRAW_API_KEY;
+  return authorization === configObject.ADMIN;
 }
 
 function checkProps(username: string, requestId: string, notes: string) {
