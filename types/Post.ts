@@ -62,3 +62,13 @@ export type PostDataOnMainPostsCollection = {
   sender: string;
   timestamp: number;
 };
+
+/**
+ * @deprecated
+ */
+export type PostInteractions = {
+  commentedPostsArray: CommentInteractionData[];
+  likedPostsArray: string[];
+  uploadedPostArray: UploadedPostArrayObject[];
+  uploadedPostsArray: UploadedPostArrayObject[];
+};

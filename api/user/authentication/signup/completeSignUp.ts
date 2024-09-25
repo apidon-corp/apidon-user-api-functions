@@ -140,19 +140,6 @@ function createNotificationSettingsDoc(batch: WriteBatch, username: string) {
   batch.set(notificationSettingsDocRef, notificationSettingsDocData);
 }
 
-function createPostInteractions(batch: WriteBatch, username: string) {
-  const postInteractionsDocData = {
-    commentedPostsArray: [],
-    likedPostsArray: [],
-    uploadedPostsArray: [],
-  };
-
-  const postInteractionsDocRef = firestore.doc(
-    `users/${username}/personal/postInteractions`
-  );
-  batch.set(postInteractionsDocRef, postInteractionsDocData);
-}
-
 function createBalanceDoc(batch: WriteBatch, username: string) {
   const balanceData: BalanceDocData = {
     balance: 0,
@@ -182,7 +169,6 @@ async function createUserOnFirestore(
 
     createNotificationsDoc(batch, username);
     createNotificationSettingsDoc(batch, username);
-    createPostInteractions(batch, username);
     createBalanceDoc(batch, username);
 
     await batch.commit();
