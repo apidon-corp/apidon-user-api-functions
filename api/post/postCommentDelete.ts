@@ -1,6 +1,6 @@
 import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../config";
+import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {ReceivedNotificationDocData} from "../../types/Notifications";

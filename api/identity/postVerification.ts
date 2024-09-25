@@ -1,11 +1,11 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../config";
+import { onRequest } from "firebase-functions/v2/https";
+import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 
 import AsyncLock = require("async-lock");
-import {getConfigObject} from "../../configs/getConfigObject";
+import { getConfigObject } from "../../configs/getConfigObject";
 
 import Stripe from "stripe";
-import {Config} from "../../types/Config";
+import { ConfigObject } from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -53,7 +53,7 @@ async function handleCreatedVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleCreatedVerificationApiKey =
     configObject.HANDLE_CREATED_VERIFICATION_API_KEY;
@@ -65,9 +65,9 @@ async function handleCreatedVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": handleCreatedVerificationApiKey,
+          authorization: handleCreatedVerificationApiKey,
         },
-        body: JSON.stringify({username, id, created, status, livemode}),
+        body: JSON.stringify({ username, id, created, status, livemode }),
       }
     );
 
@@ -95,7 +95,7 @@ async function handleProcessingVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleProcessingVerificationApiKey =
     configObject.HANDLE_PROCESSING_VERIFICATION_API_KEY;
@@ -107,9 +107,9 @@ async function handleProcessingVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": handleProcessingVerificationApiKey,
+          authorization: handleProcessingVerificationApiKey,
         },
-        body: JSON.stringify({username, id, created, status, livemode}),
+        body: JSON.stringify({ username, id, created, status, livemode }),
       }
     );
 
@@ -137,7 +137,7 @@ async function handleSuccessfullVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleSuccessfulVerificationApiKey =
     configObject.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
@@ -149,9 +149,9 @@ async function handleSuccessfullVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": handleSuccessfulVerificationApiKey,
+          authorization: handleSuccessfulVerificationApiKey,
         },
-        body: JSON.stringify({username, id, created, status, livemode}),
+        body: JSON.stringify({ username, id, created, status, livemode }),
       }
     );
 
@@ -179,7 +179,7 @@ async function handleReuqiresInputVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleReuqiresInputVerificationApiKey =
     configObject.HANDLE_REQUIRES_INPUT_VERIFICATION_API_KEY;
@@ -191,9 +191,9 @@ async function handleReuqiresInputVerification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": handleReuqiresInputVerificationApiKey,
+          authorization: handleReuqiresInputVerificationApiKey,
         },
-        body: JSON.stringify({username, id, created, status, livemode}),
+        body: JSON.stringify({ username, id, created, status, livemode }),
       }
     );
 
@@ -230,7 +230,7 @@ export const postVerification = onRequest(async (req, res) => {
     return;
   }
 
-  const {event, configObject} = eventResult;
+  const { event, configObject } = eventResult;
 
   if (
     event.type !== "identity.verification_session.created" &&
