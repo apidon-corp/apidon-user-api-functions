@@ -73,15 +73,18 @@ export type ConfigObject = {
     client_x509_cert_url: string;
     universe_domain: string;
   };
+
   storageBucketId: string;
+
   SENDGRID_EMAIL_SERVICE_API_KEY: string;
+
   USER_APIS_BASE_URL: string;
   NOTIFICATION_API_KEY: string;
+  // Revenue Cat IAP
   REVENUE_CAT_WEBHOOK_AUTH_KEY: string;
   SUCCESS_ON_PAYMENT_API_AUTH_KEY: string;
   REFUND_API_AUTH_KEY: string;
-
-  MIGRATION_API_KEY: string;
+  // Stripe Identity
   STRIPE_SECRET_KEY: string;
   STRIPE_RESTRICTED_API_KEY: string;
   POST_VERIFICATION_WEBHOOK_SECRET: string;
@@ -89,7 +92,7 @@ export type ConfigObject = {
   HANDLE_PROCESSING_VERIFICATION_API_KEY: string;
   HANDLE_SUCCESSFUL_VERIFICATION_API_KEY: string;
   HANDLE_REQUIRES_INPUT_VERIFICATION_API_KEY: string;
-
+  // Admin
   ADMIN: string;
 };
 
