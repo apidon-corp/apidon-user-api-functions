@@ -6,7 +6,7 @@ import {getConfigObject} from "../../configs/getConfigObject";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CommentInteractionData} from "../../types/Interactions";
+import {CommentInteractionDocData} from "../../types/Interactions";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {CommentServerData, PostServerData} from "../../types/Post";
 
@@ -85,7 +85,7 @@ async function increaseCommentCount(postDocPath: string) {
  * @returns
  */
 async function addInteractionDocToCommentsCollection(
-  commentInteractionData: CommentInteractionData,
+  commentInteractionData: CommentInteractionDocData,
   username: string
 ) {
   try {
@@ -204,6 +204,10 @@ async function sendNotification(
   }
 }
 
+const delay = (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 export const postComment = onRequest(
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
@@ -223,39 +227,23 @@ export const postComment = onRequest(
 
     const commendData = createCommentData(message, username, Date.now());
 
-    const [
-      createCommentDocResult,
-      increaseCommentCountResult,
-      addInteractionDocToCommentsCollectionResult,
-      sendNotificationResult,
-    ] = await Promise.all([
-      createCommentDoc(postDocPath, commendData),
-      increaseCommentCount(postDocPath),
-      addInteractionDocToCommentsCollection(
-        {creationTime: commendData.ts, postDocPath: postDocPath},
-        username
-      ),
-      sendNotification(
-        username,
-        postDocPath,
-        commendData.message,
-        commendData.ts
-      ),
-    ]);
+    createCommentDoc(postDocPath, commendData);
+    increaseCommentCount(postDocPath);
+    addInteractionDocToCommentsCollection(
+      {creationTime: commendData.ts, postDocPath: postDocPath},
+      username
+    );
+    sendNotification(
+      username,
+      postDocPath,
+      commendData.message,
+      commendData.ts
+    );
 
-    if (
-      !createCommentDocResult ||
-      !increaseCommentCountResult ||
-      !addInteractionDocToCommentsCollectionResult ||
-      !sendNotificationResult
-    ) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
+    await delay(250);
 
     res.status(200).json({
       commentData: commendData,
     });
-    return;
   })
 );

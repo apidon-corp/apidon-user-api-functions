@@ -1,6 +1,12 @@
-export type CommentInteractionData = {
+export type CommentInteractionDocData = {
   postDocPath: string;
   creationTime: number;
+};
+
+export type RateInteractionDocData = {
+  postDocPath: string;
+  creationTime: number;
+  rate:number,
 };
 
 /**
@@ -11,7 +17,7 @@ export type UploadedPostArrayObject = {
   postDocPath: string;
 };
 
-export type UploadedPostDocData = {
+export type UploadedPostInteractionDocData = {
   postDocPath: string;
   timestamp: number;
 };
@@ -20,7 +26,7 @@ export type UploadedPostDocData = {
  * @deprecated
  */
 export type PostInteractions = {
-  commentedPostsArray: CommentInteractionData[];
+  commentedPostsArray: CommentInteractionDocData[];
   likedPostsArray: string[];
   uploadedPostArray: UploadedPostArrayObject[];
   uploadedPostsArray: UploadedPostArrayObject[];

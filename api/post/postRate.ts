@@ -7,6 +7,7 @@ import getDisplayName from "../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {PostServerData, RatingData} from "../../types/Post";
+import {RateInteractionDocData} from "@/types/Interactions";
 
 const configObject = getConfigObject();
 
@@ -257,6 +258,70 @@ async function sendNotification(
   }
 }
 
+async function addRateInteractionDoc(
+  username: string,
+  rateInteractionDocData: RateInteractionDocData
+) {
+  try {
+    const rateInteractionsCollectionRef = firestore.collection(
+      `users/${username}/personal/postInteractions/rates`
+    );
+    await rateInteractionsCollectionRef.add(rateInteractionDocData);
+    return true;
+  } catch (error) {
+    console.error("Error while adding rate interaction doc: ", error);
+    return false;
+  }
+}
+
+async function updateRateInteractionDoc(
+  username: string,
+  postDocPath: string,
+  newRate: number,
+  ts: number
+) {
+  const newData: RateInteractionDocData = {
+    postDocPath: postDocPath,
+    rate: newRate,
+    creationTime: ts,
+  };
+
+  try {
+    const query = await firestore
+      .collection(`users/${username}/personal/postInteractions/rates`)
+      .where("postDocPath", "==", postDocPath)
+      .get();
+    if (query.empty) {
+      console.error("No rate interaction doc data to update.");
+      return true;
+    }
+    const doc = query.docs[0].ref;
+    await doc.update(newData);
+    return true;
+  } catch (error) {
+    console.error("Error while updating rate interaction doc: ", error);
+    return false;
+  }
+}
+
+async function handleInteraction(
+  hasPreviousRating: boolean,
+  username: string,
+  postDocPath: string,
+  ts: number,
+  rate: number
+) {
+  if (hasPreviousRating) {
+    return await updateRateInteractionDoc(username, postDocPath, rate, ts);
+  }
+
+  return await addRateInteractionDoc(username, {
+    creationTime: ts,
+    postDocPath: postDocPath,
+    rate: rate,
+  });
+}
+
 async function deleteNotification(
   postDocPath: string,
   rateSender: string,
@@ -385,6 +450,14 @@ export const postRate = onRequest(
       rating,
       commonTimestamp,
       checkForPreviousRatingResult
+    );
+
+    handleInteraction(
+      checkForPreviousRatingResult.isTherePreviousRating,
+      username,
+      postDocPath,
+      commonTimestamp,
+      rating
     );
 
     handleNotification(

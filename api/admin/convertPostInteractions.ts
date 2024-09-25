@@ -2,7 +2,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
 
 import {
-  CommentInteractionData,
+  CommentInteractionDocData,
   PostInteractions,
   UploadedPostArrayObject,
 } from "../../types/Interactions";
@@ -53,7 +53,7 @@ async function getAllUsers() {
 }
 
 async function addDocToCommentsCollection(
-  commentInteractionData: CommentInteractionData,
+  commentInteractionData: CommentInteractionDocData,
   username: string
 ) {
   try {

@@ -1,7 +1,7 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {UploadedPostDocData} from "../../types/Interactions";
+import {UploadedPostInteractionDocData} from "../../types/Interactions";
 import {
   PostDataOnMainPostsCollection,
   PostServerData,
@@ -120,7 +120,7 @@ async function addDocToUploadedPosts(
   timestamp: number
 ) {
   try {
-    const newUploadedPostObject: UploadedPostDocData = {
+    const newUploadedPostObject: UploadedPostInteractionDocData = {
       postDocPath: postDocPath,
       timestamp: timestamp,
     };
