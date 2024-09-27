@@ -1,17 +1,14 @@
 import {onRequest} from "firebase-functions/v2/https";
 
 import {FieldValue} from "firebase-admin/firestore";
-import {internalAPIRoutes} from "../../config";
+import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 import {getConfigObject} from "../../configs/getConfigObject";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {CommentInteractionDocData} from "../../types/Interactions";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
-import {
-  CommentInteractionData,
-  CommentServerData,
-  PostServerData,
-} from "../../types/Post";
+import {CommentServerData, PostServerData} from "../../types/Post";
 
 const configObject = getConfigObject();
 
@@ -81,28 +78,27 @@ async function increaseCommentCount(postDocPath: string) {
   }
 }
 
-function createCommentInteractionData(postDocPath: string, ts: number) {
-  const commentInteractionData: CommentInteractionData = {
-    postDocPath: postDocPath,
-    creationTime: ts,
-  };
-  return commentInteractionData;
-}
-
-async function updateInteractions(
-  commentInteractionData: CommentInteractionData,
+/**
+ * For post interactions.
+ * @param commentInteractionData
+ * @param username
+ * @returns
+ */
+async function addInteractionDocToCommentsCollection(
+  commentInteractionData: CommentInteractionDocData,
   username: string
 ) {
   try {
-    const postInteractionsDoc = firestore.doc(
-      `/users/${username}/personal/postInteractions`
+    const commentsCollectionRef = firestore.collection(
+      `users/${username}/personal/postInteractions/comments`
     );
-    await postInteractionsDoc.update({
-      commentedPostsArray: FieldValue.arrayUnion(commentInteractionData),
-    });
+    await commentsCollectionRef.add(commentInteractionData);
     return true;
   } catch (error) {
-    console.error("Error while updating interactions: ", error);
+    console.error(
+      "Error while adding interaction doc to comments collection: ",
+      error
+    );
     return false;
   }
 }
@@ -208,6 +204,10 @@ async function sendNotification(
   }
 }
 
+const delay = (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 export const postComment = onRequest(
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
@@ -226,41 +226,24 @@ export const postComment = onRequest(
     }
 
     const commendData = createCommentData(message, username, Date.now());
-    const commentInteractionData = createCommentInteractionData(
+
+    createCommentDoc(postDocPath, commendData);
+    increaseCommentCount(postDocPath);
+    addInteractionDocToCommentsCollection(
+      {creationTime: commendData.ts, postDocPath: postDocPath},
+      username
+    );
+    sendNotification(
+      username,
       postDocPath,
+      commendData.message,
       commendData.ts
     );
 
-    const [
-      createCommentDocResult,
-      increaseCommentCountResult,
-      updateInteractionsResult,
-      sendNotificationResult,
-    ] = await Promise.all([
-      createCommentDoc(postDocPath, commendData),
-      increaseCommentCount(postDocPath),
-      updateInteractions(commentInteractionData, username),
-      sendNotification(
-        username,
-        postDocPath,
-        commendData.message,
-        commendData.ts
-      ),
-    ]);
-
-    if (
-      !createCommentDocResult ||
-      !increaseCommentCountResult ||
-      !updateInteractionsResult ||
-      !sendNotificationResult
-    ) {
-      res.status(500).send("Internal Server Error");
-      return;
-    }
+    await delay(250);
 
     res.status(200).json({
       commentData: commendData,
     });
-    return;
   })
 );

@@ -1,7 +1,7 @@
+import {getConfigObject} from "../../../configs/getConfigObject";
 import {onRequest} from "firebase-functions/v2/https";
 
-import {getConfigObject} from "../../configs/getConfigObject";
-import {firestore} from "../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
 const configObject = getConfigObject();
 
@@ -25,35 +25,40 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.UPDATE_VERIFIED_STATUS_KEY;
+  return authorization === configObject.ADMIN;
 }
 
-function checkProps(username: string, isVerified: boolean) {
-  if (!username) {
-    return false;
-  }
-
-  if (typeof isVerified !== "boolean") return false;
+function checkProps(username: string, requestId: string, notes: string) {
+  if (!username || !requestId || !notes) return false;
   return true;
 }
 
-async function updateUserDoc(username: string, isVerified: boolean) {
+async function updatePayoutRequestDoc(
+  username: string,
+  requestId: string,
+  notes: string
+) {
   try {
-    const userDocRef = firestore.doc(`users/${username}`);
+    const payoutRequestDocRef = firestore.doc(
+      `payouts/requests/${username}/${requestId}`
+    );
 
-    await userDocRef.update({
-      verified: isVerified,
+    await payoutRequestDocRef.update({
+      status: "approved",
+      notes: notes,
     });
+
     return true;
   } catch (error) {
-    console.error("Error updating user document", error);
+    console.error("Error on updating payout request doc: ", error);
     return false;
   }
 }
 
-export const updateVerifiedStatus = onRequest(async (req, res) => {
+export const approveWithdraw = onRequest(async (req, res) => {
   const {authorization} = req.headers;
-  const {username, isVerified} = req.body;
+
+  const {username, requestId, notes} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -61,17 +66,18 @@ export const updateVerifiedStatus = onRequest(async (req, res) => {
     return;
   }
 
-  const checkPropsResult = checkProps(username, isVerified);
-  if (!checkPropsResult) {
-    res.status(422).send("Invalid Props");
+  const propsResult = checkProps(username, requestId, notes);
+  if (!propsResult) {
+    res.status(422).send("Invalid Request");
     return;
   }
 
-  const updateResult = await updateUserDoc(username, isVerified);
+  const updateResult = await updatePayoutRequestDoc(username, requestId, notes);
   if (!updateResult) {
     res.status(500).send("Internal Server Error");
     return;
   }
 
   res.status(200).send("OK");
+  return;
 });

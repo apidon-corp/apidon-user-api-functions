@@ -1,11 +1,11 @@
 import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../config";
+import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 
 import AsyncLock = require("async-lock");
 import {getConfigObject} from "../../configs/getConfigObject";
 
 import Stripe from "stripe";
-import {Config} from "../../types/Config";
+import {ConfigObject} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -53,7 +53,7 @@ async function handleCreatedVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleCreatedVerificationApiKey =
     configObject.HANDLE_CREATED_VERIFICATION_API_KEY;
@@ -95,7 +95,7 @@ async function handleProcessingVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleProcessingVerificationApiKey =
     configObject.HANDLE_PROCESSING_VERIFICATION_API_KEY;
@@ -137,7 +137,7 @@ async function handleSuccessfullVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleSuccessfulVerificationApiKey =
     configObject.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
@@ -179,7 +179,7 @@ async function handleReuqiresInputVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const handleReuqiresInputVerificationApiKey =
     configObject.HANDLE_REQUIRES_INPUT_VERIFICATION_API_KEY;

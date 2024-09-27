@@ -1,9 +1,9 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {firestore} from "../../firebase/adminApp";
-import {getConfigObject} from "../../configs/getConfigObject";
+import {firestore} from "../../../firebase/adminApp";
+import {getConfigObject} from "../../../configs/getConfigObject";
 
-import {WithdrawRequestDocData} from "../../types/Withdraw";
+import {WithdrawRequestDocData} from "../../../types/Withdraw";
 
 const configObject = getConfigObject();
 
@@ -27,7 +27,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.APPROVE_WITHDRAW_API_KEY;
+  return authorization === configObject.ADMIN;
 }
 
 /**

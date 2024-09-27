@@ -1,8 +1,9 @@
-import {internalAPIRoutes} from "../../config";
+import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 import {onRequest} from "firebase-functions/v2/https";
 import {RevenueCatNotificationPayload} from "../../types/IAP";
 import {getConfigObject} from "../../configs/getConfigObject";
-import {Config} from "../../types/Config";
+import {ConfigObject} from "@/types/Admin";
+
 
 const configObject = getConfigObject();
 
@@ -34,7 +35,7 @@ function getTypeOfNotification(payload: RevenueCatNotificationPayload) {
 
 async function handleSuccessfullPayment(
   payload: RevenueCatNotificationPayload,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const successOnPaymentAPIRoute = internalAPIRoutes.payment.successonPayment;
   const apiKey = configObject.SUCCESS_ON_PAYMENT_API_AUTH_KEY;
@@ -71,7 +72,7 @@ async function handleSuccessfullPayment(
 
 async function handleRefund(
   payload: RevenueCatNotificationPayload,
-  configObject: Config
+  configObject: ConfigObject
 ) {
   const refundApiRoute = internalAPIRoutes.payment.refund;
   const refundApiKey = configObject.REFUND_API_AUTH_KEY;

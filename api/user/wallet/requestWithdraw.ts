@@ -1,15 +1,15 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import getDisplayName from "../../helpers/getDisplayName";
+import getDisplayName from "../../../helpers/getDisplayName";
 
-import {firestore} from "../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import {BalanceDocData} from "../../types/Wallet";
+import {BalanceDocData} from "../../../types/Wallet";
 import {FieldValue} from "firebase-admin/firestore";
-import {WithdrawRequestDocData} from "../../types/Withdraw";
+import {WithdrawRequestDocData} from "../../../types/Withdraw";
 
-import {UserIdentityDoc} from "../../types/Identity";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {UserIdentityDoc} from "../../../types/Identity";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {

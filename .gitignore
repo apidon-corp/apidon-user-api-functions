@@ -12,18 +12,24 @@ package-lock.json
 
 # Service Account File
 serviceAccount.json
-config.ts
+
+# Not-Sure what is this
 *.p8
 
-configs
-*.aes
-
-lib
-
+# Logs
 *.log
 
 # Apple Root Certs
 *.cer
 
+# Environment Variables File
 .env
+
+# I don't know what is this.
 *.pem
+
+# Encrypted Files
+*.encrypted
+
+# Ds Store Files
+*.DS_Store

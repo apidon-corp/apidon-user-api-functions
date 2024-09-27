@@ -47,18 +47,10 @@ export type CommentServerData = {
   ts: number;
 };
 
-export type CommentInteractionData = {
-  postDocPath: string;
-  creationTime: number;
-};
-
-export type UploadedPostArrayObject = {
-  timestamp: number;
-  postDocPath: string;
-};
 
 export type PostDataOnMainPostsCollection = {
   postDocPath: string;
   sender: string;
   timestamp: number;
 };
+

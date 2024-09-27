@@ -1,15 +1,15 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {firestore} from "../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
 import {
   PostDataOnMainPostsCollection,
   PostServerData,
-} from "../../types/Post";
-import {PostReviewData} from "../../types/Admin";
+} from "../../../types/Post";
+import {PostReviewData} from "../../../types/Admin";
 
 import * as express from "express";
-import {getConfigObject} from "../../configs/getConfigObject";
+import {getConfigObject} from "../../../configs/getConfigObject";
 
 const configObject = getConfigObject();
 
@@ -33,7 +33,7 @@ function handleAuthorization(authorization: string | undefined) {
     return false;
   }
 
-  return authorization === configObject.GET_ALL_POSTS_API_KEY;
+  return authorization === configObject.ADMIN;
 }
 
 async function getPostDocPaths() {
