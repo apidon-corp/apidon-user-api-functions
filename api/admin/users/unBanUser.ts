@@ -1,10 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { getConfigObject } from "../../../configs/getConfigObject";
-import { firestore } from "../../../firebase/adminApp";
-import { UserInServer } from "@/types/User";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {firestore, auth} from "../../../firebase/adminApp";
+import {UserInServer} from "@/types/User";
 
-import { auth } from "../../../firebase/adminApp";
 
 const configObject = getConfigObject();
 
@@ -58,7 +57,7 @@ async function getUIDOfUser(username: string) {
 
 async function enableUserAuthObject(uid: string) {
   try {
-    await auth.updateUser(uid, { disabled: false });
+    await auth.updateUser(uid, {disabled: false});
     return true;
   } catch (error) {
     console.error("Error enabling user auth object", error);
@@ -103,8 +102,8 @@ async function unBanPostOfUsers(postDocPaths: string[]) {
 }
 
 export const unBanUser = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
-  const { username } = req.body;
+  const {authorization} = req.headers;
+  const {username} = req.body;
 
   const authResult = handleAuthorization(authorization);
 
