@@ -2,7 +2,8 @@ import {onRequest} from "firebase-functions/v2/https";
 
 import {getConfigObject} from "../../../configs/getConfigObject";
 import {firestore, auth} from "../../../firebase/adminApp";
-import {UserInServer} from "@/types/User";
+import {UserInServer} from "../../../types/User";
+import {PostDataOnMainPostsCollection} from "../../../types/Post";
 
 const configObject = getConfigObject();
 
@@ -71,7 +72,9 @@ async function getUsersPostDocPaths(username: string) {
       .where("sender", "==", username)
       .get();
 
-    return query.docs.map((doc) => doc.ref.path);
+    return query.docs.map(
+      (doc) => (doc.data() as PostDataOnMainPostsCollection).postDocPath
+    );
   } catch (error) {
     console.error("Error getting user post doc paths", error);
     return false;
