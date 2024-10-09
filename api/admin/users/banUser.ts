@@ -72,7 +72,7 @@ async function getUsersPostDocPaths(username: string) {
       .where("sender", "==", username)
       .get();
 
-    return query.docs.map((doc) => doc.id);
+    return query.docs.map((doc) => doc.ref.path);
   } catch (error) {
     console.error("Error getting user post doc paths", error);
     return false;

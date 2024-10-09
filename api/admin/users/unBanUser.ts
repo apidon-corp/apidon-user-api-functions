@@ -4,7 +4,6 @@ import {getConfigObject} from "../../../configs/getConfigObject";
 import {firestore, auth} from "../../../firebase/adminApp";
 import {UserInServer} from "@/types/User";
 
-
 const configObject = getConfigObject();
 
 if (!configObject) {
@@ -72,7 +71,7 @@ async function getUsersPostDocPaths(username: string) {
       .where("sender", "==", username)
       .get();
 
-    return query.docs.map((doc) => doc.id);
+    return query.docs.map((doc) => doc.ref.path);
   } catch (error) {
     console.error("Error getting user post doc paths", error);
     return false;
