@@ -1,6 +1,5 @@
 import {TopUpPlansConfigDocData} from "@/types/IAP";
 import {UserInServer} from "@/types/User";
-import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
@@ -227,36 +226,6 @@ async function createCollectibleDoc(
   }
 }
 
-async function updateUsageDoc(username: string) {
-  try {
-    const collectibleDocUsageRef = firestore.doc(
-      `/users/${username}/collectible/usage`
-    );
-    await collectibleDocUsageRef.update({
-      used: FieldValue.increment(1),
-    });
-    return true;
-  } catch (error) {
-    console.error("Error while updating usage doc", error);
-    return false;
-  }
-}
-
-async function rollbackUsageDoc(username: string) {
-  try {
-    const collectibleDocUsageRef = firestore.doc(
-      `/users/${username}/collectible/usage`
-    );
-    await collectibleDocUsageRef.update({
-      used: FieldValue.increment(-1),
-    });
-    return true;
-  } catch (error) {
-    console.error("Error while updating usage doc", error);
-    return false;
-  }
-}
-
 async function updatePostDoc(postDocPath: string, collectibleDocPath: string) {
   try {
     const postDocRef = firestore.doc(postDocPath);
@@ -398,14 +367,6 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const updateUsageDocResult = await updateUsageDoc(username);
-    if (!updateUsageDocResult) {
-      await rollBackCollectibleDoc(newCollectibleDocPath);
-      await rollBackPostDoc(postDocPath);
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
     const addDocToCreatedCollectiblesResult = await addDocToCreatedCollectibles(
       newCollectibleDocPath,
       postDocPath,
@@ -415,7 +376,6 @@ export const createCollectible = onRequest(
     if (!addDocToCreatedCollectiblesResult) {
       await rollBackCollectibleDoc(newCollectibleDocPath);
       await rollBackPostDoc(postDocPath);
-      await rollbackUsageDoc(username);
       res.status(500).send("Internal Server Error");
       return;
     }
