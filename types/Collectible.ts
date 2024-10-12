@@ -19,5 +19,3 @@ export type CollectorDocData = {
 };
 
 
-
-

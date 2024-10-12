@@ -1,13 +1,13 @@
-import { TopUpPlansConfigDocData } from "@/types/IAP";
-import { UserInServer } from "@/types/User";
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
+import {TopUpPlansConfigDocData} from "@/types/IAP";
+import {UserInServer} from "@/types/User";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { CollectibleDocData } from "../../types/Collectible";
-import { PostServerData } from "../../types/Post";
-import { CreatedCollectibleDocData } from "../../types/Trade";
-import { CollectibleConfigDocData } from "@/types/Config";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {CollectibleDocData} from "../../types/Collectible";
+import {PostServerData} from "../../types/Post";
+import {CreatedCollectibleDocData} from "../../types/Trade";
+import {CollectibleConfigDocData} from "@/types/Config";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -173,7 +173,7 @@ function checkPostForCollectible(postDocData: PostServerData) {
 
 async function getStockLimit() {
   try {
-    const collectibleDoc = await firestore.doc(`config/collectible`).get();
+    const collectibleDoc = await firestore.doc("config/collectible").get();
 
     if (!collectibleDoc.exists) {
       console.error("Collectible config doc does not exist");
@@ -317,8 +317,8 @@ async function rollBackPostDoc(postDocPath: string) {
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath, price, stock } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath, price, stock} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
