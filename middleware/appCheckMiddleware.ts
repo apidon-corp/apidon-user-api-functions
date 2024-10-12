@@ -1,5 +1,5 @@
-import {appCheck} from "../firebase/adminApp";
-import {Request, Response} from "express";
+import { appCheck } from "../firebase/adminApp";
+import { Request, Response } from "express";
 
 export function appCheckMiddleware(
   handler: (req: Request, res: Response) => void | Promise<void>
@@ -15,8 +15,27 @@ export function appCheckMiddleware(
   };
 }
 
+const isThereAnyRestriction = () => {
+  const RESTRICT_ACCESS_TO_ALL_USERS =
+    process.env.RESTRICT_ACCESS_TO_ALL_USERS || "";
+
+  if (!RESTRICT_ACCESS_TO_ALL_USERS) {
+    console.error("RESTRICT_ACCESS_TO_ALL_USERS is not set");
+    return false;
+  }
+
+  return RESTRICT_ACCESS_TO_ALL_USERS === "TRUE";
+};
+
 const checkAppCheck = async (req: Request) => {
-  const {appchecktoken} = req.headers;
+  const isRestricted = isThereAnyRestriction();
+
+  if (isRestricted) {
+    console.error("There is an ongoing restriction for all users.");
+    return false;
+  }
+
+  const { appchecktoken } = req.headers;
 
   if (!appchecktoken) {
     console.error("App Check Token is missing");
