@@ -1,6 +1,5 @@
 import {TopUpPlansConfigDocData} from "@/types/IAP";
 import {UserInServer} from "@/types/User";
-import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
@@ -8,8 +7,7 @@ import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {CollectibleDocData} from "../../types/Collectible";
 import {PostServerData} from "../../types/Post";
 import {CreatedCollectibleDocData} from "../../types/Trade";
-
-const STOCK_LIMIT = 100;
+import {CollectibleConfigDocData} from "@/types/Config";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -173,8 +171,31 @@ function checkPostForCollectible(postDocData: PostServerData) {
   return true;
 }
 
-function checkStock(requestedStock: number) {
-  if (requestedStock > STOCK_LIMIT) {
+async function getStockLimit() {
+  try {
+    const collectibleDoc = await firestore.doc("config/collectible").get();
+
+    if (!collectibleDoc.exists) {
+      console.error("Collectible config doc does not exist");
+      return false;
+    }
+
+    const data = collectibleDoc.data() as CollectibleConfigDocData;
+
+    if (!data) {
+      console.error("Collectible config doc data is undefined");
+      return false;
+    }
+
+    return data.stockLimit;
+  } catch (error) {
+    console.error("Error while getting stock limit", error);
+    return false;
+  }
+}
+
+function checkStock(requestedStock: number, stockLimit: number) {
+  if (requestedStock > stockLimit) {
     console.error("Stock limit exceeded");
     return false;
   }
@@ -223,36 +244,6 @@ async function createCollectibleDoc(
     return newId;
   } catch (error) {
     console.error("Error while creating NFT doc", error);
-    return false;
-  }
-}
-
-async function updateUsageDoc(username: string) {
-  try {
-    const collectibleDocUsageRef = firestore.doc(
-      `/users/${username}/collectible/usage`
-    );
-    await collectibleDocUsageRef.update({
-      used: FieldValue.increment(1),
-    });
-    return true;
-  } catch (error) {
-    console.error("Error while updating usage doc", error);
-    return false;
-  }
-}
-
-async function rollbackUsageDoc(username: string) {
-  try {
-    const collectibleDocUsageRef = firestore.doc(
-      `/users/${username}/collectible/usage`
-    );
-    await collectibleDocUsageRef.update({
-      used: FieldValue.increment(-1),
-    });
-    return true;
-  } catch (error) {
-    console.error("Error while updating usage doc", error);
     return false;
   }
 }
@@ -368,7 +359,13 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const checkStockResult = checkStock(stock);
+    const stockLimit = await getStockLimit();
+    if (stockLimit === false) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const checkStockResult = checkStock(stock, stockLimit);
     if (!checkStockResult) {
       res.status(403).send("Forbidden");
       return;
@@ -398,14 +395,6 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const updateUsageDocResult = await updateUsageDoc(username);
-    if (!updateUsageDocResult) {
-      await rollBackCollectibleDoc(newCollectibleDocPath);
-      await rollBackPostDoc(postDocPath);
-      res.status(500).send("Internal Server Error");
-      return;
-    }
-
     const addDocToCreatedCollectiblesResult = await addDocToCreatedCollectibles(
       newCollectibleDocPath,
       postDocPath,
@@ -415,7 +404,6 @@ export const createCollectible = onRequest(
     if (!addDocToCreatedCollectiblesResult) {
       await rollBackCollectibleDoc(newCollectibleDocPath);
       await rollBackPostDoc(postDocPath);
-      await rollbackUsageDoc(username);
       res.status(500).send("Internal Server Error");
       return;
     }
