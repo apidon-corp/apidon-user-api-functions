@@ -1,13 +1,12 @@
-import {TopUpPlansConfigDocData} from "@/types/IAP";
-import {UserInServer} from "@/types/User";
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
-import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData} from "../../types/Collectible";
-import {PostServerData} from "../../types/Post";
-import {CreatedCollectibleDocData} from "../../types/Trade";
-import {CollectibleConfigDocData} from "@/types/Config";
+import { PostServerData } from "../../../types/Post";
+import getDisplayName from "../../../helpers/getDisplayName";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../../firebase/adminApp";
+import { UserInServer } from "../../../types/User";
+import { CollectibleConfigDocData } from "../../../types/Config";
+import { CodeDocData, CollectibleDocData } from "../../../types/Collectible";
+import { CreatedCollectibleDocData } from "@/types/Trade";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -21,73 +20,8 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-async function checkForIAPLikePrice(priceInInt: number) {
-  try {
-    const topUpPlansConfigSnapshot = await firestore
-      .doc("topUpPlans/config")
-      .get();
-
-    if (!topUpPlansConfigSnapshot.exists) {
-      console.error("Top up plans config does not exist.");
-      return false;
-    }
-
-    const data = topUpPlansConfigSnapshot.data() as TopUpPlansConfigDocData;
-
-    if (!data) {
-      console.error("Top up plans config data is undefined.");
-      return false;
-    }
-
-    const activeTopUpProductIdS = data.activeTopUpProductIdS;
-
-    const validPrices = activeTopUpProductIdS.map((id) => {
-      // Format of top up product item is like: "1_dollar_in_app_credit"
-      // We need to get first element of this string
-
-      const price = id.split("_")[0];
-
-      const priceInt = parseInt(price);
-
-      if (!isNaN(priceInt)) {
-        return priceInt;
-      } else {
-        console.error(`Invalid price format: ${id}`);
-        return 0;
-      }
-    });
-
-    if (!validPrices.includes(priceInInt)) {
-      console.error("Invalid price");
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error("Error while checking top up plans config", error);
-    return false;
-  }
-}
-
-async function checkProps(postDocPath: string, price: number, stock: number) {
-  if (!postDocPath || !price || !stock) return false;
-
-  const priceInInt = parseInt(price.toString());
-
-  if (isNaN(priceInInt)) {
-    console.error("Price is not a number");
-    return false;
-  }
-
-  if (priceInInt <= 0) {
-    console.error("Price must be greater than 0");
-    return false;
-  }
-
-  // We need to also check if price is IAP-like
-  const isIAPLikePrice = await checkForIAPLikePrice(price);
-  if (!isIAPLikePrice) {
-    return false;
-  }
+async function checkProps(postDocPath: string, stock: number) {
+  if (!postDocPath || !stock) return false;
 
   const stockInt = parseInt(stock.toString());
   if (isNaN(stockInt)) {
@@ -207,16 +141,9 @@ async function createCollectibleDoc(
   postDocPath: string,
   timestamp: number,
   username: string,
-  price: number,
   stock: number
 ) {
   const newId = username + "-" + timestamp.toString();
-
-  const priceInInt = parseInt(price.toString());
-  if (isNaN(priceInInt)) {
-    console.error("Price is not a number");
-    return false;
-  }
 
   const stockInt = parseInt(stock.toString());
   if (isNaN(stockInt)) {
@@ -228,16 +155,12 @@ async function createCollectibleDoc(
     postDocPath: postDocPath,
     creator: username,
     id: newId,
-    price: {
-      price: priceInInt,
-      currency: "USD",
-    },
     stock: {
       initialStock: stock,
       remainingStock: stock,
     },
     timestamp: timestamp,
-    type: "trade"
+    type: "event",
   };
 
   try {
@@ -293,8 +216,8 @@ async function addDocToCreatedCollectibles(
     const collectionRef = firestore.collection(
       `users/${creator}/collectible/trade/createdCollectibles`
     );
-    await collectionRef.add(newData);
-    return true;
+    const { path } = await collectionRef.add(newData);
+    return path;
   } catch (error) {
     console.error("Error while adding doc to created collectibles", error);
     return false;
@@ -316,10 +239,84 @@ async function rollBackPostDoc(postDocPath: string) {
   }
 }
 
+async function createCodeDoc(
+  collectibleDocPath: string,
+  username: string,
+  postDocPath: string
+) {
+  const codeDocData: CodeDocData = {
+    code: "", // Will be updated.
+    collectibleDocPath: collectibleDocPath,
+    creationTime: Date.now(),
+    creatorUsername: username,
+    isConsumed: false,
+    postDocPath: postDocPath,
+  };
+
+  try {
+    const result = await firestore
+      .collection(`collectibleCodes`)
+      .add(codeDocData);
+
+    await result.update({
+      code: result.id,
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while creating code doc: ", error);
+    return false;
+  }
+}
+
+async function createCodeDocs(
+  stock: number,
+  collectibleDocPath: string,
+  username: string,
+  postDocPath: string
+) {
+  try {
+    await createCodeDoc(collectibleDocPath, username, postDocPath);
+
+    const promises = [];
+
+    for (let i = 0; i < stock; i++) {
+      promises.push(createCodeDoc(collectibleDocPath, username, postDocPath));
+    }
+
+    const result = await Promise.all(promises);
+
+    if (result.some((r) => !r)) {
+      console.error("Error while creating some of code docs.");
+      // We are not returning.
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error while creating code docs: ", error);
+    return false;
+  }
+}
+
+async function rollBackAddDocToCreatedCollectibles(
+  newCreatedCollectiblesDocPath: string
+) {
+  try {
+    await firestore.doc(newCreatedCollectiblesDocPath).delete();
+    return true;
+  } catch (error) {
+    console.error(
+      "Error while roll back add doc to created collectibles",
+      error
+    );
+    return false;
+  }
+}
+
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath, price, stock} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath, stock } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -327,7 +324,7 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const checkPropsResult = await checkProps(postDocPath, price, stock);
+    const checkPropsResult = checkProps(postDocPath, stock);
     if (!checkPropsResult) {
       res.status(422).send("Invalid Request");
       return;
@@ -335,15 +332,11 @@ export const createCollectible = onRequest(
 
     const postData = await getPostData(postDocPath);
     if (!postData) {
-      res.status(422).send("Invalid Request");
+      res.status(500).send("Internal Server Error");
       return;
     }
 
-    const isAuthorizedForThisOperation = checkCanAuthorizedForThisOperation(
-      postData,
-      username
-    );
-    if (!isAuthorizedForThisOperation) {
+    if (!checkCanAuthorizedForThisOperation(postData, username)) {
       res.status(403).send("Forbidden");
       return;
     }
@@ -373,11 +366,11 @@ export const createCollectible = onRequest(
     }
 
     const timestamp = Date.now();
+
     const newCollectibleId = await createCollectibleDoc(
       postDocPath,
       timestamp,
       username,
-      price,
       stock
     );
     if (!newCollectibleId) {
@@ -386,6 +379,7 @@ export const createCollectible = onRequest(
     }
 
     const newCollectibleDocPath = `collectibles/${newCollectibleId}`;
+
     const updatePostDocResult = await updatePostDoc(
       postDocPath,
       newCollectibleDocPath
@@ -405,6 +399,22 @@ export const createCollectible = onRequest(
     if (!addDocToCreatedCollectiblesResult) {
       await rollBackCollectibleDoc(newCollectibleDocPath);
       await rollBackPostDoc(postDocPath);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const createCodeDocsResult = await createCodeDocs(
+      stock,
+      newCollectibleDocPath,
+      username,
+      postDocPath
+    );
+    if (!createCodeDocsResult) {
+      await rollBackCollectibleDoc(newCollectibleDocPath);
+      await rollBackPostDoc(postDocPath);
+      await rollBackAddDocToCreatedCollectibles(
+        addDocToCreatedCollectiblesResult
+      );
       res.status(500).send("Internal Server Error");
       return;
     }
