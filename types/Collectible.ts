@@ -39,16 +39,16 @@ export type CodeDocData =
       collectibleDocPath: string;
       creationTime: number;
       creatorUsername: string;
-      isConsumed: false;
       postDocPath: string;
+      isConsumed: false;
     }
   | {
       code: string;
       collectibleDocPath: string;
-      consumedTime: number;
-      consumerUsername: string;
       creationTime: number;
       creatorUsername: string;
-      isConsumed: true;
       postDocPath: string;
+      isConsumed: true;
+      consumerUsername: string;
+      consumedTime: number;
     };
