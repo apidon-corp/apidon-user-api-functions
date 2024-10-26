@@ -249,8 +249,8 @@ async function createCodeDoc(
     collectibleDocPath: collectibleDocPath,
     creationTime: Date.now(),
     creatorUsername: username,
-    isConsumed: false,
     postDocPath: postDocPath,
+    isConsumed: false,
   };
 
   try {

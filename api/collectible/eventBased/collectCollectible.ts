@@ -100,8 +100,8 @@ async function rollbackCheckAndUpdateCodeDoc(code: string) {
 
     await codeDocRef.update({
       isConsumed: false,
-      consumerUsername: "",
-      consumedTime: 0,
+      consumerUsername: FieldValue.delete(),
+      consumedTime: FieldValue.delete(),
     });
     return true;
   } catch (error) {
