@@ -1,12 +1,12 @@
-import {PostServerData} from "../../../types/Post";
+import { PostServerData } from "../../../types/Post";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../../firebase/adminApp";
-import {UserInServer} from "../../../types/User";
-import {CollectibleConfigDocData} from "../../../types/Config";
-import {CodeDocData, CollectibleDocData} from "../../../types/Collectible";
-import {CreatedCollectibleDocData} from "@/types/Trade";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../../firebase/adminApp";
+import { UserInServer } from "../../../types/User";
+import { CollectibleConfigDocData } from "../../../types/Config";
+import { CodeDocData, CollectibleDocData } from "../../../types/Collectible";
+import { CreatedCollectibleDocData } from "@/types/Trade";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -216,7 +216,7 @@ async function addDocToCreatedCollectibles(
     const collectionRef = firestore.collection(
       `users/${creator}/collectible/trade/createdCollectibles`
     );
-    const {path} = await collectionRef.add(newData);
+    const { path } = await collectionRef.add(newData);
     return path;
   } catch (error) {
     console.error("Error while adding doc to created collectibles", error);
@@ -276,8 +276,6 @@ async function createCodeDocs(
   postDocPath: string
 ) {
   try {
-    await createCodeDoc(collectibleDocPath, username, postDocPath);
-
     const promises = [];
 
     for (let i = 0; i < stock; i++) {
@@ -315,8 +313,8 @@ async function rollBackAddDocToCreatedCollectibles(
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath, stock} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath, stock } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
