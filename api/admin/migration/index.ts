@@ -1,2 +1,2 @@
-import {addCollectibleType} from "./addCollectibleType"
-export {addCollectibleType}
+import {addCollectibleType} from "./addCollectibleType";
+export {addCollectibleType};

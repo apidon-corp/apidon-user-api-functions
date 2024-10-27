@@ -1,9 +1,9 @@
 import getDisplayName from "../../../helpers/getDisplayName";
-import { getConfigObject } from "../../../configs/getConfigObject";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
-import { onRequest } from "firebase-functions/https";
-import { PostServerData } from "../../../types/Post";
-import { firestore } from "../../../firebase/adminApp";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/https";
+import {PostServerData} from "../../../types/Post";
+import {firestore} from "../../../firebase/adminApp";
 import {
   CodeDocData,
   CollectibleDocData,
@@ -15,11 +15,11 @@ import {
   SellPaymentIntentDocData,
   SoldCollectibleDocData,
 } from "../../../types/Trade";
-import { FieldValue } from "firebase-admin/firestore";
-import { ReceiptDocData } from "../../../types/Receipt";
-import { UserIdentityDoc } from "../../../types/Identity";
-import { ReceivedNotificationDocData } from "../../../types/Notifications";
-import { internalAPIRoutes } from "../../../helpers/internalApiRoutes";
+import {FieldValue} from "firebase-admin/firestore";
+import {ReceiptDocData} from "../../../types/Receipt";
+import {UserIdentityDoc} from "../../../types/Identity";
+import {ReceivedNotificationDocData} from "../../../types/Notifications";
+import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
 import AsyncLock = require("async-lock");
 
 const configObject = getConfigObject();
@@ -67,7 +67,7 @@ async function checkAndUpdateCodeDoc(code: string, collectorUsername: string) {
       return "Invalid Code";
     }
 
-    let data = codeDoc.data() as CodeDocData;
+    const data = codeDoc.data() as CodeDocData;
     if (!data) {
       console.error("Code data is undefined.");
       return "Server Problem";
@@ -526,7 +526,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -832,8 +832,8 @@ const lock = new AsyncLock();
 
 export const collectCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { code } = req.body;
+    const {authorization} = req.headers;
+    const {code} = req.body;
 
     const lockId = `collectCollectible-${code}`;
 

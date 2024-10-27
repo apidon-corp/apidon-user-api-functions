@@ -237,7 +237,7 @@ async function createCollectibleDoc(
       remainingStock: stock,
     },
     timestamp: timestamp,
-    type: "trade"
+    type: "trade",
   };
 
   try {

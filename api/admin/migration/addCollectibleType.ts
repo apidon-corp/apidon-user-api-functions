@@ -1,7 +1,7 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { getConfigObject } from "../../../configs/getConfigObject";
-import { firestore } from "../../../firebase/adminApp";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {firestore} from "../../../firebase/adminApp";
 
 const configObject = getConfigObject();
 
@@ -30,7 +30,7 @@ function handleAuthorization(authorization: string | undefined) {
 
 async function getAllCollectiblePaths() {
   try {
-    const query = await firestore.collection(`collectibles`).get();
+    const query = await firestore.collection("collectibles").get();
 
     return query.docs.map((doc) => doc.ref.path);
   } catch (error) {
@@ -69,7 +69,7 @@ async function updateAllCollectibleDocs(paths: string[]) {
 }
 
 export const addCollectibleType = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
