@@ -8,6 +8,7 @@ import {CollectibleDocData} from "../../types/Collectible";
 import {PostServerData} from "../../types/Post";
 import {CreatedCollectibleDocData} from "../../types/Trade";
 import {CollectibleConfigDocData} from "@/types/Config";
+import {FieldValue} from "firebase-admin/firestore";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -293,8 +294,8 @@ async function addDocToCreatedCollectibles(
     const collectionRef = firestore.collection(
       `users/${creator}/collectible/trade/createdCollectibles`
     );
-    await collectionRef.add(newData);
-    return true;
+    const {path} = await collectionRef.add(newData);
+    return path;
   } catch (error) {
     console.error("Error while adding doc to created collectibles", error);
     return false;
@@ -312,6 +313,38 @@ async function rollBackPostDoc(postDocPath: string) {
     return true;
   } catch (error) {
     console.error("Error while roll back post doc", error);
+    return false;
+  }
+}
+
+async function updateUserCollectibleCount(
+  username: string,
+  isRollback?: boolean
+) {
+  try {
+    const userDocRef = firestore.doc(`users/${username}`);
+
+    await userDocRef.update({
+      collectibleCount: FieldValue.increment(isRollback ? -1 : 1),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating user collectible count", error);
+    return false;
+  }
+}
+
+async function rollBackAddDocToCreatedCollectibles(path: string) {
+  try {
+    const collectibleDocRef = firestore.doc(path);
+    await collectibleDocRef.delete();
+    return true;
+  } catch (error) {
+    console.error(
+      "Error while roll back add doc to created collectibles",
+      error
+    );
     return false;
   }
 }
@@ -405,6 +438,19 @@ export const createCollectible = onRequest(
     if (!addDocToCreatedCollectiblesResult) {
       await rollBackCollectibleDoc(newCollectibleDocPath);
       await rollBackPostDoc(postDocPath);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const updateUserCollectibleCountResult = await updateUserCollectibleCount(
+      username
+    );
+    if (!updateUserCollectibleCountResult) {
+      await rollBackCollectibleDoc(newCollectibleDocPath);
+      await rollBackPostDoc(postDocPath);
+      await rollBackAddDocToCreatedCollectibles(
+        addDocToCreatedCollectiblesResult
+      );
       res.status(500).send("Internal Server Error");
       return;
     }

@@ -541,6 +541,24 @@ async function addReceiptDocToMainReceiptsCollection(
   }
 }
 
+async function updateUserCollectibleCount(
+  username: string,
+  isRollback?: boolean
+) {
+  try {
+    const userDocRef = firestore.doc(`users/${username}`);
+
+    await userDocRef.update({
+      collectibleCount: FieldValue.increment(isRollback ? -1 : 1),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating user collectible count", error);
+    return false;
+  }
+}
+
 function createNotificationObject(
   postDocPath: string,
   price: number,
@@ -651,7 +669,8 @@ async function rollback(
     | FirebaseFirestore.DocumentReference<
         FirebaseFirestore.DocumentData,
         FirebaseFirestore.DocumentData
-      >
+      >,
+  updateUserCollectibleCountResult: boolean
 ) {
   if (updateBalanceResult) {
     const updateBalanceRollback = await updateBalance(
@@ -750,6 +769,14 @@ async function rollback(
       console.error("Error while rolling back receipt doc", error);
     }
   }
+
+  if (updateUserCollectibleCountResult) {
+    try {
+      await updateUserCollectibleCount(customer, true);
+    } catch (error) {
+      console.error("Error while rolling back user collectible count", error);
+    }
+  }
 }
 
 async function processPayment(
@@ -829,6 +856,7 @@ async function processPayment(
     addSoldCollectibleDocToSellerResult,
     addCollectorDocToCollectorsCollectionResult,
     addReceiptDocToMainReceiptsCollectionResult,
+    updateUserCollectibleCountResult,
   ] = await Promise.all([
     updateBalance(username, price),
     updateBalanceOfSeller(seller, price),
@@ -875,6 +903,7 @@ async function processPayment(
       seller,
       commonTimestamp
     ),
+    updateUserCollectibleCount(username),
   ]);
 
   if (
@@ -886,7 +915,8 @@ async function processPayment(
     !addBoughtCollectibleDocToBuyerResult ||
     !addSoldCollectibleDocToSellerResult ||
     !addCollectorDocToCollectorsCollectionResult ||
-    !addReceiptDocToMainReceiptsCollectionResult
+    !addReceiptDocToMainReceiptsCollectionResult ||
+    !updateUserCollectibleCountResult
   ) {
     await rollback(
       username,
@@ -899,7 +929,8 @@ async function processPayment(
       addBoughtCollectibleDocToBuyerResult,
       addSoldCollectibleDocToSellerResult,
       addCollectorDocToCollectorsCollectionResult,
-      addReceiptDocToMainReceiptsCollectionResult
+      addReceiptDocToMainReceiptsCollectionResult,
+      updateUserCollectibleCountResult
     );
   }
 

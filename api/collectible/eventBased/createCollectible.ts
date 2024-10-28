@@ -7,6 +7,7 @@ import {UserInServer} from "../../../types/User";
 import {CollectibleConfigDocData} from "../../../types/Config";
 import {CodeDocData, CollectibleDocData} from "../../../types/Collectible";
 import {CreatedCollectibleDocData} from "@/types/Trade";
+import {FieldValue} from "firebase-admin/firestore";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -311,6 +312,40 @@ async function rollBackAddDocToCreatedCollectibles(
   }
 }
 
+async function updateUserCollectibleCount(
+  username: string,
+  isRollback?: boolean
+) {
+  try {
+    const userDocRef = firestore.doc(`users/${username}`);
+
+    await userDocRef.update({
+      collectibleCount: FieldValue.increment(isRollback ? -1 : 1),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating user collectible count", error);
+    return false;
+  }
+}
+
+async function rollBackCreateCodeDocs(postDocPath: string) {
+  try {
+    const codeDocs = await firestore
+      .collection("collectibleCodes")
+      .where("postDocPath", "==", postDocPath)
+      .get();
+
+    await Promise.all(codeDocs.docs.map((d) => d.ref.delete()));
+
+    return true;
+  } catch (error) {
+    console.error("Error while roll back create code docs", error);
+    return false;
+  }
+}
+
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
@@ -413,6 +448,20 @@ export const createCollectible = onRequest(
       await rollBackAddDocToCreatedCollectibles(
         addDocToCreatedCollectiblesResult
       );
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    const updateUserCollectibleCountResult = await updateUserCollectibleCount(
+      username
+    );
+
+    if (!updateUserCollectibleCountResult) {
+      await rollBackCollectibleDoc(newCollectibleDocPath);
+      await rollBackPostDoc(postDocPath);
+      await rollBackAddDocToCreatedCollectibles(
+        addDocToCreatedCollectiblesResult
+      );
+      await rollBackCreateCodeDocs(postDocPath);
       res.status(500).send("Internal Server Error");
       return;
     }
