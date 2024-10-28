@@ -1,26 +1,26 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {firestore} from "../../firebase/adminApp";
-import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData, CollectorDocData} from "../../types/Collectible";
-
-import {ReceivedNotificationDocData} from "@/types/Notifications";
-import {PostServerData} from "../../types/Post";
+import getDisplayName from "../../../helpers/getDisplayName";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/https";
+import {PostServerData} from "../../../types/Post";
+import {firestore} from "../../../firebase/adminApp";
+import {
+  CodeDocData,
+  CollectibleDocData,
+  CollectorDocData,
+} from "../../../types/Collectible";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   SoldCollectibleDocData,
-} from "../../types/Trade";
-
-import {ReceiptDocData} from "../../types/Receipt";
-
-import {BalanceDocData} from "../../types/Wallet";
+} from "../../../types/Trade";
+import {FieldValue} from "firebase-admin/firestore";
+import {ReceiptDocData} from "../../../types/Receipt";
+import {UserIdentityDoc} from "../../../types/Identity";
+import {ReceivedNotificationDocData} from "../../../types/Notifications";
+import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
 import AsyncLock = require("async-lock");
-import {UserIdentityDoc} from "@/types/Identity";
 
 const configObject = getConfigObject();
 
@@ -35,7 +35,7 @@ if (!configObject) {
  */
 async function handleAuthorization(authorization: string | undefined) {
   if (authorization === undefined) {
-    console.error("Unauthorized attemp to sendReply API.");
+    console.error("Unauthorized.");
     return false;
   }
 
@@ -50,12 +50,64 @@ async function handleAuthorization(authorization: string | undefined) {
  * @param postDocPath - The document path of the post.
  * @returns True if valid, otherwise false.
  */
-function checkProps(postDocPath: string) {
-  if (!postDocPath) {
-    console.error("postDocPath is undefined.");
+function checkProps(code: string) {
+  if (!code) {
+    console.error("code is undefined.");
     return false;
   }
   return true;
+}
+
+async function checkAndUpdateCodeDoc(code: string, collectorUsername: string) {
+  try {
+    const codeDoc = await firestore.doc(`collectibleCodes/${code}`).get();
+
+    if (!codeDoc.exists) {
+      console.error("Code doesn't exist.");
+      return "Invalid Code";
+    }
+
+    const data = codeDoc.data() as CodeDocData;
+    if (!data) {
+      console.error("Code data is undefined.");
+      return "Server Problem";
+    }
+
+    if (data.isConsumed) {
+      console.error("Code is already consumed.");
+      return "Code Used.";
+    }
+
+    const updatedData: CodeDocData = {
+      ...data,
+      isConsumed: true,
+      consumedTime: Date.now(),
+      consumerUsername: collectorUsername,
+    };
+
+    await codeDoc.ref.set(updatedData);
+
+    return updatedData;
+  } catch (error) {
+    console.error("Error while checking and updating code", error);
+    return "Server Problem";
+  }
+}
+
+async function rollbackCheckAndUpdateCodeDoc(code: string) {
+  try {
+    const codeDocRef = firestore.doc(`collectibleCodes/${code}`);
+
+    await codeDocRef.update({
+      isConsumed: false,
+      consumerUsername: FieldValue.delete(),
+      consumedTime: FieldValue.delete(),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error while rolling back code doc", error);
+    return false;
+  }
 }
 
 /**
@@ -139,6 +191,14 @@ async function getCollectibleData(collectibleDocPath: string) {
   }
 }
 
+function checkCollectibleType(collectibleDocData: CollectibleDocData) {
+  if (collectibleDocData.type !== "event") {
+    console.error("Collectible type is not event.");
+    return false;
+  }
+  return true;
+}
+
 /**
  * Checks the validity of the Collectible data.
  * @param collectibleData - The Collectible data.
@@ -147,11 +207,6 @@ async function getCollectibleData(collectibleDocPath: string) {
 function checkCollectibleData(collectibleData: CollectibleDocData) {
   if (collectibleData.stock.remainingStock <= 0) {
     console.error("Collectible stock is undefined or out of stock.");
-    return false;
-  }
-
-  if (collectibleData.type !== "trade") {
-    console.error("Collectible type is not trade.");
     return false;
   }
 
@@ -182,114 +237,6 @@ async function checkPurchasingSingleTime(
 }
 
 /**
- * Retrieves the price of the Collectible.
- * @param collectibleData - The Collectible data.
- * @returns The price if valid, otherwise false.
- */
-function getPrice(collectibleData: CollectibleDocData) {
-  if (collectibleData.type !== "trade") {
-    console.error("Collectible type is not trade.");
-    return false;
-  }
-
-  if (!collectibleData.price.price) {
-    console.error("Collectible price is undefined or has an invalid value.");
-    return false;
-  }
-
-  return collectibleData.price.price;
-}
-
-/**
- * Retrieves the balance of the user.
- * @param username - The username of the user.
- * @returns The balance if found, otherwise false.
- */
-async function getBalance(username: string) {
-  try {
-    const balanceDocSnapshot = await firestore
-      .doc(`users/${username}/wallet/balance`)
-      .get();
-
-    if (!balanceDocSnapshot.exists) {
-      console.error("Balance doc does not exist");
-      return false;
-    }
-
-    const balancdeDocData = balanceDocSnapshot.data() as BalanceDocData;
-
-    if (!balancdeDocData) {
-      console.error("Balance doc data is undefined");
-      return false;
-    }
-
-    const balance = balancdeDocData.balance;
-
-    return balance;
-  } catch (error) {
-    console.error("Error while getting balance", error);
-    return false;
-  }
-}
-
-/**
- * Checks if the user has enough money for the transaction.
- * @param balance - The user's balance.
- * @param price - The price of the Collectible.
- * @returns True if the user has enough money, otherwise false.
- */
-function hasMoney(balance: number, price: number) {
-  if (balance < price) {
-    console.error("Not enough money to do this operation.");
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Updates the balance of the user.
- * @param username - The username of the user.
- * @param price - The price of the Collectible.
- * @returns The updated balance if successful, otherwise false.
- */
-async function updateBalance(username: string, price: number) {
-  try {
-    const balanceDocRef = firestore.doc(`users/${username}/wallet/balance`);
-
-    await balanceDocRef.update({
-      balance: FieldValue.increment(-price),
-    });
-
-    return price;
-  } catch (error) {
-    console.error("Error while updating balance", error);
-    return false;
-  }
-}
-
-/**
- * Updates the balance of the seller.
- * @param seller - The username of the seller.
- * @param price - The price of the Collectible.
- * @returns The updated balance if successful, otherwise false.
- */
-async function updateBalanceOfSeller(seller: string, price: number) {
-  try {
-    const balanceDocRef = firestore.doc(`users/${seller}/wallet/balance`);
-
-    await balanceDocRef.update({
-      balance: FieldValue.increment(price),
-    });
-
-    return price;
-  } catch (error) {
-    console.error("Error while updating seller balance", error);
-    return false;
-  }
-}
-
-/**
  * Creates a purchase payment intent document.
  * @param username - The username of the customer.
  * @param ts - The timestamp of the transaction.
@@ -301,31 +248,29 @@ async function updateBalanceOfSeller(seller: string, price: number) {
  * @returns The ID of the payment intent document if successful, otherwise false.
  */
 async function createPurchasePaymentIntentDoc(
-  username: string,
+  collector: string,
   ts: number,
   postDocPath: string,
   collectibleDocPath: string,
-  price: number,
-  seller: string,
-  customer: string
+  seller: string
 ) {
   const newPurchasePaymentIntentData: PurhcasePaymentIntentDocData = {
     currency: "USD",
     id: ts.toString(),
     collectibleDocPath: collectibleDocPath,
     postDocPath: postDocPath,
-    price: price,
+    price: 0,
     ts: ts,
     refunded: false,
     seller: seller,
   };
 
-  const id = ts.toString() + "-" + customer;
+  const id = ts.toString() + "-" + collector;
 
   try {
     await firestore
       .doc(
-        `users/${username}/wallet/paymentIntents/purchasePaymentIntents/${id}`
+        `users/${collector}/wallet/paymentIntents/purchasePaymentIntents/${id}`
       )
       .set(newPurchasePaymentIntentData);
 
@@ -350,7 +295,6 @@ async function createSellPaymentIntentDoc(
   ts: number,
   postDocPath: string,
   collectibleDocPath: string,
-  price: number,
   seller: string
 ) {
   const id = ts.toString() + "-" + customer;
@@ -360,7 +304,7 @@ async function createSellPaymentIntentDoc(
     id: id,
     collectibleDocPath: collectibleDocPath,
     postDocPath: postDocPath,
-    price: price,
+    price: 0,
     ts: ts,
     refunded: false,
     customer: customer,
@@ -379,7 +323,7 @@ async function createSellPaymentIntentDoc(
 }
 
 /**
- * Updates the Collectible document with the new buyer and stock information.
+ * Updates the collectible document with the stock information.
  * @param collectibleDocPath - The document path of the collectibleDocPath.
  * @param username - The username of the new owner.
  * @returns The updated document if successful, otherwise false.
@@ -401,22 +345,6 @@ async function updateCollectibleDoc(
     };
   } catch (error) {
     console.error("Error while updating collectible doc", error);
-    return false;
-  }
-}
-
-async function addCollectorDocToCollectorsCollection(
-  collectibleDocPath: string,
-  collectorDocData: CollectorDocData
-) {
-  try {
-    const collectorDocRef = firestore.collection(
-      `${collectibleDocPath}/collectors`
-    );
-    await collectorDocRef.add(collectorDocData);
-    return collectorDocRef.path;
-  } catch (error) {
-    console.error("Error while adding collector doc", error);
     return false;
   }
 }
@@ -473,11 +401,26 @@ async function addSoldCollectibleDocToSeller(
   }
 }
 
+async function addCollectorDocToCollectorsCollection(
+  collectibleDocPath: string,
+  collectorDocData: CollectorDocData
+) {
+  try {
+    const collectorDocRef = firestore.collection(
+      `${collectibleDocPath}/collectors`
+    );
+    await collectorDocRef.add(collectorDocData);
+    return collectorDocRef.path;
+  } catch (error) {
+    console.error("Error while adding collector doc", error);
+    return false;
+  }
+}
+
 async function addReceiptDocToMainReceiptsCollection(
   collectibleDocPath: string,
   currency: string,
   postDocPath: string,
-  price: number,
   sellerUsername: string,
   timestamp: number
 ) {
@@ -522,7 +465,7 @@ async function addReceiptDocToMainReceiptsCollection(
     collectibleDocPath: collectibleDocPath,
     currency: currency,
     postDocPath: postDocPath,
-    price: price,
+    price: 0,
     sellerRealFirstName: sellerRealFirstName,
     sellerRealLastName: sellerRealLastName,
     sellerUsername: sellerUsername,
@@ -561,7 +504,6 @@ async function updateUserCollectibleCount(
 
 function createNotificationObject(
   postDocPath: string,
-  price: number,
   customer: string,
   seller: string
 ) {
@@ -570,7 +512,7 @@ function createNotificationObject(
     params: {
       collectiblePostDocPath: postDocPath,
       currency: "USD",
-      price: price,
+      price: 0,
     },
     source: customer,
     target: seller,
@@ -641,8 +583,6 @@ async function sendNotification(
 async function rollback(
   customer: string,
   seller: string,
-  updateBalanceResult: false | number,
-  updateBalanceOfSellerResult: false | number,
   createPurchasePaymentIntentDocResult: string | false,
   createSellPaymentIntentDocResult: string | false,
   updateCollectibleDocResult:
@@ -672,28 +612,6 @@ async function rollback(
       >,
   updateUserCollectibleCountResult: boolean
 ) {
-  if (updateBalanceResult) {
-    const updateBalanceRollback = await updateBalance(
-      customer,
-      -updateBalanceResult
-    );
-
-    if (!updateBalanceRollback) {
-      console.error("updateBalanceRollback FAILED");
-    }
-  }
-
-  if (updateBalanceOfSellerResult) {
-    const updateBalanceOfSellerRollback = await updateBalanceOfSeller(
-      seller,
-      -updateBalanceOfSellerResult
-    );
-
-    if (!updateBalanceOfSellerRollback) {
-      console.error("updateBalanceOfSellerRollback FAILED");
-    }
-  }
-
   if (createPurchasePaymentIntentDocResult) {
     try {
       const purchasePaymentIntentDocRef = firestore.doc(
@@ -779,76 +697,77 @@ async function rollback(
   }
 }
 
-async function processPayment(
-  postDocPath: string,
+async function processCollecting(
+  code: string,
   authorization: string | undefined
 ) {
-  const username = await handleAuthorization(authorization);
-  if (!username) {
+  const collectorUsername = await handleAuthorization(authorization);
+  if (!collectorUsername) {
     throw new Error("Unauthorized");
   }
 
-  const checkPropsResult = checkProps(postDocPath);
-  if (!checkPropsResult) {
-    throw new Error("Invalid Request");
+  if (!checkProps(code)) {
+    throw new Error("Invalid Props");
   }
+
+  const codeData = await checkAndUpdateCodeDoc(code, collectorUsername);
+  if (
+    codeData === "Code Used." ||
+    codeData === "Invalid Code" ||
+    codeData === "Server Problem"
+  ) {
+    throw new Error(codeData);
+  }
+
+  const postDocPath = codeData.postDocPath;
 
   const postData = await getPostData(postDocPath);
   if (!postData) {
-    throw new Error("Internal Server Error: Post data can not be fetched.");
+    await rollbackCheckAndUpdateCodeDoc(code);
+    throw new Error("Post not found");
+    return;
   }
 
-  if (!isDifferentPersonThanCreator(postData, username)) {
-    throw new Error("Forbidden");
+  if (!isDifferentPersonThanCreator(postData, collectorUsername)) {
+    await rollbackCheckAndUpdateCodeDoc(code);
+    throw new Error("Forbidden.");
   }
 
   const collectibleDocPath = getCollectibleDocPath(postData);
   if (!collectibleDocPath) {
-    throw new Error("Invalid Request");
+    await rollbackCheckAndUpdateCodeDoc(code);
+    throw new Error("Collectible not found");
   }
 
   const collectibleData = await getCollectibleData(collectibleDocPath);
   if (!collectibleData) {
-    throw new Error(
-      "Internal Server Error: Collectible data can not be fetched."
-    );
+    await rollbackCheckAndUpdateCodeDoc(code);
+    throw new Error("Collectible not found");
   }
 
-  const checkCollectibleDataResult = checkCollectibleData(collectibleData);
-  if (!checkCollectibleDataResult) {
-    throw new Error("Invalid Request");
+  if (!checkCollectibleType(collectibleData)) {
+    await rollbackCheckAndUpdateCodeDoc(code);
+    throw new Error("Forbidden");
   }
 
-  const checkPurchasingSingleTimeResult = await checkPurchasingSingleTime(
+  if (!checkCollectibleData(collectibleData)) {
+    await rollbackCheckAndUpdateCodeDoc(code);
+    throw new Error("Forbidden");
+  }
+
+  const isPurchasingSingleTime = await checkPurchasingSingleTime(
     collectibleData,
-    username
+    collectorUsername
   );
-  if (!checkPurchasingSingleTimeResult) {
+  if (!isPurchasingSingleTime) {
+    await rollbackCheckAndUpdateCodeDoc(code);
     throw new Error("Forbidden");
   }
 
-  const price = getPrice(collectibleData);
-  if (!price) {
-    throw new Error("Internal Server Error: Price can not be fetched.");
-  }
-
-  const balance = await getBalance(username);
-  if (balance === false) {
-    throw new Error("Internal Server Error: Balance can not be fetched.");
-  }
-
-  const hasMoneyResult = hasMoney(balance, price);
-  if (!hasMoneyResult) {
-    throw new Error("Forbidden");
-  }
-
+  const creator = postData.senderUsername;
   const commonTimestamp = Date.now();
 
-  const seller = postData.senderUsername;
-
   const [
-    updateBalanceResult,
-    updateBalanceOfSellerResult,
     createPurchasePaymentIntentDocResult,
     createSellPaymentIntentDocResult,
     updateCollectibleDocResult,
@@ -858,57 +777,52 @@ async function processPayment(
     addReceiptDocToMainReceiptsCollectionResult,
     updateUserCollectibleCountResult,
   ] = await Promise.all([
-    updateBalance(username, price),
-    updateBalanceOfSeller(seller, price),
     createPurchasePaymentIntentDoc(
-      username,
+      collectorUsername,
       commonTimestamp,
       postDocPath,
       collectibleDocPath,
-      price,
-      seller,
-      username
+      creator
     ),
     createSellPaymentIntentDoc(
-      username,
+      collectorUsername,
       commonTimestamp,
       postDocPath,
       collectibleDocPath,
-      price,
-      seller
+      creator
     ),
-    updateCollectibleDoc(collectibleDocPath, username),
+    updateCollectibleDoc(collectibleDocPath, collectorUsername),
+
     addBoughtCollectibleDocToBuyer(
-      username,
+      collectorUsername,
       postDocPath,
       collectibleDocPath,
       commonTimestamp
     ),
+
     addSoldCollectibleDocToSeller(
-      seller,
+      creator,
       collectibleDocPath,
       postDocPath,
       commonTimestamp,
-      username
+      collectorUsername
     ),
+
     addCollectorDocToCollectorsCollection(collectibleDocPath, {
       timestamp: commonTimestamp,
-      username: username,
+      username: collectorUsername,
     }),
     addReceiptDocToMainReceiptsCollection(
       collectibleDocPath,
       "USD",
       postDocPath,
-      price,
-      seller,
+      creator,
       commonTimestamp
     ),
-    updateUserCollectibleCount(username),
+    updateUserCollectibleCount(collectorUsername),
   ]);
 
   if (
-    !updateBalanceResult ||
-    !updateBalanceOfSellerResult ||
     !createPurchasePaymentIntentDocResult ||
     !createSellPaymentIntentDocResult ||
     !updateCollectibleDocResult ||
@@ -918,11 +832,10 @@ async function processPayment(
     !addReceiptDocToMainReceiptsCollectionResult ||
     !updateUserCollectibleCountResult
   ) {
+    await rollbackCheckAndUpdateCodeDoc(code);
     await rollback(
-      username,
+      collectorUsername,
       postData.senderUsername,
-      updateBalanceResult,
-      updateBalanceOfSellerResult,
       createPurchasePaymentIntentDocResult,
       createSellPaymentIntentDocResult,
       updateCollectibleDocResult,
@@ -936,8 +849,7 @@ async function processPayment(
 
   const notificationObject = createNotificationObject(
     postDocPath,
-    price,
-    username,
+    collectorUsername,
     postData.senderUsername
   );
 
@@ -949,21 +861,21 @@ async function processPayment(
 
 const lock = new AsyncLock();
 
-export const buyCollectible = onRequest(
+export const collectCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const {code} = req.body;
 
-    const lockId = `buyCollectible-${postDocPath}`;
+    const lockId = `collectCollectible-${code}`;
 
     try {
       await lock.acquire(lockId, async () => {
-        await processPayment(postDocPath, authorization);
+        await processCollecting(code, authorization);
         res.status(200).send("Successfull");
       });
     } catch (error) {
-      console.error("Error while processing payment: ", error);
-      res.status(500).send("Internal Server Error");
+      console.error("Error on collection of event based collectible: ", error);
+      res.status(400).send(`${error}`);
     }
   })
 );
