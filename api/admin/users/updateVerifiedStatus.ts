@@ -1,8 +1,8 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {getConfigObject} from "../../../configs/getConfigObject";
-import {firestore} from "../../../firebase/adminApp";
-import {UserIdentityDoc} from "../../../types/Identity";
+import { getConfigObject } from "../../../configs/getConfigObject";
+import { firestore } from "../../../firebase/adminApp";
+import { UserIdentityDoc } from "../../../types/Identity";
 
 const configObject = getConfigObject();
 
@@ -39,7 +39,7 @@ function checkProps(username: string, isVerified: boolean) {
 }
 
 async function checkUserCompletedKYC(username: string) {
-  // As admin, we are directly
+  // As admin, we are directly changing verified status.
   return true;
 
   try {
@@ -77,8 +77,8 @@ async function updateUserDoc(username: string, isVerified: boolean) {
 }
 
 export const updateVerifiedStatus = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
-  const {username, isVerified} = req.body;
+  const { authorization } = req.headers;
+  const { username, isVerified } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

@@ -1,14 +1,14 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {firestore} from "../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { internalAPIRoutes } from "../../helpers/internalApiRoutes";
+import { getConfigObject } from "../../configs/getConfigObject";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData, CollectorDocData} from "../../types/Collectible";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { CollectibleDocData, CollectorDocData } from "../../types/Collectible";
 
-import {ReceivedNotificationDocData} from "@/types/Notifications";
-import {PostServerData} from "../../types/Post";
+import { ReceivedNotificationDocData } from "@/types/Notifications";
+import { PostServerData } from "../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
@@ -16,11 +16,10 @@ import {
   SoldCollectibleDocData,
 } from "../../types/Trade";
 
-import {ReceiptDocData} from "../../types/Receipt";
+import { ReceiptDocData } from "../../types/Receipt";
 
-import {BalanceDocData} from "../../types/Wallet";
+import { BalanceDocData } from "../../types/Wallet";
 import AsyncLock = require("async-lock");
-import {UserIdentityDoc} from "@/types/Identity";
 
 const configObject = getConfigObject();
 
@@ -481,37 +480,37 @@ async function addReceiptDocToMainReceiptsCollection(
   sellerUsername: string,
   timestamp: number
 ) {
-  let sellerRealFirstName: string;
-  let sellerRealLastName: string;
+  const sellerRealFirstName = "John";
+  const sellerRealLastName = "Sam";
 
   // Getting KYC information
-  try {
-    const identityDoc = await firestore
-      .doc(`users/${sellerUsername}/personal/identity`)
-      .get();
+  // try {
+  //   const identityDoc = await firestore
+  //     .doc(`users/${sellerUsername}/personal/identity`)
+  //     .get();
 
-    if (!identityDoc.exists) {
-      console.error("Identity doc does not exist");
-      return false;
-    }
-    const identityDocData = identityDoc.data() as UserIdentityDoc;
+  //   if (!identityDoc.exists) {
+  //     console.error("Identity doc does not exist");
+  //     return false;
+  //   }
+  //   const identityDocData = identityDoc.data() as UserIdentityDoc;
 
-    if (!identityDocData) {
-      console.error("Identity doc data is undefined");
-      return false;
-    }
+  //   if (!identityDocData) {
+  //     console.error("Identity doc data is undefined");
+  //     return false;
+  //   }
 
-    if (identityDocData.status !== "verified") {
-      console.error("User is not verified");
-      return false;
-    }
+  //   if (identityDocData.status !== "verified") {
+  //     console.error("User is not verified");
+  //     return false;
+  //   }
 
-    sellerRealFirstName = identityDocData.firstName;
-    sellerRealLastName = identityDocData.lastName;
-  } catch (error) {
-    console.error("Error while getting KYC information", error);
-    return false;
-  }
+  //   sellerRealFirstName = identityDocData.firstName;
+  //   sellerRealLastName = identityDocData.lastName;
+  // } catch (error) {
+  //   console.error("Error while getting KYC information", error);
+  //   return false;
+  // }
 
   if (!sellerRealFirstName || !sellerRealLastName) {
     console.error("Seller real first name or last name is undefined");
@@ -602,7 +601,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -951,8 +950,8 @@ const lock = new AsyncLock();
 
 export const buyCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
     const lockId = `buyCollectible-${postDocPath}`;
 
