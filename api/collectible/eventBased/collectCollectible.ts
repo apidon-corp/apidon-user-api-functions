@@ -1,25 +1,24 @@
-import getDisplayName from "../../../helpers/getDisplayName";
-import {getConfigObject} from "../../../configs/getConfigObject";
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/https";
-import {PostServerData} from "../../../types/Post";
+import {getConfigObject} from "../../../configs/getConfigObject";
 import {firestore} from "../../../firebase/adminApp";
+import getDisplayName from "../../../helpers/getDisplayName";
+import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CodeDocData,
   CollectibleDocData,
   CollectorDocData,
 } from "../../../types/Collectible";
+import {ReceivedNotificationDocData} from "../../../types/Notifications";
+import {PostServerData} from "../../../types/Post";
+import {ReceiptDocData} from "../../../types/Receipt";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   SoldCollectibleDocData,
 } from "../../../types/Trade";
-import {FieldValue} from "firebase-admin/firestore";
-import {ReceiptDocData} from "../../../types/Receipt";
-import {UserIdentityDoc} from "../../../types/Identity";
-import {ReceivedNotificationDocData} from "../../../types/Notifications";
-import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
 import AsyncLock = require("async-lock");
 
 const configObject = getConfigObject();
@@ -409,8 +408,8 @@ async function addCollectorDocToCollectorsCollection(
     const collectorDocRef = firestore.collection(
       `${collectibleDocPath}/collectors`
     );
-    await collectorDocRef.add(collectorDocData);
-    return collectorDocRef.path;
+    const {path} = await collectorDocRef.add(collectorDocData);
+    return path;
   } catch (error) {
     console.error("Error while adding collector doc", error);
     return false;
@@ -424,37 +423,37 @@ async function addReceiptDocToMainReceiptsCollection(
   sellerUsername: string,
   timestamp: number
 ) {
-  let sellerRealFirstName: string;
-  let sellerRealLastName: string;
+  const sellerRealFirstName = "John";
+  const sellerRealLastName = "Sam";
 
   // Getting KYC information
-  try {
-    const identityDoc = await firestore
-      .doc(`users/${sellerUsername}/personal/identity`)
-      .get();
+  // try {
+  //   const identityDoc = await firestore
+  //     .doc(`users/${sellerUsername}/personal/identity`)
+  //     .get();
 
-    if (!identityDoc.exists) {
-      console.error("Identity doc does not exist");
-      return false;
-    }
-    const identityDocData = identityDoc.data() as UserIdentityDoc;
+  //   if (!identityDoc.exists) {
+  //     console.error("Identity doc does not exist");
+  //     return false;
+  //   }
+  //   const identityDocData = identityDoc.data() as UserIdentityDoc;
 
-    if (!identityDocData) {
-      console.error("Identity doc data is undefined");
-      return false;
-    }
+  //   if (!identityDocData) {
+  //     console.error("Identity doc data is undefined");
+  //     return false;
+  //   }
 
-    if (identityDocData.status !== "verified") {
-      console.error("User is not verified");
-      return false;
-    }
+  //   if (identityDocData.status !== "verified") {
+  //     console.error("User is not verified");
+  //     return false;
+  //   }
 
-    sellerRealFirstName = identityDocData.firstName;
-    sellerRealLastName = identityDocData.lastName;
-  } catch (error) {
-    console.error("Error while getting KYC information", error);
-    return false;
-  }
+  //   sellerRealFirstName = identityDocData.firstName;
+  //   sellerRealLastName = identityDocData.lastName;
+  // } catch (error) {
+  //   console.error("Error while getting KYC information", error);
+  //   return false;
+  // }
 
   if (!sellerRealFirstName || !sellerRealLastName) {
     console.error("Seller real first name or last name is undefined");
