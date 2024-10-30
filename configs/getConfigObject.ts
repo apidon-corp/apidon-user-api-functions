@@ -1,4 +1,4 @@
-import {ConfigObject, Environment} from "../types/Admin";
+import { ConfigObject, Environment } from "../types/Admin";
 import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto-js";
@@ -79,6 +79,23 @@ function previewConfigHandler() {
   return decryptedData;
 }
 
+function productionConfigHandler() {
+  const configPath = path.join(__dirname, "productionConfig.encrypted");
+
+  const productionConfigFileKey = process.env.PRODUCTION_CONFIG_FILE_KEY || "";
+
+  if (!productionConfigFileKey) {
+    console.error(
+      "PRODUCTION_CONFIG_FILE_KEY environment variable is not set."
+    );
+    return false;
+  }
+
+  const decryptedData = decryptFile(configPath, productionConfigFileKey);
+
+  return decryptedData;
+}
+
 /**
  * Getting right config object according to environment.
  */
@@ -88,6 +105,7 @@ export function getConfigObject() {
   if (environment === "DEVELOPMENT") return developmentConfigHandler();
   if (environment === "LOCALPREVIEW") return localPreviewConfigHandler();
   if (environment === "PREVIEW") return previewConfigHandler();
+  if (environment === "PRODUCTION") return productionConfigHandler();
 
   console.error("Environment not supported");
   return false;

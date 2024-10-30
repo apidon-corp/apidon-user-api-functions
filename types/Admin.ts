@@ -100,4 +100,4 @@ export type Environment =
   | "DEVELOPMENT"
   | "LOCALPREVIEW"
   | "PREVIEW"
-  | "production";
+  | "PRODUCTION";
