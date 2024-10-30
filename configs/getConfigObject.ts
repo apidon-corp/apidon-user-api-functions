@@ -1,4 +1,4 @@
-import { ConfigObject, Environment } from "../types/Admin";
+import {ConfigObject, Environment} from "../types/Admin";
 import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto-js";
