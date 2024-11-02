@@ -1,13 +1,13 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { bucket, firestore } from "../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { UploadedPostInteractionDocData } from "../../types/Interactions";
+import {UploadedPostInteractionDocData} from "../../types/Interactions";
 import {
   PostDataOnMainPostsCollection,
   PostServerData,
 } from "../../types/Post";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 import vision from "@google-cloud/vision";
 
@@ -43,7 +43,7 @@ function createPostServerData(description: string, username: string) {
     image: "",
     ratingCount: 0,
     ratingSum: 0,
-    collectibleStatus: { isCollectible: false },
+    collectibleStatus: {isCollectible: false},
     senderUsername: username,
     id: ts.toString(),
     reviewStatus: "pending",
@@ -220,8 +220,8 @@ async function addPostDocToMainPostsCollection(
 
 export const postUpload = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { description, tempImageLocation } = req.body;
+    const {authorization} = req.headers;
+    const {description, tempImageLocation} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
