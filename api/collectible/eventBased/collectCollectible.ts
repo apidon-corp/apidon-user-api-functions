@@ -1,17 +1,17 @@
-import { FieldValue } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/https";
-import { getConfigObject } from "../../../configs/getConfigObject";
-import { firestore } from "../../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/https";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { internalAPIRoutes } from "../../../helpers/internalApiRoutes";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CodeDocData,
   CollectibleDocData,
   CollectorDocData,
 } from "../../../types/Collectible";
-import { ReceivedNotificationDocData } from "../../../types/Notifications";
-import { PostServerData } from "../../../types/Post";
+import {ReceivedNotificationDocData} from "../../../types/Notifications";
+import {PostServerData} from "../../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
@@ -407,7 +407,7 @@ async function addCollectorDocToCollectorsCollection(
     const collectorDocRef = firestore.collection(
       `${collectibleDocPath}/collectors`
     );
-    const { path } = await collectorDocRef.add(collectorDocData);
+    const {path} = await collectorDocRef.add(collectorDocData);
     return path;
   } catch (error) {
     console.error("Error while adding collector doc", error);
@@ -475,7 +475,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -770,8 +770,8 @@ const lock = new AsyncLock();
 
 export const collectCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { code } = req.body;
+    const {authorization} = req.headers;
+    const {code} = req.body;
 
     const lockId = `collectCollectible-${code}`;
 

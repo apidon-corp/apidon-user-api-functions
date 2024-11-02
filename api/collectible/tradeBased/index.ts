@@ -1,3 +1,3 @@
-import { buyCollectible } from "./buyCollectible";
-import { createCollectible } from "./createCollectible";
-export { buyCollectible, createCollectible };
+import {buyCollectible} from "./buyCollectible";
+import {createCollectible} from "./createCollectible";
+export {buyCollectible, createCollectible};
