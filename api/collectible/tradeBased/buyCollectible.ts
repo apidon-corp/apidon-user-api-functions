@@ -1,25 +1,29 @@
 import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {firestore} from "../../firebase/adminApp";
-import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData, CollectorDocData} from "../../types/Collectible";
+import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {firestore} from "../../../firebase/adminApp";
+import getDisplayName from "../../../helpers/getDisplayName";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {
+  CollectibleDocData,
+  CollectorDocData,
+} from "../../../types/Collectible";
 
 import {ReceivedNotificationDocData} from "@/types/Notifications";
-import {PostServerData} from "../../types/Post";
+import {PostServerData} from "../../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
   SellPaymentIntentDocData,
   SoldCollectibleDocData,
-} from "../../types/Trade";
+} from "../../../types/Trade";
 
-import {ReceiptDocData} from "../../types/Receipt";
+import {ReceiptDocData} from "../../../types/Receipt";
 
-import {BalanceDocData} from "../../types/Wallet";
+import {BalanceDocData} from "../../../types/Wallet";
 import AsyncLock = require("async-lock");
+import {UserIdentityDoc} from "@/types/Identity";
 
 const configObject = getConfigObject();
 
@@ -88,6 +92,39 @@ function isDifferentPersonThanCreator(
   customer: string
 ) {
   return postDocData.senderUsername !== customer;
+}
+
+async function checkIfIdentityVerified(username: string) {
+  try {
+    const identityDoc = await firestore
+      .doc(`users/${username}/personal/identity`)
+      .get();
+
+    if (!identityDoc.exists) {
+      console.error("Identity doc does not exist");
+      return false;
+    }
+
+    const data = identityDoc.data() as UserIdentityDoc;
+
+    if (!data) {
+      console.error("Identity doc data is undefined");
+      return false;
+    }
+
+    if (data.status === "verified") {
+      return {
+        status: true,
+        realFirstName: data.firstName,
+        realLastName: data.lastName,
+      };
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error while checking identity verification", error);
+    return false;
+  }
 }
 
 /**
@@ -478,39 +515,41 @@ async function addReceiptDocToMainReceiptsCollection(
   postDocPath: string,
   price: number,
   sellerUsername: string,
-  timestamp: number
+  timestamp: number,
+  buyerUsername: string,
+  buyerRealFirstName: string,
+  buyerRealLastName: string
 ) {
-  const sellerRealFirstName = "John";
-  const sellerRealLastName = "Sam";
+  let sellerRealFirstName: string;
+  let sellerRealLastName: string;
 
-  // Getting KYC information
-  // try {
-  //   const identityDoc = await firestore
-  //     .doc(`users/${sellerUsername}/personal/identity`)
-  //     .get();
+  try {
+    const identityDoc = await firestore
+      .doc(`users/${sellerUsername}/personal/identity`)
+      .get();
 
-  //   if (!identityDoc.exists) {
-  //     console.error("Identity doc does not exist");
-  //     return false;
-  //   }
-  //   const identityDocData = identityDoc.data() as UserIdentityDoc;
+    if (!identityDoc.exists) {
+      console.error("Identity doc does not exist");
+      return false;
+    }
+    const identityDocData = identityDoc.data() as UserIdentityDoc;
 
-  //   if (!identityDocData) {
-  //     console.error("Identity doc data is undefined");
-  //     return false;
-  //   }
+    if (!identityDocData) {
+      console.error("Identity doc data is undefined");
+      return false;
+    }
 
-  //   if (identityDocData.status !== "verified") {
-  //     console.error("User is not verified");
-  //     return false;
-  //   }
+    if (identityDocData.status !== "verified") {
+      console.error("User is not verified");
+      return false;
+    }
 
-  //   sellerRealFirstName = identityDocData.firstName;
-  //   sellerRealLastName = identityDocData.lastName;
-  // } catch (error) {
-  //   console.error("Error while getting KYC information", error);
-  //   return false;
-  // }
+    sellerRealFirstName = identityDocData.firstName;
+    sellerRealLastName = identityDocData.lastName;
+  } catch (error) {
+    console.error("Error while getting KYC information", error);
+    return false;
+  }
 
   if (!sellerRealFirstName || !sellerRealLastName) {
     console.error("Seller real first name or last name is undefined");
@@ -526,6 +565,9 @@ async function addReceiptDocToMainReceiptsCollection(
     sellerRealLastName: sellerRealLastName,
     sellerUsername: sellerUsername,
     timestamp: timestamp,
+    buyerUsername: buyerUsername,
+    buyerRealFirstName: buyerRealFirstName,
+    buyerRealLastName: buyerRealLastName,
   };
 
   try {
@@ -792,6 +834,11 @@ async function processPayment(
     throw new Error("Invalid Request");
   }
 
+  const buyerIdentityResult = await checkIfIdentityVerified(username);
+  if (!buyerIdentityResult) {
+    throw new Error("Forbidden");
+  }
+
   const postData = await getPostData(postDocPath);
   if (!postData) {
     throw new Error("Internal Server Error: Post data can not be fetched.");
@@ -900,7 +947,10 @@ async function processPayment(
       postDocPath,
       price,
       seller,
-      commonTimestamp
+      commonTimestamp,
+      username,
+      buyerIdentityResult.realFirstName,
+      buyerIdentityResult.realLastName
     ),
     updateUserCollectibleCount(username),
   ]);

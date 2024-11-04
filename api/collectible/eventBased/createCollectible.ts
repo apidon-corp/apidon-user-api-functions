@@ -72,7 +72,7 @@ function checkCanAuthorizedForThisOperation(
 }
 
 /**
- * Checking for if user has purple thick.
+ * Checking for if user has pink thick.
  */
 async function checkIsVerified(username: string) {
   try {

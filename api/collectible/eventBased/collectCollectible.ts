@@ -12,7 +12,6 @@ import {
 } from "../../../types/Collectible";
 import {ReceivedNotificationDocData} from "../../../types/Notifications";
 import {PostServerData} from "../../../types/Post";
-import {ReceiptDocData} from "../../../types/Receipt";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
@@ -416,73 +415,6 @@ async function addCollectorDocToCollectorsCollection(
   }
 }
 
-async function addReceiptDocToMainReceiptsCollection(
-  collectibleDocPath: string,
-  currency: string,
-  postDocPath: string,
-  sellerUsername: string,
-  timestamp: number
-) {
-  const sellerRealFirstName = "John";
-  const sellerRealLastName = "Sam";
-
-  // Getting KYC information
-  // try {
-  //   const identityDoc = await firestore
-  //     .doc(`users/${sellerUsername}/personal/identity`)
-  //     .get();
-
-  //   if (!identityDoc.exists) {
-  //     console.error("Identity doc does not exist");
-  //     return false;
-  //   }
-  //   const identityDocData = identityDoc.data() as UserIdentityDoc;
-
-  //   if (!identityDocData) {
-  //     console.error("Identity doc data is undefined");
-  //     return false;
-  //   }
-
-  //   if (identityDocData.status !== "verified") {
-  //     console.error("User is not verified");
-  //     return false;
-  //   }
-
-  //   sellerRealFirstName = identityDocData.firstName;
-  //   sellerRealLastName = identityDocData.lastName;
-  // } catch (error) {
-  //   console.error("Error while getting KYC information", error);
-  //   return false;
-  // }
-
-  if (!sellerRealFirstName || !sellerRealLastName) {
-    console.error("Seller real first name or last name is undefined");
-    return false;
-  }
-
-  const newData: ReceiptDocData = {
-    collectibleDocPath: collectibleDocPath,
-    currency: currency,
-    postDocPath: postDocPath,
-    price: 0,
-    sellerRealFirstName: sellerRealFirstName,
-    sellerRealLastName: sellerRealLastName,
-    sellerUsername: sellerUsername,
-    timestamp: timestamp,
-  };
-
-  try {
-    const receiptsCollectionRef = firestore.collection("/receipts");
-
-    const createdDocRef = await receiptsCollectionRef.add(newData);
-
-    return createdDocRef;
-  } catch (error) {
-    console.error("Error while adding receipt doc", error);
-    return false;
-  }
-}
-
 async function updateUserCollectibleCount(
   username: string,
   isRollback?: boolean
@@ -602,13 +534,6 @@ async function rollback(
         FirebaseFirestore.DocumentData
       >,
   addCollectorDocToCollectorsCollectionResult: false | string,
-
-  addReceiptDocToMainReceiptsCollectionResult:
-    | false
-    | FirebaseFirestore.DocumentReference<
-        FirebaseFirestore.DocumentData,
-        FirebaseFirestore.DocumentData
-      >,
   updateUserCollectibleCountResult: boolean
 ) {
   if (createPurchasePaymentIntentDocResult) {
@@ -676,14 +601,6 @@ async function rollback(
       await collectorDocRef.delete();
     } catch (error) {
       console.error("Error while rolling back collector doc", error);
-    }
-  }
-
-  if (addReceiptDocToMainReceiptsCollectionResult) {
-    try {
-      await addReceiptDocToMainReceiptsCollectionResult.delete();
-    } catch (error) {
-      console.error("Error while rolling back receipt doc", error);
     }
   }
 
@@ -773,7 +690,6 @@ async function processCollecting(
     addBoughtCollectibleDocToBuyerResult,
     addSoldCollectibleDocToSellerResult,
     addCollectorDocToCollectorsCollectionResult,
-    addReceiptDocToMainReceiptsCollectionResult,
     updateUserCollectibleCountResult,
   ] = await Promise.all([
     createPurchasePaymentIntentDoc(
@@ -811,13 +727,7 @@ async function processCollecting(
       timestamp: commonTimestamp,
       username: collectorUsername,
     }),
-    addReceiptDocToMainReceiptsCollection(
-      collectibleDocPath,
-      "USD",
-      postDocPath,
-      creator,
-      commonTimestamp
-    ),
+
     updateUserCollectibleCount(collectorUsername),
   ]);
 
@@ -828,7 +738,6 @@ async function processCollecting(
     !addBoughtCollectibleDocToBuyerResult ||
     !addSoldCollectibleDocToSellerResult ||
     !addCollectorDocToCollectorsCollectionResult ||
-    !addReceiptDocToMainReceiptsCollectionResult ||
     !updateUserCollectibleCountResult
   ) {
     await rollbackCheckAndUpdateCodeDoc(code);
@@ -841,7 +750,6 @@ async function processCollecting(
       addBoughtCollectibleDocToBuyerResult,
       addSoldCollectibleDocToSellerResult,
       addCollectorDocToCollectorsCollectionResult,
-      addReceiptDocToMainReceiptsCollectionResult,
       updateUserCollectibleCountResult
     );
   }

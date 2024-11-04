@@ -1,14 +1,15 @@
 import {TopUpPlansConfigDocData} from "@/types/IAP";
 import {UserInServer} from "@/types/User";
 import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
-import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {CollectibleDocData} from "../../types/Collectible";
-import {PostServerData} from "../../types/Post";
-import {CreatedCollectibleDocData} from "../../types/Trade";
+import {firestore} from "../../../firebase/adminApp";
+import getDisplayName from "../../../helpers/getDisplayName";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {CollectibleDocData} from "../../../types/Collectible";
+import {PostServerData} from "../../../types/Post";
+import {CreatedCollectibleDocData} from "../../../types/Trade";
 import {CollectibleConfigDocData} from "@/types/Config";
 import {FieldValue} from "firebase-admin/firestore";
+import {UserIdentityDoc} from "@/types/Identity";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -138,7 +139,7 @@ function checkCanAuthorizedForThisOperation(
 }
 
 /**
- * Checking for if user has purple thick.
+ * Checking for if user has purple or pink thick.
  */
 async function checkIsVerified(username: string) {
   try {
@@ -159,6 +160,31 @@ async function checkIsVerified(username: string) {
     return data.verified;
   } catch (error) {
     console.error("Error while checking user verification", error);
+    return false;
+  }
+}
+
+async function checkIfIdentityVerified(username: string) {
+  try {
+    const identityDoc = await firestore
+      .doc(`users/${username}/personal/identity`)
+      .get();
+
+    if (!identityDoc.exists) {
+      console.error("Identity doc does not exist");
+      return false;
+    }
+
+    const data = identityDoc.data() as UserIdentityDoc;
+
+    if (!data) {
+      console.error("Identity doc data is undefined");
+      return false;
+    }
+
+    return data.status === "verified";
+  } catch (error) {
+    console.error("Error while checking identity verification", error);
     return false;
   }
 }
@@ -383,6 +409,12 @@ export const createCollectible = onRequest(
 
     const isVerified = await checkIsVerified(username);
     if (!isVerified) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
+    const isIdentityVerified = await checkIfIdentityVerified(username);
+    if (!isIdentityVerified) {
       res.status(403).send("Forbidden");
       return;
     }

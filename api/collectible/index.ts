@@ -1,5 +1,4 @@
-import {createCollectible} from "./createCollectible";
-import {buyCollectible} from "./buyCollectible";
 import * as eventBased from "./eventBased";
+import * as tradeBased from "./tradeBased";
 
-export {createCollectible, buyCollectible, eventBased};
+export {eventBased, tradeBased};
