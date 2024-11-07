@@ -1,16 +1,16 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
 import getDisplayName from "../../../helpers/getDisplayName";
 
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import { BalanceDocData } from "../../../types/Wallet";
-import { FieldValue } from "firebase-admin/firestore";
-import { WithdrawRequestDocData } from "../../../types/Withdraw";
+import {BalanceDocData} from "../../../types/Wallet";
+import {FieldValue} from "firebase-admin/firestore";
+import {WithdrawRequestDocData} from "../../../types/Withdraw";
 
-import { UserIdentityDoc } from "../../../types/Identity";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
-import { Environment } from "@/types/Admin";
+import {UserIdentityDoc} from "../../../types/Identity";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {Environment} from "@/types/Admin";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -98,7 +98,7 @@ async function updateBalance(username: string) {
   try {
     const balanceDocRef = firestore.doc(`users/${username}/wallet/balance`);
 
-    await balanceDocRef.update({ balance: 0 });
+    await balanceDocRef.update({balance: 0});
 
     return true;
   } catch (error) {
@@ -112,7 +112,7 @@ async function rollbackBalance(username: string, balance: number) {
   try {
     const balanceDocRef = firestore.doc(`users/${username}/wallet/balance`);
 
-    await balanceDocRef.update({ balance: FieldValue.increment(balance) });
+    await balanceDocRef.update({balance: FieldValue.increment(balance)});
 
     return true;
   } catch (error) {
@@ -143,8 +143,8 @@ export const requestWithdraw = onRequest(
       return;
     }
 
-    const { authorization } = req.headers;
-    const { bankName, accountNumber, swiftCode, routingNumber } = req.body;
+    const {authorization} = req.headers;
+    const {bankName, accountNumber, swiftCode, routingNumber} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

@@ -1,10 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../firebase/adminApp";
-import { FieldValue } from "firebase-admin/firestore";
-import { PaymentIntentTopUpDocData } from "../../types/IAP";
-import { getConfigObject } from "../../configs/getConfigObject";
-import { Environment } from "@/types/Admin";
+import {firestore} from "../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {PaymentIntentTopUpDocData} from "../../types/IAP";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -174,8 +174,8 @@ export const refund = onRequest(async (req, res) => {
     return;
   }
 
-  const { authorization } = req.headers;
-  const { productId, customerId, transactionId } = req.body;
+  const {authorization} = req.headers;
+  const {productId, customerId, transactionId} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

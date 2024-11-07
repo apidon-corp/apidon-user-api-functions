@@ -1,8 +1,8 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../firebase/adminApp";
-import { UserIdentityDoc } from "../../types/Identity";
-import { getConfigObject } from "../../configs/getConfigObject";
-import { Environment } from "@/types/Admin";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../firebase/adminApp";
+import {UserIdentityDoc} from "../../types/Identity";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -75,9 +75,9 @@ export const handleCreatedVerification = onRequest(async (req, res) => {
     return;
   }
 
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
-  const { username, id, created, status, livemode } = req.body;
+  const {username, id, created, status, livemode} = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

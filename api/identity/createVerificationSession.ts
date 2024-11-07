@@ -1,10 +1,10 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/v2/https";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import getDisplayName from "../../helpers/getDisplayName";
 
 import Stripe from "stripe";
-import { getConfigObject } from "../../configs/getConfigObject";
-import { Environment } from "@/types/Admin";
+import {getConfigObject} from "../../configs/getConfigObject";
+import {Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -55,8 +55,8 @@ async function createEphermalKey(
 ) {
   try {
     const ephemeralKey = await stripe.ephemeralKeys.create(
-      { verification_session: verificationSession.id },
-      { apiVersion: "2024-06-20" }
+      {verification_session: verificationSession.id},
+      {apiVersion: "2024-06-20"}
     );
 
     return ephemeralKey;
@@ -75,7 +75,7 @@ export const createVerificationSession = onRequest(
       return;
     }
 
-    const { authorization } = req.headers;
+    const {authorization} = req.headers;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
