@@ -1,9 +1,8 @@
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-import {onRequest} from "firebase-functions/v2/https";
-import {RevenueCatNotificationPayload} from "../../types/IAP";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {ConfigObject} from "@/types/Admin";
-
+import { internalAPIRoutes } from "../../helpers/internalApiRoutes";
+import { onRequest } from "firebase-functions/v2/https";
+import { RevenueCatNotificationPayload } from "../../types/IAP";
+import { getConfigObject } from "../../configs/getConfigObject";
+import { ConfigObject, Environment } from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -45,7 +44,7 @@ async function handleSuccessfullPayment(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": apiKey,
+        Authorization: apiKey,
       },
       body: JSON.stringify({
         productId: payload.product_id,
@@ -82,7 +81,7 @@ async function handleRefund(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": refundApiKey,
+        Authorization: refundApiKey,
       },
       body: JSON.stringify({
         productId: payload.product_id,
@@ -118,9 +117,15 @@ async function handleRefund(
 }
 
 export const paymentNotificationHandler = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const environment = process.env.ENVIRONMENT as Environment;
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
 
-  const {event} = req.body;
+  const { authorization } = req.headers;
+
+  const { event } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult || !authResult.authResult) {

@@ -1,7 +1,8 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
-import {UserIdentityDoc} from "../../types/Identity";
-import {getConfigObject} from "../../configs/getConfigObject";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../firebase/adminApp";
+import { UserIdentityDoc } from "../../types/Identity";
+import { getConfigObject } from "../../configs/getConfigObject";
+import { Environment } from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -67,9 +68,16 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleProcessingVerification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const environment = process.env.ENVIRONMENT as Environment;
 
-  const {username, id, created, status, livemode} = req.body;
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  const { authorization } = req.headers;
+
+  const { username, id, created, status, livemode } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {

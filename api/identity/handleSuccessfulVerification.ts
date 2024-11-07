@@ -1,8 +1,9 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../firebase/adminApp";
-import {UserIdentityDoc} from "../../types/Identity";
-import {getConfigObject} from "../../configs/getConfigObject";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../firebase/adminApp";
+import { UserIdentityDoc } from "../../types/Identity";
+import { getConfigObject } from "../../configs/getConfigObject";
 import Stripe from "stripe";
+import { Environment } from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -46,10 +47,7 @@ function checkProps(
   return true;
 }
 
-async function getIdentityDetails(
-  verificationSessionId: string,
-  isLiveMode: boolean
-) {
+async function getIdentityDetails(verificationSessionId: string) {
   try {
     const verificationSession =
       await stripe.identity.verificationSessions.retrieve(
@@ -175,9 +173,16 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleSuccessfulVerification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+  const environment = process.env.ENVIRONMENT as Environment;
 
-  const {username, id, created, status, livemode} = req.body;
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  const { authorization } = req.headers;
+
+  const { username, id, created, status, livemode } = req.body;
 
   const authResult = handleAuthorization(authorization);
   if (!authResult) {
@@ -190,7 +195,7 @@ export const handleSuccessfulVerification = onRequest(async (req, res) => {
     return;
   }
 
-  const identityDetails = await getIdentityDetails(id, livemode);
+  const identityDetails = await getIdentityDetails(id);
   if (!identityDetails) {
     res.status(500).send("Internal Server Error");
     return;
