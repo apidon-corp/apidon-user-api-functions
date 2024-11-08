@@ -2,8 +2,7 @@ import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 import {onRequest} from "firebase-functions/v2/https";
 import {RevenueCatNotificationPayload} from "../../types/IAP";
 import {getConfigObject} from "../../configs/getConfigObject";
-import {ConfigObject} from "@/types/Admin";
-
+import {ConfigObject, Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -118,6 +117,12 @@ async function handleRefund(
 }
 
 export const paymentNotificationHandler = onRequest(async (req, res) => {
+  const environment = process.env.ENVIRONMENT as Environment;
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
   const {authorization} = req.headers;
 
   const {event} = req.body;

@@ -4,6 +4,7 @@ import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
 import {PaymentIntentTopUpDocData} from "../../types/IAP";
 import {getConfigObject} from "../../configs/getConfigObject";
+import {Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -166,6 +167,13 @@ async function rollback(ref: FirebaseFirestore.DocumentReference) {
 }
 
 export const refund = onRequest(async (req, res) => {
+  const environment = process.env.ENVIRONMENT as Environment;
+
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
   const {authorization} = req.headers;
   const {productId, customerId, transactionId} = req.body;
 

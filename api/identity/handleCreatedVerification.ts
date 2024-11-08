@@ -2,6 +2,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
 import {UserIdentityDoc} from "../../types/Identity";
 import {getConfigObject} from "../../configs/getConfigObject";
+import {Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -67,6 +68,13 @@ async function updateUserIdentitynDoc(
 }
 
 export const handleCreatedVerification = onRequest(async (req, res) => {
+  const environment = process.env.ENVIRONMENT as Environment;
+
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
   const {authorization} = req.headers;
 
   const {username, id, created, status, livemode} = req.body;

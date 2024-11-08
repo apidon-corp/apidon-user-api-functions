@@ -3,6 +3,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../firebase/adminApp";
 import {PaymentIntentTopUpDocData} from "../../types/IAP";
 import {getConfigObject} from "../../configs/getConfigObject";
+import {Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -170,6 +171,13 @@ async function rollback(username: string, transactionId: string) {
 }
 
 export const successOnPayment = onRequest(async (req, res) => {
+  const environment = process.env.ENVIRONMENT as Environment;
+
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
   const {authorization} = req.headers;
   const {
     productId,

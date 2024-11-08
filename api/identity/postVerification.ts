@@ -5,7 +5,7 @@ import AsyncLock = require("async-lock");
 import {getConfigObject} from "../../configs/getConfigObject";
 
 import Stripe from "stripe";
-import {ConfigObject} from "@/types/Admin";
+import {ConfigObject, Environment} from "@/types/Admin";
 
 const configObject = getConfigObject();
 
@@ -216,6 +216,12 @@ async function handleReuqiresInputVerification(
 }
 
 export const postVerification = onRequest(async (req, res) => {
+  const environment = process.env.ENVIRONMENT as Environment;
+  if (!environment || environment === "PRODUCTION") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
   const sig = req.headers["stripe-signature"];
 
   if (!sig) {
