@@ -1,16 +1,16 @@
-import { TopUpPlansConfigDocData } from "../../../types/IAP";
-import { UserInServer } from "../../../types/User";
-import { onRequest } from "firebase-functions/v2/https";
-import { firestore } from "../../../firebase/adminApp";
+import {TopUpPlansConfigDocData} from "../../../types/IAP";
+import {UserInServer} from "../../../types/User";
+import {onRequest} from "firebase-functions/v2/https";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
-import { CollectibleDocData } from "../../../types/Collectible";
-import { PostServerData } from "../../../types/Post";
-import { CreatedCollectibleDocData } from "../../../types/Trade";
-import { CollectibleConfigDocData } from "../../../types/Config";
-import { FieldValue } from "firebase-admin/firestore";
-import { UserIdentityDoc } from "../../../types/Identity";
-import { Environment } from "../../../types/Admin";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {CollectibleDocData} from "../../../types/Collectible";
+import {PostServerData} from "../../../types/Post";
+import {CreatedCollectibleDocData} from "../../../types/Trade";
+import {CollectibleConfigDocData} from "../../../types/Config";
+import {FieldValue} from "firebase-admin/firestore";
+import {UserIdentityDoc} from "../../../types/Identity";
+import {Environment} from "../../../types/Admin";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -321,7 +321,7 @@ async function addDocToCreatedCollectibles(
     const collectionRef = firestore.collection(
       `users/${creator}/collectible/trade/createdCollectibles`
     );
-    const { path } = await collectionRef.add(newData);
+    const {path} = await collectionRef.add(newData);
     return path;
   } catch (error) {
     console.error("Error while adding doc to created collectibles", error);
@@ -385,8 +385,8 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const { authorization } = req.headers;
-    const { postDocPath, price, stock } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath, price, stock} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
