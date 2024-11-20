@@ -16,3 +16,8 @@ export type UserInServer = {
    */
   verified: boolean;
 };
+
+export type BlockDocData={
+  blockedUserUsername: string;
+  ts: number;
+}
