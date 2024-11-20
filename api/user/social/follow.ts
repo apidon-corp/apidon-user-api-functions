@@ -1,14 +1,14 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {FieldValue} from "firebase-admin/firestore";
-import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
-import {firestore} from "../../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { internalAPIRoutes } from "../../../helpers/internalApiRoutes";
+import { firestore } from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {ReceivedNotificationDocData} from "../../../types/Notifications";
+import { ReceivedNotificationDocData } from "../../../types/Notifications";
 import AsyncLock = require("async-lock");
 
-import {getConfigObject} from "../../../configs/getConfigObject";
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import { getConfigObject } from "../../../configs/getConfigObject";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
 
 const configObject = getConfigObject();
 
@@ -40,6 +40,10 @@ function checkProps(operationTo: string, opCode: number) {
   }
 
   return true;
+}
+
+function checkSelfFollowing(operationTo: string, operationFrom: string) {
+  return operationTo == operationFrom;
 }
 
 async function checkFollowStatus(username: string, operationTo: string) {
@@ -234,7 +238,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -287,7 +291,7 @@ async function deleteNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
+          authorization: notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -318,8 +322,8 @@ const delay = async (ms: number) => {
 
 export const follow = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {operationTo: operationToUsername, opCode} = req.body;
+    const { authorization } = req.headers;
+    const { operationTo: operationToUsername, opCode } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -330,6 +334,11 @@ export const follow = onRequest(
     const checkPropsResult = checkProps(operationToUsername, opCode);
     if (!checkPropsResult) {
       res.status(422).send("Invalid Request");
+      return;
+    }
+
+    if (checkSelfFollowing(operationToUsername, username)) {
+      res.status(403).send("Forbidden.");
       return;
     }
 
