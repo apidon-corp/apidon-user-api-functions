@@ -1,9 +1,9 @@
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
-import { onRequest } from "firebase-functions/https";
-import { FieldValue } from "firebase-admin/firestore";
-import { ReportedByDocData } from "../../../types/User";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/https";
+import {FieldValue} from "firebase-admin/firestore";
+import {ReportedByDocData} from "../../../types/User";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -81,8 +81,8 @@ async function addDocToReportedBysCollectionOfReportedUser(
 
 export const reportUser = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { reportedUser } = req.body;
+    const {authorization} = req.headers;
+    const {reportedUser} = req.body;
 
     const requester = await handleAuthorization(authorization);
     if (!requester) {

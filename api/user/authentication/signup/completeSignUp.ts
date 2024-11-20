@@ -111,6 +111,7 @@ function createUserDocData(
     uid: uid,
     username: username,
     verified: false,
+    isScheduledToDelete: false,
   };
 
   const userDocRef = firestore.doc(`users/${username}`);

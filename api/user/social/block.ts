@@ -1,8 +1,8 @@
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
-import { onRequest } from "firebase-functions/https";
-import { BlockDocData } from "../../../types/User";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/https";
+import {BlockDocData} from "../../../types/User";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -49,8 +49,8 @@ async function addBlockedUserDocToBlocksCollectionOfRequster(
 
 export const block = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { blockedUser } = req.body;
+    const {authorization} = req.headers;
+    const {blockedUser} = req.body;
 
     const requtesterUsername = await handleAuthorization(authorization);
     if (!requtesterUsername) {

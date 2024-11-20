@@ -1,7 +1,7 @@
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
-import { onRequest } from "firebase-functions/https";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/https";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -45,8 +45,8 @@ async function deleteBlockedDocFromRequsterBlocksCollection(
 
 export const unBlock = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { unBlockedUser } = req.body;
+    const {authorization} = req.headers;
+    const {unBlockedUser} = req.body;
 
     const requtesterUsername = await handleAuthorization(authorization);
     if (!requtesterUsername) {

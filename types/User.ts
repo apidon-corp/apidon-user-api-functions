@@ -17,6 +17,8 @@ export type UserInServer = {
    * Indicated if user has purple thick.
    */
   verified: boolean;
+
+  isScheduledToDelete:boolean
 };
 
 export type BlockDocData = {
