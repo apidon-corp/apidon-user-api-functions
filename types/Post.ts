@@ -52,5 +52,11 @@ export type PostDataOnMainPostsCollection = {
   postDocPath: string;
   sender: string;
   timestamp: number;
+  reportCount: number;
 };
+
+export type ReportDocData = {
+  username:string,
+  ts: number,
+}
 
