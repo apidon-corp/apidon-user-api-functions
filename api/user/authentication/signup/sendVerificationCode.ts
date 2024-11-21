@@ -161,7 +161,7 @@ async function sendEmailVerificationCode(email: string, code: number) {
     <body>
         <div class="container">
             <div class="header">
-                <img src="https://www.apidon.com/static/images/apidon_logo.png" alt="Apidon" class="logo" />
+                <img src="https://www.apidon.com/images/logo/logo.png" alt="Apidon" class="logo" />
             </div>
             <div class="content">
                 <p>Welcome to Apidon!</p>

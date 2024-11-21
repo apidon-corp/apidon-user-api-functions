@@ -1,5 +1,5 @@
-import {TopUpPlansConfigDocData} from "@/types/IAP";
-import {UserInServer} from "@/types/User";
+import {TopUpPlansConfigDocData} from "../../../types/IAP";
+import {UserInServer} from "../../../types/User";
 import {onRequest} from "firebase-functions/v2/https";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
@@ -7,9 +7,10 @@ import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {CollectibleDocData} from "../../../types/Collectible";
 import {PostServerData} from "../../../types/Post";
 import {CreatedCollectibleDocData} from "../../../types/Trade";
-import {CollectibleConfigDocData} from "@/types/Config";
+import {CollectibleConfigDocData} from "../../../types/Config";
 import {FieldValue} from "firebase-admin/firestore";
-import {UserIdentityDoc} from "@/types/Identity";
+import {UserIdentityDoc} from "../../../types/Identity";
+import {Environment} from "../../../types/Admin";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -377,6 +378,13 @@ async function rollBackAddDocToCreatedCollectibles(path: string) {
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
+    const environment = process.env.ENVIRONMENT as Environment;
+
+    if (!environment || environment === "PRODUCTION") {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
     const {authorization} = req.headers;
     const {postDocPath, price, stock} = req.body;
 

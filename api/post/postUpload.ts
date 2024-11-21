@@ -25,9 +25,9 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-function checkProps(description: string, image: string) {
-  if (!description && !image) {
-    console.error("Both description and image is undefined.");
+function checkProps(image: string) {
+  if (!image) {
+    console.error("Image is undefined.");
     return false;
   }
   return true;
@@ -206,6 +206,7 @@ async function addPostDocToMainPostsCollection(
     postDocPath: postDocPath,
     timestamp: timestamp,
     sender: sender,
+    reportCount: 0,
   };
 
   try {
@@ -229,7 +230,7 @@ export const postUpload = onRequest(
       return;
     }
 
-    const checkPropsResult = checkProps(description, tempImageLocation);
+    const checkPropsResult = checkProps(tempImageLocation);
     if (!checkPropsResult) {
       res.status(422).send("Invalid Request");
       return;

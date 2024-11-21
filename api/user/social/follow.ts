@@ -42,6 +42,10 @@ function checkProps(operationTo: string, opCode: number) {
   return true;
 }
 
+function checkSelfFollowing(operationTo: string, operationFrom: string) {
+  return operationTo == operationFrom;
+}
+
 async function checkFollowStatus(username: string, operationTo: string) {
   try {
     const followingsSnapshot = await firestore
@@ -330,6 +334,11 @@ export const follow = onRequest(
     const checkPropsResult = checkProps(operationToUsername, opCode);
     if (!checkPropsResult) {
       res.status(422).send("Invalid Request");
+      return;
+    }
+
+    if (checkSelfFollowing(operationToUsername, username)) {
+      res.status(403).send("Forbidden.");
       return;
     }
 

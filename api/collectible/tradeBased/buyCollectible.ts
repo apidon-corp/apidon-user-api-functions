@@ -24,6 +24,7 @@ import {ReceiptDocData} from "../../../types/Receipt";
 import {BalanceDocData} from "../../../types/Wallet";
 import AsyncLock = require("async-lock");
 import {UserIdentityDoc} from "@/types/Identity";
+import {Environment} from "../../../types/Admin";
 
 const configObject = getConfigObject();
 
@@ -1000,6 +1001,13 @@ const lock = new AsyncLock();
 
 export const buyCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
+    const environment = process.env.ENVIRONMENT as Environment;
+
+    if (!environment || environment === "PRODUCTION") {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
     const {authorization} = req.headers;
     const {postDocPath} = req.body;
 
