@@ -30,3 +30,7 @@ export type ReportedByDocData = {
   username: string;
   ts: number;
 };
+
+export type FollowerDocData = {
+  followTime: number;
+};

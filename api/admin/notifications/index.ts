@@ -1,2 +1,3 @@
 import {sendNotificationToAllUsers} from "./sendNotificationToAllUsers";
-export {sendNotificationToAllUsers};
+import {sendNotificationToFollowers} from "./sendNotificationToFollowers";
+export {sendNotificationToAllUsers, sendNotificationToFollowers};
