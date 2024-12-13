@@ -100,6 +100,15 @@ function productionConfigHandler() {
  * Getting right config object according to environment.
  */
 export function getConfigObject() {
+  const isThereAnyRestriction = process.env.RESTRICT_ACCESS_TO_ADMINS as
+    | "TRUE"
+    | "FALSE";
+
+  if (isThereAnyRestriction === "TRUE") {
+    console.error("Access to admins is restricted.");
+    return false;
+  }
+
   const environment = process.env.ENVIRONMENT as Environment;
 
   if (environment === "DEVELOPMENT") return developmentConfigHandler();
