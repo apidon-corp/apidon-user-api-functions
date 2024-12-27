@@ -1,32 +1,7 @@
-import {getConfigObject} from "../../../configs/getConfigObject";
 import {onRequest} from "firebase-functions/v2/https";
 
+import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 import {firestore} from "../../../firebase/adminApp";
-
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-/**
- * Handles the authorization of incoming requests.
- * @param authorization - The authorization header value.
- * @returns True if the authorization is valid, otherwise false.
- */
-function handleAuthorization(authorization: string | undefined) {
-  if (!authorization) {
-    console.error("Authorization header is missing");
-    return false;
-  }
-
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  return authorization === configObject.ADMIN;
-}
 
 function checkProps(username: string, requestId: string, notes: string) {
   if (!username || !requestId || !notes) return false;
@@ -60,7 +35,7 @@ export const approveWithdraw = onRequest(async (req, res) => {
 
   const {username, requestId, notes} = req.body;
 
-  const authResult = handleAuthorization(authorization);
+  const authResult = handleAdminAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;

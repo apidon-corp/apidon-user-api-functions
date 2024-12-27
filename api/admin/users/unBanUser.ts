@@ -1,34 +1,9 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {getConfigObject} from "../../../configs/getConfigObject";
-import {firestore, auth} from "../../../firebase/adminApp";
-import {UserInServer} from "../../../types/User";
+import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
+import {auth, firestore} from "../../../firebase/adminApp";
 import {PostDataOnMainPostsCollection} from "../../../types/Post";
-
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-/**
- * Handles the authorization of incoming requests.
- * @param authorization - The authorization header value.
- * @returns True if the authorization is valid, otherwise false.
- */
-function handleAuthorization(authorization: string | undefined) {
-  if (!authorization) {
-    console.error("Authorization header is missing");
-    return false;
-  }
-
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  return authorization === configObject.ADMIN;
-}
+import {UserInServer} from "../../../types/User";
 
 async function getUIDOfUser(username: string) {
   try {
@@ -107,7 +82,7 @@ export const unBanUser = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {username} = req.body;
 
-  const authResult = handleAuthorization(authorization);
+  const authResult = handleAdminAuthorization(authorization);
 
   if (!authResult) {
     res.status(401).send("Unauthorized");

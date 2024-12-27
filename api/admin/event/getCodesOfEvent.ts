@@ -1,32 +1,8 @@
 import {firestore} from "../../../firebase/adminApp";
-import {getConfigObject} from "../../../configs/getConfigObject";
 import {onRequest} from "firebase-functions/https";
 import {CodeDocData} from "../../../types/Collectible";
+import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-/**
- * Handles the authorization of incoming requests.
- * @param authorization - The authorization header value.
- * @returns True if the authorization is valid, otherwise false.
- */
-function handleAuthorization(authorization: string | undefined) {
-  if (!authorization) {
-    console.error("Authorization header is missing");
-    return false;
-  }
-
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  return authorization === configObject.ADMIN;
-}
 
 function checkProps(collectibleDocPath: string) {
   if (!collectibleDocPath) {
@@ -54,7 +30,7 @@ export const getCodesOfEvent = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {collectibleDocPath} = req.body;
 
-  if (!handleAuthorization(authorization)) {
+  if (!handleAdminAuthorization(authorization)) {
     res.status(401).send("Unauthorized");
     return;
   }

@@ -1,33 +1,8 @@
 import {onRequest} from "firebase-functions/v2/https";
 
-import {getConfigObject} from "../../../configs/getConfigObject";
-import {firestore} from "../../../firebase/adminApp";
+import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 import {ReceiptDocData} from "@/types/Receipt";
-
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-/**
- * Handles the authorization of incoming requests.
- * @param authorization - The authorization header value.
- * @returns True if the authorization is valid, otherwise false.
- */
-function handleAuthorization(authorization: string | undefined) {
-  if (!authorization) {
-    console.error("Authorization header is missing");
-    return false;
-  }
-
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  return authorization === configObject.ADMIN;
-}
+import {firestore} from "../../../firebase/adminApp";
 
 async function getReceiptsDocs() {
   try {
@@ -41,7 +16,7 @@ async function getReceiptsDocs() {
 }
 
 export const getReceipts = onRequest(async (req, res) => {
-  if (!handleAuthorization(req.headers.authorization)) {
+  if (!handleAdminAuthorization(req.headers.authorization)) {
     res.status(401).send("Unauthorized");
     return;
   }
