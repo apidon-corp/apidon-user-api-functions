@@ -1,4 +1,4 @@
-import {ReviewStatus} from "./Admin";
+import { ReviewStatus } from "./Admin";
 
 export type PostServerData = {
   senderUsername: string;
@@ -26,15 +26,6 @@ export type PostServerData = {
   reviewStatus: ReviewStatus;
 };
 
-/**
- * @deprecated
- */
-export type RateData = {
-  sender: string;
-  rate: number;
-  ts: number;
-};
-
 export type RatingData = {
   sender: string;
   rating: number;
@@ -47,7 +38,6 @@ export type CommentServerData = {
   ts: number;
 };
 
-
 export type PostDataOnMainPostsCollection = {
   postDocPath: string;
   sender: string;
@@ -56,7 +46,42 @@ export type PostDataOnMainPostsCollection = {
 };
 
 export type ReportDocData = {
-  username:string,
-  ts: number,
-}
+  username: string;
+  ts: number;
+};
 
+export type NewPostDocData = {
+  senderUsername: string;
+
+  description: string;
+  image: string;
+
+  ratingCount: number;
+  ratingSum: number;
+
+  commentCount: number;
+
+  collectibleStatus:
+    | {
+        isCollectible: false;
+      }
+    | {
+        isCollectible: true;
+        collectibleDocPath: string;
+      };
+
+  timestamp: number;
+  id: string;
+
+  reviewStatus: ReviewStatus;
+
+  postDocPath: string;
+
+  reportCount: number;
+};
+
+export type PostMigrateStructure = {
+  newPostDocData: NewPostDocData;
+  rates: RatingData[];
+  comments: CommentServerData[];
+};
