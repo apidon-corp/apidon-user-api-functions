@@ -1,9 +1,9 @@
-import { firestore } from "../../firebase/adminApp";
+import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
-import { onRequest } from "firebase-functions/https";
-import { ReportDocData } from "../../types/Post";
-import { FieldValue } from "firebase-admin/firestore";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/https";
+import {ReportDocData} from "../../types/Post";
+import {FieldValue} from "firebase-admin/firestore";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -68,8 +68,8 @@ async function updateReportCountOnPostDoc(postDocPath: string) {
 
 export const postReport = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

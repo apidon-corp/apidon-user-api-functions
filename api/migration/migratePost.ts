@@ -5,10 +5,10 @@ import {
   PostServerDataOld,
   RatingData,
 } from "../../types/Post";
-import { handleAdminAuthorization } from "../../helpers/handleAdminAuthorization";
-import { onRequest } from "firebase-functions/https";
-import { firestore } from "../../firebase/adminApp";
-import { CollectibleDocData, CollectorDocData } from "../../types/Collectible";
+import {handleAdminAuthorization} from "../../helpers/handleAdminAuthorization";
+import {onRequest} from "firebase-functions/https";
+import {firestore} from "../../firebase/adminApp";
+import {CollectibleDocData, CollectorDocData} from "../../types/Collectible";
 
 async function getPostDataOnMainCollection() {
   try {
@@ -181,7 +181,7 @@ async function updateCollectibleCodeData(
 
     await Promise.all(
       collectibleCodeDocs.docs.map(async (d) => {
-        await d.ref.update({ postDocPath: newPostDocPath });
+        await d.ref.update({postDocPath: newPostDocPath});
       })
     );
 
@@ -521,7 +521,7 @@ async function handleAllCollectibles(
 }
 
 export const migratePost = onRequest(async (req, res) => {
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
   const authResult = handleAdminAuthorization(authorization);
   if (!authResult) {

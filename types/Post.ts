@@ -1,4 +1,4 @@
-import { ReviewStatus } from "./Admin";
+import {ReviewStatus} from "./Admin";
 
 /**
  * @deprecated

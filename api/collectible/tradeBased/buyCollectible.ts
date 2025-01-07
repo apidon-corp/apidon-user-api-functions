@@ -1,17 +1,17 @@
-import { FieldValue } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/v2/https";
-import { getConfigObject } from "../../../configs/getConfigObject";
-import { firestore } from "../../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/v2/https";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { internalAPIRoutes } from "../../../helpers/internalApiRoutes";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CollectibleDocData,
   CollectorDocData,
 } from "../../../types/Collectible";
 
-import { ReceivedNotificationDocData } from "@/types/Notifications";
-import { NewPostDocData } from "../../../types/Post";
+import {ReceivedNotificationDocData} from "@/types/Notifications";
+import {NewPostDocData} from "../../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
@@ -19,11 +19,11 @@ import {
   SoldCollectibleDocData,
 } from "../../../types/Trade";
 
-import { ReceiptDocData } from "../../../types/Receipt";
+import {ReceiptDocData} from "../../../types/Receipt";
 
-import { UserIdentityDoc } from "@/types/Identity";
-import { Environment } from "../../../types/Admin";
-import { BalanceDocData } from "../../../types/Wallet";
+import {UserIdentityDoc} from "@/types/Identity";
+import {Environment} from "../../../types/Admin";
+import {BalanceDocData} from "../../../types/Wallet";
 import AsyncLock = require("async-lock");
 
 const configObject = getConfigObject();
@@ -644,7 +644,7 @@ async function sendNotification(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          authorization: notificationAPIKey,
+          "authorization": notificationAPIKey,
         },
         body: JSON.stringify({
           notificationData: notificationObject,
@@ -1008,8 +1008,8 @@ export const buyCollectible = onRequest(
       return;
     }
 
-    const { authorization } = req.headers;
-    const { postDocPath } = req.body;
+    const {authorization} = req.headers;
+    const {postDocPath} = req.body;
 
     const lockId = `buyCollectible-${postDocPath}`;
 

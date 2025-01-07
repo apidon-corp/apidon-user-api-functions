@@ -1,9 +1,9 @@
-import { onRequest } from "firebase-functions/v2/https";
-import { bucket, firestore } from "../../firebase/adminApp";
+import {onRequest} from "firebase-functions/v2/https";
+import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import { NewPostDocData } from "../../types/Post";
+import {NewPostDocData} from "../../types/Post";
 
-import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 import vision from "@google-cloud/vision";
 
@@ -39,7 +39,7 @@ function createPostServerData(description: string, username: string) {
     image: "",
     ratingCount: 0,
     ratingSum: 0,
-    collectibleStatus: { isCollectible: false },
+    collectibleStatus: {isCollectible: false},
     senderUsername: username,
     reviewStatus: "pending",
     id: "",
@@ -156,9 +156,9 @@ async function createPostOnFirestore(postServerData: NewPostDocData) {
     await createdPostDoc.update({
       id: createdPostDoc.id,
       postDocPath:
-        createdPostDoc.path[0] === "/"
-          ? createdPostDoc.path.slice(1)
-          : createdPostDoc.path,
+        createdPostDoc.path[0] === "/" ?
+          createdPostDoc.path.slice(1) :
+          createdPostDoc.path,
     });
 
     return {
@@ -172,8 +172,8 @@ async function createPostOnFirestore(postServerData: NewPostDocData) {
 
 export const postUpload = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const { authorization } = req.headers;
-    const { description, tempImageLocation } = req.body;
+    const {authorization} = req.headers;
+    const {description, tempImageLocation} = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

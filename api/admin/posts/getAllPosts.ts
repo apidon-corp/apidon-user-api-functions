@@ -1,12 +1,12 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import { PostReviewData } from "../../../types/Admin";
-import { NewPostDocData } from "../../../types/Post";
+import {PostReviewData} from "../../../types/Admin";
+import {NewPostDocData} from "../../../types/Post";
 
 import * as express from "express";
-import { handleAdminAuthorization } from "../../../helpers/handleAdminAuthorization";
+import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 
 async function getAllPostDatas() {
   try {
@@ -57,7 +57,7 @@ export const getAllPosts = onRequest(async (req, res) => {
     return;
   }
 
-  const { authorization } = req.headers;
+  const {authorization} = req.headers;
 
   const authResult = handleAdminAuthorization(authorization);
   if (!authResult) {

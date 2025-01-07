@@ -1,17 +1,17 @@
-import { FieldValue } from "firebase-admin/firestore";
-import { onRequest } from "firebase-functions/https";
-import { getConfigObject } from "../../../configs/getConfigObject";
-import { firestore } from "../../../firebase/adminApp";
+import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/https";
+import {getConfigObject} from "../../../configs/getConfigObject";
+import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import { internalAPIRoutes } from "../../../helpers/internalApiRoutes";
-import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
+import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CodeDocData,
   CollectibleDocData,
   CollectorDocData,
 } from "../../../types/Collectible";
-import { ReceivedNotificationDocData } from "../../../types/Notifications";
-import { NewPostDocData } from "../../../types/Post";
+import {ReceivedNotificationDocData} from "../../../types/Notifications";
+import {NewPostDocData} from "../../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,

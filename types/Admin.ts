@@ -41,7 +41,7 @@ export type ReviewStatus =
    */
   | "pending"
 
-  /**P
+  /** P
    * Indicates that the review has been reviewed and approved.
    * No further action is required.
    */

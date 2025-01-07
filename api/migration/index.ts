@@ -1,2 +1,2 @@
 import {migratePost} from "./migratePost";
-export {migratePost}
+export {migratePost};

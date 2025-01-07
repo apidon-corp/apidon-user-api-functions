@@ -1,11 +1,11 @@
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 
-import { firestore } from "../../../firebase/adminApp";
+import {firestore} from "../../../firebase/adminApp";
 
-import { ReviewStatus } from "../../../types/Admin";
+import {ReviewStatus} from "../../../types/Admin";
 
 import * as express from "express";
-import { handleAdminAuthorization } from "../../../helpers/handleAdminAuthorization";
+import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 
 function checkProps(id: string, senderUsername: string, reviewStatus: string) {
   if (!id || !senderUsername || !reviewStatus) return false;
@@ -91,8 +91,8 @@ export const updatePostStatus = onRequest(async (req, res) => {
     return;
   }
 
-  const { authorization } = req.headers;
-  const { id, senderUsername, reviewStatus } = req.body;
+  const {authorization} = req.headers;
+  const {id, senderUsername, reviewStatus} = req.body;
 
   const authResult = handleAdminAuthorization(authorization);
 
