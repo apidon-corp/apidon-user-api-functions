@@ -1,6 +1,9 @@
 import { ReviewStatus } from "./Admin";
 
-export type PostServerData = {
+/**
+ * @deprecated
+ */
+export type PostServerDataOld = {
   senderUsername: string;
 
   description: string;
@@ -38,7 +41,10 @@ export type CommentServerData = {
   ts: number;
 };
 
-export type PostDataOnMainPostsCollection = {
+/**
+ * @deprecated
+ */
+export type PostDataOnMainPostsCollectionOld = {
   postDocPath: string;
   sender: string;
   timestamp: number;

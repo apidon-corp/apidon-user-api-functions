@@ -6,7 +6,7 @@ import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
-import {PostServerData, RatingData} from "../../types/Post";
+import {NewPostDocData, RatingData} from "../../types/Post";
 import {RateInteractionDocData} from "@/types/Interactions";
 
 const configObject = getConfigObject();
@@ -43,7 +43,7 @@ async function getPostSenderUsername(postDocPath: string) {
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as NewPostDocData;
     return postDocData.senderUsername;
   } catch (error) {
     console.error("Error while getting post sender username: ", error);

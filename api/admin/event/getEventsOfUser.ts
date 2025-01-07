@@ -3,7 +3,7 @@ import {onRequest} from "firebase-functions/https";
 import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 import {firestore} from "../../../firebase/adminApp";
 import {CollectibleDocData} from "../../../types/Collectible";
-import {PostServerData} from "../../../types/Post";
+import {NewPostDocData} from "../../../types/Post";
 
 function checkProps(username: string) {
   if (!username) {
@@ -39,7 +39,7 @@ async function getPostDocData(postDocPath: string) {
       console.error("Post document does not exist");
       return false;
     }
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as NewPostDocData;
 
     if (!postDocData) {
       console.error("Post document data is undefined");
@@ -89,7 +89,7 @@ export const getEventsOfUser = onRequest(async (req, res) => {
     return;
   }
 
-  const filteredEventBasedPostDocDatas: PostServerData[] = [];
+  const filteredEventBasedPostDocDatas: NewPostDocData[] = [];
   for (const postDocData of eventBasedPostDocDatas) {
     if (postDocData) {
       filteredEventBasedPostDocDatas.push(postDocData);
@@ -97,7 +97,7 @@ export const getEventsOfUser = onRequest(async (req, res) => {
   }
 
   filteredEventBasedPostDocDatas.sort(
-    (a, b) => b.creationTime - a.creationTime
+    (a, b) => b.timestamp - a.timestamp
   );
 
   res.status(200).send({

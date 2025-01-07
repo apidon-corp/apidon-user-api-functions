@@ -1,11 +1,11 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {firestore} from "../../../firebase/adminApp";
+import { firestore } from "../../../firebase/adminApp";
 
-import {ReviewStatus} from "../../../types/Admin";
+import { ReviewStatus } from "../../../types/Admin";
 
 import * as express from "express";
-import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
+import { handleAdminAuthorization } from "../../../helpers/handleAdminAuthorization";
 
 function checkProps(id: string, senderUsername: string, reviewStatus: string) {
   if (!id || !senderUsername || !reviewStatus) return false;
@@ -13,11 +13,9 @@ function checkProps(id: string, senderUsername: string, reviewStatus: string) {
   return true;
 }
 
-async function isThereAValidPost(id: string, senderUsername: string) {
+async function isThereAValidPost(id: string) {
   try {
-    const postDocSnapshot = await firestore
-      .doc(`users/${senderUsername}/posts/${id}`)
-      .get();
+    const postDocSnapshot = await firestore.doc(`posts/${id}`).get();
 
     if (!postDocSnapshot.exists) {
       console.error("Post not found");
@@ -93,8 +91,8 @@ export const updatePostStatus = onRequest(async (req, res) => {
     return;
   }
 
-  const {authorization} = req.headers;
-  const {id, senderUsername, reviewStatus} = req.body;
+  const { authorization } = req.headers;
+  const { id, senderUsername, reviewStatus } = req.body;
 
   const authResult = handleAdminAuthorization(authorization);
 
@@ -108,7 +106,7 @@ export const updatePostStatus = onRequest(async (req, res) => {
     return;
   }
 
-  const postResult = await isThereAValidPost(id, senderUsername);
+  const postResult = await isThereAValidPost(id);
   if (!postResult) {
     res
       .status(500)
@@ -124,7 +122,7 @@ export const updatePostStatus = onRequest(async (req, res) => {
     return;
   }
 
-  const postDocPath = `users/${senderUsername}/posts/${id}`;
+  const postDocPath = `posts/${id}`;
 
   const updateResult = await updatePostReviewStatus(postDocPath, reviewStatus);
   if (!updateResult) {

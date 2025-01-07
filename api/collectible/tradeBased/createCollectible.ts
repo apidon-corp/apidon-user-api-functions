@@ -1,16 +1,16 @@
-import {TopUpPlansConfigDocData} from "../../../types/IAP";
-import {UserInServer} from "../../../types/User";
-import {onRequest} from "firebase-functions/v2/https";
-import {firestore} from "../../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/v2/https";
+import { firestore } from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
-import {CollectibleDocData} from "../../../types/Collectible";
-import {PostServerData} from "../../../types/Post";
-import {CreatedCollectibleDocData} from "../../../types/Trade";
-import {CollectibleConfigDocData} from "../../../types/Config";
-import {FieldValue} from "firebase-admin/firestore";
-import {UserIdentityDoc} from "../../../types/Identity";
-import {Environment} from "../../../types/Admin";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
+import { Environment } from "../../../types/Admin";
+import { CollectibleDocData } from "../../../types/Collectible";
+import { CollectibleConfigDocData } from "../../../types/Config";
+import { TopUpPlansConfigDocData } from "../../../types/IAP";
+import { UserIdentityDoc } from "../../../types/Identity";
+import { NewPostDocData } from "../../../types/Post";
+import { CreatedCollectibleDocData } from "../../../types/Trade";
+import { UserInServer } from "../../../types/User";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -114,7 +114,7 @@ async function getPostData(postDocPath: string) {
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as NewPostDocData;
     if (!postDocData) {
       console.error("Post doc data is undefined.");
       return false;
@@ -128,7 +128,7 @@ async function getPostData(postDocPath: string) {
 }
 
 function checkCanAuthorizedForThisOperation(
-  postDocData: PostServerData,
+  postDocData: NewPostDocData,
   username: string
 ) {
   if (postDocData.senderUsername !== username) {
@@ -190,7 +190,7 @@ async function checkIfIdentityVerified(username: string) {
   }
 }
 
-function checkPostForCollectible(postDocData: PostServerData) {
+function checkPostForCollectible(postDocData: NewPostDocData) {
   if (postDocData.collectibleStatus.isCollectible) {
     console.error("Post already is a collectible");
     return false;
@@ -238,8 +238,6 @@ async function createCollectibleDoc(
   price: number,
   stock: number
 ) {
-  const newId = username + "-" + timestamp.toString();
-
   const priceInInt = parseInt(price.toString());
   if (isNaN(priceInInt)) {
     console.error("Price is not a number");
@@ -255,7 +253,7 @@ async function createCollectibleDoc(
   const newCollectibleData: CollectibleDocData = {
     postDocPath: postDocPath,
     creator: username,
-    id: newId,
+    id: "", // This will be set after creation
     price: {
       price: priceInInt,
       currency: "USD",
@@ -269,8 +267,15 @@ async function createCollectibleDoc(
   };
 
   try {
-    await firestore.doc(`/collectibles/${newId}`).set(newCollectibleData);
-    return newId;
+    const createdCollectibleDoc = await firestore
+      .collection(`collectibles`)
+      .add(newCollectibleData);
+
+    await createdCollectibleDoc.update({
+      id: createdCollectibleDoc.id,
+    });
+
+    return createdCollectibleDoc.id;
   } catch (error) {
     console.error("Error while creating NFT doc", error);
     return false;
@@ -321,7 +326,7 @@ async function addDocToCreatedCollectibles(
     const collectionRef = firestore.collection(
       `users/${creator}/collectible/trade/createdCollectibles`
     );
-    const {path} = await collectionRef.add(newData);
+    const { path } = await collectionRef.add(newData);
     return path;
   } catch (error) {
     console.error("Error while adding doc to created collectibles", error);
@@ -385,8 +390,8 @@ export const createCollectible = onRequest(
       return;
     }
 
-    const {authorization} = req.headers;
-    const {postDocPath, price, stock} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath, price, stock } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {

@@ -1,9 +1,9 @@
-import {firestore} from "../../firebase/adminApp";
+import { firestore } from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-import {onRequest} from "firebase-functions/https";
-import {ReportDocData} from "../../types/Post";
-import {FieldValue} from "firebase-admin/firestore";
+import { appCheckMiddleware } from "../../middleware/appCheckMiddleware";
+import { onRequest } from "firebase-functions/https";
+import { ReportDocData } from "../../types/Post";
+import { FieldValue } from "firebase-admin/firestore";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -51,39 +51,25 @@ async function addReportDocToPostReportsCollection(
   }
 }
 
-async function increaseReportCountOfPostAtGeneralPostsCollection(
-  postDocPath: string
-) {
+async function updateReportCountOnPostDoc(postDocPath: string) {
   try {
-    const query = await firestore
-      .collection("posts")
-      .where("postDocPath", "==", postDocPath)
-      .get();
+    const postDoc = firestore.doc(postDocPath);
 
-    const postDoc = query.docs[0];
-    if (!postDoc) {
-      console.error("Post doc not found at general posts colleciton");
-      return false;
-    }
-
-    await postDoc.ref.update({
+    await postDoc.update({
       reportCount: FieldValue.increment(1),
     });
 
     return true;
   } catch (error) {
-    console.error(
-      "Error while increasing report count of post at general posts collection: ",
-      error
-    );
+    console.error("Error while increasing report count of post.", error);
     return false;
   }
 }
 
 export const postReport = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const {authorization} = req.headers;
-    const {postDocPath} = req.body;
+    const { authorization } = req.headers;
+    const { postDocPath } = req.body;
 
     const username = await handleAuthorization(authorization);
     if (!username) {
@@ -105,7 +91,7 @@ export const postReport = onRequest(
     }
 
     const increaseReportCountOfPostAtGeneralPostsCollectionResult =
-      await increaseReportCountOfPostAtGeneralPostsCollection(postDocPath);
+      await updateReportCountOnPostDoc(postDocPath);
     if (!increaseReportCountOfPostAtGeneralPostsCollectionResult) {
       res.status(500).send("Internal Server Error");
       return;

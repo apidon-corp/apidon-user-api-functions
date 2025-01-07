@@ -1,8 +1,8 @@
 import {
   CommentServerData,
-  PostDataOnMainPostsCollection,
+  PostDataOnMainPostsCollectionOld,
   PostMigrateStructure,
-  PostServerData,
+  PostServerDataOld,
   RatingData,
 } from "../../types/Post";
 import { handleAdminAuthorization } from "../../helpers/handleAdminAuthorization";
@@ -14,7 +14,7 @@ async function getPostDataOnMainCollection() {
     const postsDocCollection = await firestore.collection("posts").get();
 
     return postsDocCollection.docs.map(
-      (d) => d.data() as PostDataOnMainPostsCollection
+      (d) => d.data() as PostDataOnMainPostsCollectionOld
     );
   } catch (error) {
     console.error("Error getting post doc paths:", error);
@@ -29,7 +29,7 @@ async function getPostData(postDocPath: string) {
       console.error("Post document does not exist for: ", postDocPath);
       return false;
     }
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as PostServerDataOld
 
     if (!postDocData) {
       console.error("Post document data is undefined");
@@ -67,7 +67,7 @@ async function getCommentDatas(postDocPath: string) {
 }
 
 async function createPostMigrateStructureForOnePost(
-  postDataFromMainPostCollection: PostDataOnMainPostsCollection
+  postDataFromMainPostCollection: PostDataOnMainPostsCollectionOld
 ) {
   const postDocPath = postDataFromMainPostCollection.postDocPath;
 
@@ -115,7 +115,7 @@ async function createPostMigrateStructureForOnePost(
 }
 
 async function createPostMigrationDataForAllPosts(
-  postDatasFromMainPostCollection: PostDataOnMainPostsCollection[]
+  postDatasFromMainPostCollection: PostDataOnMainPostsCollectionOld[]
 ) {
   const allPostMigrationStructures = await Promise.all(
     postDatasFromMainPostCollection.map(createPostMigrateStructureForOnePost)

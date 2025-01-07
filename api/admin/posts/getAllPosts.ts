@@ -1,67 +1,28 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {firestore} from "../../../firebase/adminApp";
+import { firestore } from "../../../firebase/adminApp";
 
-import {PostReviewData} from "../../../types/Admin";
-import {
-  PostDataOnMainPostsCollection,
-  PostServerData,
-} from "../../../types/Post";
+import { PostReviewData } from "../../../types/Admin";
+import { NewPostDocData } from "../../../types/Post";
 
 import * as express from "express";
-import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
+import { handleAdminAuthorization } from "../../../helpers/handleAdminAuthorization";
 
-async function getPostDocPaths() {
+async function getAllPostDatas() {
   try {
-    const postsDocCollection = await firestore.collection("posts").get();
+    const postDocsQuery = await firestore
+      .collection("posts")
+      .orderBy("timestamp", "desc")
+      .get();
 
-    return postsDocCollection.docs.map(
-      (d) => (d.data() as PostDataOnMainPostsCollection).postDocPath
-    );
-  } catch (error) {
-    console.error("Error getting post doc paths:", error);
-    return false;
-  }
-}
-
-async function getPostData(postDocPath: string) {
-  try {
-    const postDocSnapshot = await firestore.doc(postDocPath).get();
-    if (!postDocSnapshot.exists) {
-      console.error("Post document does not exist");
-      return false;
-    }
-    const postDocData = postDocSnapshot.data() as PostServerData;
-
-    if (!postDocData) {
-      console.error("Post document data is undefined");
-      return false;
-    }
-    return postDocData;
-  } catch (error) {
-    console.error("Error getting post data:", error);
-    return false;
-  }
-}
-
-async function getAllPostDatas(postDocPaths: string[]) {
-  try {
-    const allPostDocDatas = await Promise.all(
-      postDocPaths.map((postDocPath) => getPostData(postDocPath))
-    );
-
-    const filtered = allPostDocDatas.filter(
-      (postDocData) => postDocData !== false
-    ) as PostServerData[];
-
-    return filtered;
+    return postDocsQuery.docs.map((doc) => doc.data() as NewPostDocData);
   } catch (error) {
     console.error("Error getting all post datas:", error);
     return false;
   }
 }
 
-function createPostReviewDatas(postDocDatas: PostServerData[]) {
+function createPostReviewDatas(postDocDatas: NewPostDocData[]) {
   const postReviewDatas: PostReviewData[] = [];
 
   for (const postDocData of postDocDatas) {
@@ -96,7 +57,7 @@ export const getAllPosts = onRequest(async (req, res) => {
     return;
   }
 
-  const {authorization} = req.headers;
+  const { authorization } = req.headers;
 
   const authResult = handleAdminAuthorization(authorization);
   if (!authResult) {
@@ -104,13 +65,7 @@ export const getAllPosts = onRequest(async (req, res) => {
     return;
   }
 
-  const postDocPaths = await getPostDocPaths();
-  if (!postDocPaths) {
-    res.status(500).send("Error getting post doc paths");
-    return;
-  }
-
-  const allPostDocDatas = await getAllPostDatas(postDocPaths);
+  const allPostDocDatas = await getAllPostDatas();
   if (!allPostDocDatas) {
     res.status(500).send("Error getting all post datas");
     return;

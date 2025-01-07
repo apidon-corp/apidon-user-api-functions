@@ -1,9 +1,9 @@
-import {onRequest} from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
 
-import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
-import {auth, firestore} from "../../../firebase/adminApp";
-import {PostDataOnMainPostsCollection} from "../../../types/Post";
-import {UserInServer} from "../../../types/User";
+import { handleAdminAuthorization } from "../../../helpers/handleAdminAuthorization";
+import { auth, firestore } from "../../../firebase/adminApp";
+import { NewPostDocData } from "../../../types/Post";
+import { UserInServer } from "../../../types/User";
 
 async function getUIDOfUser(username: string) {
   try {
@@ -32,7 +32,7 @@ async function getUIDOfUser(username: string) {
 
 async function disableUserAuthObject(uid: string) {
   try {
-    await auth.updateUser(uid, {disabled: true});
+    await auth.updateUser(uid, { disabled: true });
     return true;
   } catch (error) {
     console.error("Error disabling user auth object", error);
@@ -44,12 +44,10 @@ async function getUsersPostDocPaths(username: string) {
   try {
     const query = await firestore
       .collection("posts")
-      .where("sender", "==", username)
+      .where("senderUsername", "==", username)
       .get();
 
-    return query.docs.map(
-      (doc) => (doc.data() as PostDataOnMainPostsCollection).postDocPath
-    );
+    return query.docs.map((doc) => (doc.data() as NewPostDocData).postDocPath);
   } catch (error) {
     console.error("Error getting user post doc paths", error);
     return false;
@@ -82,8 +80,8 @@ async function banPostOfUsers(postDocPaths: string[]) {
 }
 
 export const banUser = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
-  const {username} = req.body;
+  const { authorization } = req.headers;
+  const { username } = req.body;
 
   const authResult = handleAdminAuthorization(authorization);
 

@@ -1,17 +1,17 @@
-import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/https";
-import {getConfigObject} from "../../../configs/getConfigObject";
-import {firestore} from "../../../firebase/adminApp";
+import { FieldValue } from "firebase-admin/firestore";
+import { onRequest } from "firebase-functions/https";
+import { getConfigObject } from "../../../configs/getConfigObject";
+import { firestore } from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
-import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
+import { internalAPIRoutes } from "../../../helpers/internalApiRoutes";
+import { appCheckMiddleware } from "../../../middleware/appCheckMiddleware";
 import {
   CodeDocData,
   CollectibleDocData,
   CollectorDocData,
 } from "../../../types/Collectible";
-import {ReceivedNotificationDocData} from "../../../types/Notifications";
-import {PostServerData} from "../../../types/Post";
+import { ReceivedNotificationDocData } from "../../../types/Notifications";
+import { NewPostDocData } from "../../../types/Post";
 import {
   BoughtCollectibleDocData,
   PurhcasePaymentIntentDocData,
@@ -121,7 +121,7 @@ async function getPostData(postDocPath: string) {
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as NewPostDocData;
     if (!postDocData) {
       console.error("Post doc data is undefined.");
       return false;
@@ -135,7 +135,7 @@ async function getPostData(postDocPath: string) {
 }
 
 function isDifferentPersonThanCreator(
-  postDocData: PostServerData,
+  postDocData: NewPostDocData,
   customer: string
 ) {
   return postDocData.senderUsername !== customer;
@@ -146,7 +146,7 @@ function isDifferentPersonThanCreator(
  * @param postDocData - The post data.
  * @returns The Collectible document path if valid, otherwise false.
  */
-function getCollectibleDocPath(postDocData: PostServerData) {
+function getCollectibleDocPath(postDocData: NewPostDocData) {
   if (!postDocData.collectibleStatus.isCollectible) {
     console.error("Post is not a collectible to buy.");
     return false;
