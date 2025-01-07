@@ -8,6 +8,7 @@ import {
 import { handleAdminAuthorization } from "../../helpers/handleAdminAuthorization";
 import { onRequest } from "firebase-functions/https";
 import { firestore } from "../../firebase/adminApp";
+import { CollectibleDocData, CollectorDocData } from "../../types/Collectible";
 
 async function getPostDataOnMainCollection() {
   try {
@@ -29,7 +30,7 @@ async function getPostData(postDocPath: string) {
       console.error("Post document does not exist for: ", postDocPath);
       return false;
     }
-    const postDocData = postDocSnapshot.data() as PostServerDataOld
+    const postDocData = postDocSnapshot.data() as PostServerDataOld;
 
     if (!postDocData) {
       console.error("Post document data is undefined");
@@ -345,6 +346,180 @@ async function updateIdAndPostDocPathOfNewPost() {
   }
 }
 
+async function getCollectibles() {
+  try {
+    const collectiblesQuery = await firestore.collection("collectibles").get();
+
+    return collectiblesQuery.docs.map((d) => d.data() as CollectibleDocData);
+  } catch (error) {
+    console.error("Error getting collectibles:", error);
+    return false;
+  }
+}
+
+async function handleUpdatePostDocPathCreatedCollectiblesOfCollectibleSender(
+  sender: string,
+  collectibleDocPath: string,
+  newPostDocPath: string
+) {
+  try {
+    const createdCollectibleDocQuery = await firestore
+      .collection("users")
+      .doc(sender)
+      .collection("collectible")
+      .doc("trade")
+      .collection("createdCollectibles")
+      .where("collectibleDocPath", "==", collectibleDocPath)
+      .get();
+
+    if (!createdCollectibleDocQuery.docs.length) {
+      console.error("No created collectibles found for sender:", sender);
+      return false;
+    }
+
+    await createdCollectibleDocQuery.docs[0].ref.update({
+      postDocPath: newPostDocPath,
+    });
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Error updating post doc path of created collectibles:",
+      error
+    );
+    return false;
+  }
+}
+
+async function getCollectorsOfCollectible(collectibleDocPath: string) {
+  try {
+    const collectorDocs = await firestore
+      .doc(collectibleDocPath)
+      .collection("collectors")
+      .get();
+    return collectorDocs.docs.map((d) => d.data() as CollectorDocData);
+  } catch (error) {
+    console.error("Error getting collectors of collectible:", error);
+    return false;
+  }
+}
+
+async function updatePostDocPathOfBoughtCollectibleDocOfOneUser(
+  collector: string,
+  collectibleDocPath: string,
+  newPostDocPath: string
+) {
+  try {
+    const boughtCollectibleDocQuery = await firestore
+      .collection("users")
+      .doc(collector)
+      .collection("collectible")
+      .doc("trade")
+      .collection("boughtCollectibles")
+      .where("collectibleDocPath", "==", collectibleDocPath)
+      .get();
+
+    if (!boughtCollectibleDocQuery.docs.length) {
+      console.error(
+        "No bought collectibles found for collector:",
+        collector,
+        collectibleDocPath,
+        newPostDocPath
+      );
+      return true;
+    }
+
+    await boughtCollectibleDocQuery.docs[0].ref.update({
+      postDocPath: newPostDocPath,
+    });
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Error updating post doc path of bought collectibles:",
+      error,
+      collector,
+      collectibleDocPath,
+      newPostDocPath
+    );
+    return false;
+  }
+}
+
+async function handleUpdatePostPathBoughtCollectiblesOfCollectors(
+  collectors: string[],
+  collectibleDocPath: string,
+  newPostDocPath: string
+) {
+  try {
+    await Promise.all(
+      collectors.map((collector) =>
+        updatePostDocPathOfBoughtCollectibleDocOfOneUser(
+          collector,
+          collectibleDocPath,
+          newPostDocPath
+        )
+      )
+    );
+    return true;
+  } catch (error) {
+    console.error(
+      "Error updating post doc path of bought collectibles:",
+      error
+    );
+    return false;
+  }
+}
+
+async function handleOneCollectible(collectibleDocData: CollectibleDocData) {
+  const updatedCreatedColResult =
+    await handleUpdatePostDocPathCreatedCollectiblesOfCollectibleSender(
+      collectibleDocData.creator,
+      `collectibles/${collectibleDocData.id}`,
+      collectibleDocData.postDocPath
+    );
+  if (!updatedCreatedColResult) {
+    console.error(
+      "Error updating created collectibles of sender:",
+      collectibleDocData.creator
+    );
+    return false;
+  }
+
+  const collectors = await getCollectorsOfCollectible(
+    `collectibles/${collectibleDocData.id}`
+  );
+  if (!collectors) {
+    console.error("Error getting collectors of collectible");
+    return false;
+  }
+
+  const updatedBoughtColResult =
+    await handleUpdatePostPathBoughtCollectiblesOfCollectors(
+      collectors.map((collector) => collector.username),
+      `collectibles/${collectibleDocData.id}`,
+      collectibleDocData.postDocPath
+    );
+  if (!updatedBoughtColResult) {
+    console.error("Error updating bought collectibles of collectors");
+    return false;
+  }
+
+  return true;
+}
+
+async function handleAllCollectibles(
+  collectibleDocDatas: CollectibleDocData[]
+) {
+  try {
+    await Promise.all(collectibleDocDatas.map(handleOneCollectible));
+    return true;
+  } catch (error) {
+    console.error("Error handling all collectibles:", error);
+    return false;
+  }
+}
+
 export const migratePost = onRequest(async (req, res) => {
   const { authorization } = req.headers;
 
@@ -377,6 +552,20 @@ export const migratePost = onRequest(async (req, res) => {
   const idAndPostDocPathUpdated = await updateIdAndPostDocPathOfNewPost();
   if (!idAndPostDocPathUpdated) {
     res.status(500).send("Error updating id and post doc path of new post");
+    return;
+  }
+
+  const collectibleDocDatas = await getCollectibles();
+  if (!collectibleDocDatas) {
+    res.status(500).send("Error getting collectibles");
+    return;
+  }
+
+  const allCollectiblesHandled = await handleAllCollectibles(
+    collectibleDocDatas
+  );
+  if (!allCollectiblesHandled) {
+    res.status(500).send("Error handling all collectibles");
     return;
   }
 

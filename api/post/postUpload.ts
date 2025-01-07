@@ -161,7 +161,9 @@ async function createPostOnFirestore(postServerData: NewPostDocData) {
           : createdPostDoc.path,
     });
 
-    return true;
+    return {
+      id: createdPostDoc.id,
+    };
   } catch (error) {
     console.error("Error on creating post on Firestore Database.");
     return false;
@@ -219,8 +221,7 @@ export const postUpload = onRequest(
     }
 
     res.status(200).json({
-      newPostData: postServerData,
-      newPostDocId: postServerData.id,
+      newPostDocId: createPostOnFirestoreResult.id,
     });
 
     return;
