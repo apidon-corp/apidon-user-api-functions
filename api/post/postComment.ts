@@ -8,7 +8,7 @@ import getDisplayName from "../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {CommentInteractionDocData} from "../../types/Interactions";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
-import {CommentServerData, PostServerData} from "../../types/Post";
+import {CommentServerData, NewPostDocData} from "../../types/Post";
 
 const configObject = getConfigObject();
 
@@ -129,7 +129,7 @@ async function getPostSender(postDocPath: string) {
     const postDocSnapshot = await firestore.doc(postDocPath).get();
     if (!postDocSnapshot.exists) return false;
 
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as NewPostDocData;
     if (!postDocData) return false;
 
     const postSender = postDocData.senderUsername;

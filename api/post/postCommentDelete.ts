@@ -4,7 +4,7 @@ import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
-import {CommentServerData, PostServerData} from "../../types/Post";
+import {CommentServerData, NewPostDocData} from "../../types/Post";
 
 import {getConfigObject} from "../../configs/getConfigObject";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
@@ -63,7 +63,7 @@ async function checkCanDeleteComment(
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as NewPostDocData;
     return {
       postDocData: postDocData,
       commentDocPath: commentDocPath,

@@ -2,7 +2,7 @@ import {onRequest} from "firebase-functions/v2/https";
 
 import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 import {auth, firestore} from "../../../firebase/adminApp";
-import {PostDataOnMainPostsCollection} from "../../../types/Post";
+import {NewPostDocData} from "../../../types/Post";
 import {UserInServer} from "../../../types/User";
 
 async function getUIDOfUser(username: string) {
@@ -44,12 +44,10 @@ async function getUsersPostDocPaths(username: string) {
   try {
     const query = await firestore
       .collection("posts")
-      .where("sender", "==", username)
+      .where("senderUsername", "==", username)
       .get();
 
-    return query.docs.map(
-      (doc) => (doc.data() as PostDataOnMainPostsCollection).postDocPath
-    );
+    return query.docs.map((doc) => (doc.data() as NewPostDocData).postDocPath);
   } catch (error) {
     console.error("Error getting user post doc paths", error);
     return false;

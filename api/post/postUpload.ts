@@ -1,11 +1,7 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {UploadedPostInteractionDocData} from "../../types/Interactions";
-import {
-  PostDataOnMainPostsCollection,
-  PostServerData,
-} from "../../types/Post";
+import {NewPostDocData} from "../../types/Post";
 
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
@@ -36,8 +32,8 @@ function checkProps(image: string) {
 function createPostServerData(description: string, username: string) {
   const ts = Date.now();
 
-  const newPostServerData: PostServerData = {
-    creationTime: ts,
+  const newPostServerData: NewPostDocData = {
+    timestamp: ts,
     description: description,
     commentCount: 0,
     image: "",
@@ -45,8 +41,10 @@ function createPostServerData(description: string, username: string) {
     ratingSum: 0,
     collectibleStatus: {isCollectible: false},
     senderUsername: username,
-    id: ts.toString(),
     reviewStatus: "pending",
+    id: "",
+    postDocPath: "",
+    reportCount: 0,
   };
 
   return newPostServerData;
@@ -149,72 +147,25 @@ async function checkIfImageIsClear(imageURL: string) {
   }
 }
 
-async function createPostOnFirestore(
-  postServerData: PostServerData,
-  username: string
-) {
+async function createPostOnFirestore(postServerData: NewPostDocData) {
   try {
-    await firestore.doc(`/users/${username}/posts/${postServerData.id}`).set({
-      ...postServerData,
+    const createdPostDoc = await firestore
+      .collection("posts")
+      .add(postServerData);
+
+    await createdPostDoc.update({
+      id: createdPostDoc.id,
+      postDocPath:
+        createdPostDoc.path[0] === "/" ?
+          createdPostDoc.path.slice(1) :
+          createdPostDoc.path,
     });
-    return true;
+
+    return {
+      id: createdPostDoc.id,
+    };
   } catch (error) {
     console.error("Error on creating post on Firestore Database.");
-    return false;
-  }
-}
-
-/**
- * For post interactions.
- * @param username
- * @param postDocPath
- * @param timestamp
- * @returns
- */
-async function addDocToUploadedPosts(
-  username: string,
-  postDocPath: string,
-  timestamp: number
-) {
-  try {
-    const newUploadedPostObject: UploadedPostInteractionDocData = {
-      postDocPath: postDocPath,
-      timestamp: timestamp,
-    };
-
-    const uploadedPostsCollectionRef = firestore.collection(
-      `users/${username}/personal/postInteractions/uploadedPosts`
-    );
-
-    await uploadedPostsCollectionRef.add(newUploadedPostObject);
-  } catch (error) {
-    console.error(
-      "Error while adding doc to uploadedPosts collection for tracking information."
-    );
-    return false;
-  }
-
-  return true;
-}
-
-async function addPostDocToMainPostsCollection(
-  postDocPath: string,
-  timestamp: number,
-  sender: string
-) {
-  const postData: PostDataOnMainPostsCollection = {
-    postDocPath: postDocPath,
-    timestamp: timestamp,
-    sender: sender,
-    reportCount: 0,
-  };
-
-  try {
-    const mainPostsCollectionRef = firestore.collection("posts");
-    await mainPostsCollectionRef.add(postData);
-    return true;
-  } catch (error) {
-    console.error("Error while adding post to main posts collection", error);
     return false;
   }
 }
@@ -261,36 +212,16 @@ export const postUpload = onRequest(
       return;
     }
 
-    const [
-      createPostOnFirestoreResult,
-      updateUploadedPostArrayResult,
-      addPostDocToMainPostsCollectionResult,
-    ] = await Promise.all([
-      createPostOnFirestore(postServerData, username),
-      addDocToUploadedPosts(
-        username,
-        `users/${username}/posts/${postServerData.id}`,
-        postServerData.creationTime
-      ),
-      addPostDocToMainPostsCollection(
-        `users/${username}/posts/${postServerData.id}`,
-        postServerData.creationTime,
-        username
-      ),
-    ]);
-
-    if (
-      !createPostOnFirestoreResult ||
-      !updateUploadedPostArrayResult ||
-      !addPostDocToMainPostsCollectionResult
-    ) {
+    const createPostOnFirestoreResult = await createPostOnFirestore(
+      postServerData
+    );
+    if (!createPostOnFirestoreResult) {
       res.status(500).send("Internal Server Error");
       return;
     }
 
     res.status(200).json({
-      newPostData: postServerData,
-      newPostDocId: postServerData.id,
+      newPostDocId: createPostOnFirestoreResult.id,
     });
 
     return;

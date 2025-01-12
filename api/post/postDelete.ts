@@ -1,7 +1,7 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {PostServerData} from "../../types/Post";
+import {NewPostDocData} from "../../types/Post";
 
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
@@ -34,7 +34,7 @@ async function checkCanDeletePost(postDocPath: string, username: string) {
       return false;
     }
 
-    const postDocData = postDocSnapshot.data() as PostServerData;
+    const postDocData = postDocSnapshot.data() as NewPostDocData;
 
     if (!postDocData) {
       console.error("postDocData is undefined");
@@ -59,7 +59,7 @@ async function checkCanDeletePost(postDocPath: string, username: string) {
 async function deleteStoredFiles(
   postId: string,
   username: string,
-  postDocData: PostServerData
+  postDocData: NewPostDocData
 ) {
   if (postDocData.image.length === 0) {
     return true;

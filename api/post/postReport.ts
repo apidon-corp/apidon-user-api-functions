@@ -51,31 +51,17 @@ async function addReportDocToPostReportsCollection(
   }
 }
 
-async function increaseReportCountOfPostAtGeneralPostsCollection(
-  postDocPath: string
-) {
+async function updateReportCountOnPostDoc(postDocPath: string) {
   try {
-    const query = await firestore
-      .collection("posts")
-      .where("postDocPath", "==", postDocPath)
-      .get();
+    const postDoc = firestore.doc(postDocPath);
 
-    const postDoc = query.docs[0];
-    if (!postDoc) {
-      console.error("Post doc not found at general posts colleciton");
-      return false;
-    }
-
-    await postDoc.ref.update({
+    await postDoc.update({
       reportCount: FieldValue.increment(1),
     });
 
     return true;
   } catch (error) {
-    console.error(
-      "Error while increasing report count of post at general posts collection: ",
-      error
-    );
+    console.error("Error while increasing report count of post.", error);
     return false;
   }
 }
@@ -105,7 +91,7 @@ export const postReport = onRequest(
     }
 
     const increaseReportCountOfPostAtGeneralPostsCollectionResult =
-      await increaseReportCountOfPostAtGeneralPostsCollection(postDocPath);
+      await updateReportCountOnPostDoc(postDocPath);
     if (!increaseReportCountOfPostAtGeneralPostsCollectionResult) {
       res.status(500).send("Internal Server Error");
       return;
