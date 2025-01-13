@@ -1,4 +1,5 @@
 import {updateVerifiedStatus} from "./updateVerifiedStatus";
 import {banUser} from "./banUser";
 import {unBanUser} from "./unBanUser";
-export {updateVerifiedStatus, banUser, unBanUser};
+import {increaseCollectibleLimit} from "./increaseCollectibleLimit";
+export {updateVerifiedStatus, banUser, unBanUser, increaseCollectibleLimit};
