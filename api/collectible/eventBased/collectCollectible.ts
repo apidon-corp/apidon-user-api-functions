@@ -7,6 +7,7 @@ import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CodeDocData,
+  CollectedCollectibleDocData,
   CollectibleDocData,
   CollectorDocData,
 } from "../../../types/Collectible";
@@ -347,6 +348,49 @@ async function updateCollectibleDoc(
   }
 }
 
+/**
+ * @returns Path of newly created doc.
+ */
+async function addDocToCollectedCollectiblesCollection(
+  collectibleDocPath: string,
+  postDocPath: string,
+  timestamp: number,
+  rank: number,
+  creatorUsername: string,
+  collectorUsername: string
+) {
+  const newDocData: CollectedCollectibleDocData = {
+    collectibleDocPath: collectibleDocPath,
+    postDocPath: postDocPath,
+    collectorUsername: collectorUsername,
+    creatorUsername: creatorUsername,
+    id: "", // This should be generated
+    rank: rank,
+    timestamp: timestamp,
+    type: "event",
+    docPath: "", // This should be generated
+  };
+
+  try {
+    const collectionRef = firestore.collection("collectedCollectibles");
+
+    const newDocRef = await collectionRef.add(newDocData);
+
+    await newDocRef.update({
+      id: newDocRef.id,
+      docPath:
+        newDocRef.path[0] === "/" ? newDocRef.path.slice(1) : newDocRef.path,
+    });
+
+    return newDocRef.path;
+  } catch (error) {
+    console.error(
+      "Error while adding doc to collected collectibles collection"
+    );
+    return false;
+  }
+}
+
 async function addBoughtCollectibleDocToBuyer(
   customer: string,
   postDocPath: string,
@@ -498,19 +542,6 @@ async function sendNotification(
   }
 }
 
-/**
- * Rolls back the transaction by reverting all changes.
- * @param username - The username of the buyer.
- * @param seller - The username of the seller.
- * @param updateBalanceResult - The result of updating the buyer's balance.
- * @param updateBalanceOfSellerResult - The result of updating the seller's balance.
- * @param createPurchasePaymentIntentDocResult - The result of creating the purchase payment intent document.
- * @param createSellPaymentIntentDocResult - The result of creating the sell payment intent document.
- * @param updateCollectibleDocResult - The result of updating the Collectible document.
- * @param updateCollectibleTradeDocOfBuyerResult - The result of updating the buyer's Collectible trade document.
- * @param updateCollectibleTradeDocOfSellerResult - The result of updating the seller's Collectible trade document.
- * @returns A promise that resolves when the rollback is complete.
- */
 async function rollback(
   customer: string,
   seller: string,
@@ -521,6 +552,7 @@ async function rollback(
     | {
         collectibleDocPath: string;
       },
+  addDocToCollectedCollectiblesCollectionResult: false | string,
   addBoughtCollectibleDocToBuyerResult:
     | false
     | FirebaseFirestore.DocumentReference<
@@ -571,6 +603,20 @@ async function rollback(
       });
     } catch (error) {
       console.error("Error while rolling back collectible doc", error);
+    }
+  }
+
+  if (addDocToCollectedCollectiblesCollectionResult) {
+    try {
+      const collectedCollectibleDocRef = firestore.doc(
+        addDocToCollectedCollectiblesCollectionResult
+      );
+      await collectedCollectibleDocRef.delete();
+    } catch (error) {
+      console.error(
+        "Error while rolling back collected collectible doc",
+        error
+      );
     }
   }
 
@@ -641,7 +687,6 @@ async function processCollecting(
   if (!postData) {
     await rollbackCheckAndUpdateCodeDoc(code);
     throw new Error("Post not found");
-    return;
   }
 
   if (!isDifferentPersonThanCreator(postData, collectorUsername)) {
@@ -687,6 +732,7 @@ async function processCollecting(
     createPurchasePaymentIntentDocResult,
     createSellPaymentIntentDocResult,
     updateCollectibleDocResult,
+    addDocToCollectedCollectiblesCollectionResult,
     addBoughtCollectibleDocToBuyerResult,
     addSoldCollectibleDocToSellerResult,
     addCollectorDocToCollectorsCollectionResult,
@@ -707,7 +753,16 @@ async function processCollecting(
       creator
     ),
     updateCollectibleDoc(collectibleDocPath, collectorUsername),
-
+    addDocToCollectedCollectiblesCollection(
+      collectibleDocPath,
+      postDocPath,
+      commonTimestamp,
+      collectibleData.stock.initialStock -
+        collectibleData.stock.remainingStock +
+        1,
+      creator,
+      collectorUsername
+    ),
     addBoughtCollectibleDocToBuyer(
       collectorUsername,
       postDocPath,
@@ -735,6 +790,7 @@ async function processCollecting(
     !createPurchasePaymentIntentDocResult ||
     !createSellPaymentIntentDocResult ||
     !updateCollectibleDocResult ||
+    !addDocToCollectedCollectiblesCollectionResult ||
     !addBoughtCollectibleDocToBuyerResult ||
     !addSoldCollectibleDocToSellerResult ||
     !addCollectorDocToCollectorsCollectionResult ||
@@ -747,11 +803,13 @@ async function processCollecting(
       createPurchasePaymentIntentDocResult,
       createSellPaymentIntentDocResult,
       updateCollectibleDocResult,
+      addDocToCollectedCollectiblesCollectionResult,
       addBoughtCollectibleDocToBuyerResult,
       addSoldCollectibleDocToSellerResult,
       addCollectorDocToCollectorsCollectionResult,
       updateUserCollectibleCountResult
     );
+    throw new Error("Server Problem");
   }
 
   const notificationObject = createNotificationObject(
@@ -764,6 +822,8 @@ async function processCollecting(
   if (!notificationResult) {
     throw new Error("Internal Server Error: Notification can not be sent.");
   }
+
+  return addDocToCollectedCollectiblesCollectionResult;
 }
 
 const lock = new AsyncLock();
@@ -777,8 +837,13 @@ export const collectCollectible = onRequest(
 
     try {
       await lock.acquire(lockId, async () => {
-        await processCollecting(code, authorization);
-        res.status(200).send("Successfull");
+        const newCollectedDocPath = await processCollecting(
+          code,
+          authorization
+        );
+        res.status(200).send({
+          collectedDocPath: newCollectedDocPath,
+        });
       });
     } catch (error) {
       console.error("Error on collection of event based collectible: ", error);

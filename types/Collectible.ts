@@ -52,3 +52,15 @@ export type CodeDocData =
       consumerUsername: string;
       consumedTime: number;
     };
+
+export type CollectedCollectibleDocData = {
+  id: string;
+  collectibleDocPath: string;
+  postDocPath: string;
+  timestamp: number;
+  rank: number;
+  creatorUsername: string;
+  collectorUsername: string;
+  type: CollectibleType;
+  docPath: string,
+};

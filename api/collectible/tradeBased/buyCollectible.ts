@@ -6,6 +6,7 @@ import getDisplayName from "../../../helpers/getDisplayName";
 import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
+  CollectedCollectibleDocData,
   CollectibleDocData,
   CollectorDocData,
 } from "../../../types/Collectible";
@@ -442,6 +443,49 @@ async function updateCollectibleDoc(
   }
 }
 
+/**
+ * @returns Path of newly created doc.
+ */
+async function addDocToCollectedCollectiblesCollection(
+  collectibleDocPath: string,
+  postDocPath: string,
+  timestamp: number,
+  rank: number,
+  creatorUsername: string,
+  collectorUsername: string
+) {
+  const newDocData: CollectedCollectibleDocData = {
+    collectibleDocPath: collectibleDocPath,
+    postDocPath: postDocPath,
+    collectorUsername: collectorUsername,
+    creatorUsername: creatorUsername,
+    id: "", // This should be generated
+    rank: rank,
+    timestamp: timestamp,
+    type: "event",
+    docPath: "", // This should be generated
+  };
+
+  try {
+    const collectionRef = firestore.collection("collectedCollectibles");
+
+    const newDocRef = await collectionRef.add(newDocData);
+
+    await newDocRef.update({
+      id: newDocRef.id,
+      docPath:
+        newDocRef.path[0] === "/" ? newDocRef.path.slice(1) : newDocRef.path,
+    });
+
+    return newDocRef.path;
+  } catch (error) {
+    console.error(
+      "Error while adding doc to collected collectibles collection"
+    );
+    return false;
+  }
+}
+
 async function addCollectorDocToCollectorsCollection(
   collectibleDocPath: string,
   collectorDocData: CollectorDocData
@@ -692,6 +736,7 @@ async function rollback(
     | {
         collectibleDocPath: string;
       },
+  addDocToCollectedCollectiblesCollectionResult: false | string,
   addBoughtCollectibleDocToBuyerResult:
     | false
     | FirebaseFirestore.DocumentReference<
@@ -771,6 +816,20 @@ async function rollback(
       });
     } catch (error) {
       console.error("Error while rolling back collectible doc", error);
+    }
+  }
+
+  if (addDocToCollectedCollectiblesCollectionResult) {
+    try {
+      const collectedCollectibleDocRef = firestore.doc(
+        addDocToCollectedCollectiblesCollectionResult
+      );
+      await collectedCollectibleDocRef.delete();
+    } catch (error) {
+      console.error(
+        "Error while rolling back collected collectible doc",
+        error
+      );
     }
   }
 
@@ -899,6 +958,7 @@ async function processPayment(
     createPurchasePaymentIntentDocResult,
     createSellPaymentIntentDocResult,
     updateCollectibleDocResult,
+    addDocToCollectedCollectiblesCollectionResult,
     addBoughtCollectibleDocToBuyerResult,
     addSoldCollectibleDocToSellerResult,
     addCollectorDocToCollectorsCollectionResult,
@@ -925,6 +985,16 @@ async function processPayment(
       seller
     ),
     updateCollectibleDoc(collectibleDocPath, username),
+    addDocToCollectedCollectiblesCollection(
+      collectibleDocPath,
+      postDocPath,
+      commonTimestamp,
+      collectibleData.stock.initialStock -
+        collectibleData.stock.remainingStock +
+        1,
+      seller,
+      username
+    ),
     addBoughtCollectibleDocToBuyer(
       username,
       postDocPath,
@@ -962,6 +1032,7 @@ async function processPayment(
     !createPurchasePaymentIntentDocResult ||
     !createSellPaymentIntentDocResult ||
     !updateCollectibleDocResult ||
+    !addDocToCollectedCollectiblesCollectionResult ||
     !addBoughtCollectibleDocToBuyerResult ||
     !addSoldCollectibleDocToSellerResult ||
     !addCollectorDocToCollectorsCollectionResult ||
@@ -976,6 +1047,7 @@ async function processPayment(
       createPurchasePaymentIntentDocResult,
       createSellPaymentIntentDocResult,
       updateCollectibleDocResult,
+      addDocToCollectedCollectiblesCollectionResult,
       addBoughtCollectibleDocToBuyerResult,
       addSoldCollectibleDocToSellerResult,
       addCollectorDocToCollectorsCollectionResult,
