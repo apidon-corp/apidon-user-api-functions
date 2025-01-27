@@ -1,12 +1,23 @@
-import {initializeApp} from "firebase-admin/app";
-import {getAppCheck} from "firebase-admin/app-check";
-import {getAuth} from "firebase-admin/auth";
-import {getFirestore} from "firebase-admin/firestore";
-import {getStorage} from "firebase-admin/storage";
+import * as admin from "firebase-admin";
 
-const app = initializeApp();
+import {getConfigObject} from "../configs/getConfigObject";
 
-export const auth = getAuth(app);
-export const firestore = getFirestore(app);
-export const appCheck = getAppCheck(app);
-export const bucket = getStorage(app).bucket();
+const configObject = getConfigObject();
+if (!configObject) throw new Error("Config object not found for admin app.");
+
+if (!admin.apps.length) {
+  const serviceAccount = configObject.serviceAccount as admin.ServiceAccount;
+
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
+
+export const auth = admin.auth();
+export const firestore = admin.firestore();
+
+export const appCheck = admin.appCheck();
+
+const storageBucketId = configObject.storageBucketId;
+
+export const bucket = admin.storage().bucket(storageBucketId);
