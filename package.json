@@ -22,9 +22,9 @@
     "@types/crypto-js": "^4.2.2",
     "async-lock": "^1.4.1",
     "crypto-js": "^4.2.0",
-    "dotenv": "^16.4.5",
-    "firebase-admin": "^12.7.0",
-    "firebase-functions": "^6.1.0",
+    "dotenv": "^16.4.7",
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.0",
     "stripe": "^17.2.1"
   },
   "devDependencies": {
