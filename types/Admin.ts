@@ -60,22 +60,6 @@ export type ReviewStatus =
  * Type of decrypted config data.
  */
 export type ConfigObject = {
-  serviceAccount: {
-    type: string;
-    project_id: string;
-    private_key_id: string;
-    private_key: string;
-    client_email: string;
-    client_id: string;
-    auth_uri: string;
-    token_uri: string;
-    auth_provider_x509_cert_url: string;
-    client_x509_cert_url: string;
-    universe_domain: string;
-  };
-
-  storageBucketId: string;
-
   SENDGRID_EMAIL_SERVICE_API_KEY: string;
 
   USER_APIS_BASE_URL: string;
