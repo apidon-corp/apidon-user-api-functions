@@ -3,7 +3,6 @@ import {onRequest} from "firebase-functions/https";
 import {CodeDocData} from "../../../types/Collectible";
 import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 
-
 function checkProps(collectibleDocPath: string) {
   if (!collectibleDocPath) {
     console.error("Collectible doc path is missing");
@@ -30,7 +29,7 @@ export const getCodesOfEvent = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {collectibleDocPath} = req.body;
 
-  if (!handleAdminAuthorization(authorization)) {
+  if (!(await handleAdminAuthorization(authorization))) {
     res.status(401).send("Unauthorized");
     return;
   }

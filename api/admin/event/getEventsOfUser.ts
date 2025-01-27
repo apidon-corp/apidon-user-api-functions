@@ -66,7 +66,7 @@ export const getEventsOfUser = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {username} = req.body;
 
-  if (!handleAdminAuthorization(authorization)) {
+  if (!(await handleAdminAuthorization(authorization))) {
     res.status(401).send("Unauthorized");
     return;
   }

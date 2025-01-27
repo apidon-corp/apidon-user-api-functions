@@ -52,7 +52,7 @@ async function getWithdrawRequestsOfAllUsers(usernames: string[]) {
 export const getWithdrawRequests = onRequest(async (req, res) => {
   const {authorization} = req.headers;
 
-  const authResult = handleAdminAuthorization(authorization);
+  const authResult = await handleAdminAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;

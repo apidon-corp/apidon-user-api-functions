@@ -40,7 +40,7 @@ export const increaseCollectibleLimit = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {username, newLimit} = req.body;
 
-  const authResult = handleAdminAuthorization(authorization);
+  const authResult =await handleAdminAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;

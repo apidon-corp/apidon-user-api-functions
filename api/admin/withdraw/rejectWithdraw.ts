@@ -99,7 +99,7 @@ export const rejectWithdraw = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {username, requestId, notes} = req.body;
 
-  if (!handleAdminAuthorization(authorization)) {
+  if (!(await handleAdminAuthorization(authorization))) {
     res.status(401).send("Unauthorized");
     return;
   }

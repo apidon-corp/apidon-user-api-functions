@@ -35,7 +35,7 @@ export const approveWithdraw = onRequest(async (req, res) => {
 
   const {username, requestId, notes} = req.body;
 
-  const authResult = handleAdminAuthorization(authorization);
+  const authResult =await handleAdminAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;

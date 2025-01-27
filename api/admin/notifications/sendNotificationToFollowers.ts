@@ -227,7 +227,7 @@ export const sendNotificationToFollowers = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {title, description, username} = req.body;
 
-  const authResult = handleAdminAuthorization(authorization);
+  const authResult = await handleAdminAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;

@@ -1,5 +1,7 @@
+import {firestore} from "firebase-admin";
 import {appCheck} from "../firebase/adminApp";
 import {Request, Response} from "express";
+import {AccessConfigDocData} from "../types/Config";
 
 export function appCheckMiddleware(
   handler: (req: Request, res: Response) => void | Promise<void>
@@ -15,22 +17,35 @@ export function appCheckMiddleware(
   };
 }
 
-const isThereAnyRestriction = () => {
-  const RESTRICT_ACCESS_TO_ALL_USERS =
-    process.env.RESTRICT_ACCESS_TO_ALL_USERS || "";
+/**
+ *
+ * @returns true if user access is allowed, otherwise false.
+ */
+async function getUserAccessRight() {
+  try {
+    const accessDoc = await firestore().doc("/config/access").get();
+    if (!accessDoc.exists) {
+      console.error("Access document does not exist");
+      return false;
+    }
 
-  if (!RESTRICT_ACCESS_TO_ALL_USERS) {
-    console.error("RESTRICT_ACCESS_TO_ALL_USERS is not set");
+    const data = accessDoc.data() as AccessConfigDocData;
+    if (!data) {
+      console.error("Access document data is undefined");
+      return false;
+    }
+
+    return data.user;
+  } catch (error) {
+    console.error("Error getting user access right", error);
     return false;
   }
-
-  return RESTRICT_ACCESS_TO_ALL_USERS === "TRUE";
-};
+}
 
 const checkAppCheck = async (req: Request) => {
-  const isRestricted = isThereAnyRestriction();
+  const areUsersAllowed = await getUserAccessRight();
 
-  if (isRestricted) {
+  if (!areUsersAllowed) {
     console.error("There is an ongoing restriction for all users.");
     return false;
   }

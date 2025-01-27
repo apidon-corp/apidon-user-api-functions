@@ -16,7 +16,7 @@ async function getReceiptsDocs() {
 }
 
 export const getReceipts = onRequest(async (req, res) => {
-  if (!handleAdminAuthorization(req.headers.authorization)) {
+  if (!(await handleAdminAuthorization(req.headers.authorization))) {
     res.status(401).send("Unauthorized");
     return;
   }

@@ -82,7 +82,7 @@ export const unBanUser = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {username} = req.body;
 
-  const authResult = handleAdminAuthorization(authorization);
+  const authResult =await handleAdminAuthorization(authorization);
 
   if (!authResult) {
     res.status(401).send("Unauthorized");
