@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
 import {auth, firestore} from "../../../../firebase/adminApp";
 
@@ -31,6 +31,7 @@ async function isEmailUnique(email: string) {
     console.error("Email is already taken");
     return false;
   } catch (error) {
+    console.log("Email is unique: ", error);
     return true;
   }
 }

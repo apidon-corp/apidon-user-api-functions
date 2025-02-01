@@ -1,11 +1,10 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../../firebase/adminApp";
 import {
   ExpoPushMessage,
   NotificationSettingsData,
 } from "../../../types/Notifications";
 import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
-
 
 /**
  * Checks the presence of required properties.
@@ -228,7 +227,7 @@ export const sendNotificationToAllUsers = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {title, description} = req.body;
 
-  const authResult =await handleAdminAuthorization(authorization);
+  const authResult = await handleAdminAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;

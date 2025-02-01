@@ -1,29 +1,42 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-
-import AsyncLock = require("async-lock");
-import {getConfigObject} from "../../configs/getConfigObject";
-
+import {onRequest} from "firebase-functions/https";
+import {defineSecret} from "firebase-functions/params";
 import Stripe from "stripe";
-import {ConfigObject, Environment} from "@/types/Admin";
+import {getRoutes} from "../../helpers/internalApiRoutes";
+import {isProduction} from "../../helpers/projectVersioning";
 
-const configObject = getConfigObject();
+import * as AsyncLock from "async-lock";
 
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+const stripeSecretKeySecret = defineSecret("STRIPE_SECRET_KEY");
 
-const stripe = new Stripe(configObject.STRIPE_SECRET_KEY);
+const handleCreatedVerificationAPIKeySecret = defineSecret(
+  "HANDLE_CREATED_VERIFICATION_API_KEY"
+);
+
+const handleProcessingVerificationApiKeySecret = defineSecret(
+  "HANDLE_PROCESSING_VERIFICATION_API_KEY"
+);
+
+const handleSuccessfulVerificationApiKeySecret = defineSecret(
+  "HANDLE_SUCCESSFUL_VERIFICATION_API_KEY"
+);
+
+const handleReuqiresInputVerificationApiKeySecret = defineSecret(
+  "HANDLE_REQUIRES_INPUT_VERIFICATION_API_KEY"
+);
+
+const postVerificationWebhookSecretSecret = defineSecret(
+  "POST_VERIFICATION_WEBHOOK_SECRET"
+);
 
 const lock = new AsyncLock();
 
-async function getEvent(payload: string | Buffer, signature: string) {
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const webHookSecret = configObject.POST_VERIFICATION_WEBHOOK_SECRET;
+async function getEvent(
+  payload: string | Buffer,
+  signature: string,
+  postVerificationWebhookKey: string,
+  stripe: Stripe
+) {
+  const webHookSecret = postVerificationWebhookKey;
 
   if (!webHookSecret) {
     console.error("Web Hook Secret is undefined from config");
@@ -39,7 +52,6 @@ async function getEvent(payload: string | Buffer, signature: string) {
 
     return {
       event,
-      configObject,
     };
   } catch (error) {
     console.error("Stripe Web-Hook error: ", error);
@@ -53,14 +65,11 @@ async function handleCreatedVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: ConfigObject
+  handleCreatedVerificationApiKey: string
 ) {
-  const handleCreatedVerificationApiKey =
-    configObject.HANDLE_CREATED_VERIFICATION_API_KEY;
-
   try {
     const response = await fetch(
-      internalAPIRoutes.identity.handleCreatedVerification,
+      getRoutes().identity.handleCreatedVerification,
       {
         method: "POST",
         headers: {
@@ -95,14 +104,11 @@ async function handleProcessingVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: ConfigObject
+  handleProcessingVerificationApiKey: string
 ) {
-  const handleProcessingVerificationApiKey =
-    configObject.HANDLE_PROCESSING_VERIFICATION_API_KEY;
-
   try {
     const response = await fetch(
-      internalAPIRoutes.identity.handleProcessingVerification,
+      getRoutes().identity.handleProcessingVerification,
       {
         method: "POST",
         headers: {
@@ -137,14 +143,11 @@ async function handleSuccessfullVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: ConfigObject
+  handleSuccessfulVerificationApiKey: string
 ) {
-  const handleSuccessfulVerificationApiKey =
-    configObject.HANDLE_SUCCESSFUL_VERIFICATION_API_KEY;
-
   try {
     const response = await fetch(
-      internalAPIRoutes.identity.handleSuccessfulVerification,
+      getRoutes().identity.handleSuccessfulVerification,
       {
         method: "POST",
         headers: {
@@ -179,14 +182,11 @@ async function handleReuqiresInputVerification(
   created: number,
   status: string,
   livemode: boolean,
-  configObject: ConfigObject
+  handleReuqiresInputVerificationApiKey: string
 ) {
-  const handleReuqiresInputVerificationApiKey =
-    configObject.HANDLE_REQUIRES_INPUT_VERIFICATION_API_KEY;
-
   try {
     const response = await fetch(
-      internalAPIRoutes.identity.handleReuqiresInputVerification,
+      getRoutes().identity.handleReuqiresInputVerification,
       {
         method: "POST",
         headers: {
@@ -215,104 +215,122 @@ async function handleReuqiresInputVerification(
   }
 }
 
-export const postVerification = onRequest(async (req, res) => {
-  const environment = process.env.ENVIRONMENT as Environment;
-  if (!environment || environment === "PRODUCTION") {
-    res.status(403).send("Forbidden");
-    return;
-  }
-
-  const sig = req.headers["stripe-signature"];
-
-  if (!sig) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const eventResult = await getEvent(req.rawBody, sig as string);
-
-  if (!eventResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const {event, configObject} = eventResult;
-
-  if (
-    event.type !== "identity.verification_session.created" &&
-    event.type !== "identity.verification_session.processing" &&
-    event.type !== "identity.verification_session.verified" &&
-    event.type !== "identity.verification_session.requires_input"
-  ) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const username = event.data.object.metadata.username || "";
-
-  if (!username) {
-    console.error("Username is undefined");
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  try {
-    let success = false;
-
-    await lock.acquire(username, async () => {
-      if (event.type === "identity.verification_session.created") {
-        success = await handleCreatedVerification(
-          event.data.object.metadata.username,
-          event.data.object.id,
-          event.data.object.created,
-          event.data.object.status,
-          event.data.object.livemode,
-          configObject
-        );
-      }
-
-      if (event.type === "identity.verification_session.processing") {
-        success = await handleProcessingVerification(
-          event.data.object.metadata.username,
-          event.data.object.id,
-          event.data.object.created,
-          event.data.object.status,
-          event.data.object.livemode,
-          configObject
-        );
-      }
-
-      if (event.type === "identity.verification_session.verified") {
-        success = await handleSuccessfullVerification(
-          event.data.object.metadata.username,
-          event.data.object.id,
-          event.data.object.created,
-          event.data.object.status,
-          event.data.object.livemode,
-          configObject
-        );
-      }
-
-      if (event.type === "identity.verification_session.requires_input") {
-        success = await handleReuqiresInputVerification(
-          event.data.object.metadata.username,
-          event.data.object.id,
-          event.data.object.created,
-          event.data.object.status,
-          event.data.object.livemode,
-          configObject
-        );
-      }
-    });
-
-    if (success) {
-      res.status(200).send("OK");
-    } else {
-      res.status(500).send("Internal Server Error");
+export const postVerification = onRequest(
+  {
+    secrets: [
+      stripeSecretKeySecret,
+      handleCreatedVerificationAPIKeySecret,
+      handleProcessingVerificationApiKeySecret,
+      handleSuccessfulVerificationApiKeySecret,
+      handleReuqiresInputVerificationApiKeySecret,
+      postVerificationWebhookSecretSecret,
+    ],
+  },
+  async (req, res) => {
+    if (isProduction()) {
+      res.status(403).send("Forbidden");
+      return;
     }
-  } catch (error) {
-    console.error("Lock error: ", error);
-    res.status(500).send("Internal Server Error");
-    return;
+
+    const sig = req.headers["stripe-signature"];
+
+    if (!sig) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const stripe = new Stripe(stripeSecretKeySecret.value());
+
+    const eventResult = await getEvent(
+      req.rawBody,
+      sig as string,
+      postVerificationWebhookSecretSecret.value(),
+      stripe
+    );
+
+    if (!eventResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const {event} = eventResult;
+
+    if (
+      event.type !== "identity.verification_session.created" &&
+      event.type !== "identity.verification_session.processing" &&
+      event.type !== "identity.verification_session.verified" &&
+      event.type !== "identity.verification_session.requires_input"
+    ) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const username = event.data.object.metadata.username || "";
+
+    if (!username) {
+      console.error("Username is undefined");
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    try {
+      let success = false;
+
+      await lock.acquire(username, async () => {
+        if (event.type === "identity.verification_session.created") {
+          success = await handleCreatedVerification(
+            event.data.object.metadata.username,
+            event.data.object.id,
+            event.data.object.created,
+            event.data.object.status,
+            event.data.object.livemode,
+            handleCreatedVerificationAPIKeySecret.value()
+          );
+        }
+
+        if (event.type === "identity.verification_session.processing") {
+          success = await handleProcessingVerification(
+            event.data.object.metadata.username,
+            event.data.object.id,
+            event.data.object.created,
+            event.data.object.status,
+            event.data.object.livemode,
+            handleProcessingVerificationApiKeySecret.value()
+          );
+        }
+
+        if (event.type === "identity.verification_session.verified") {
+          success = await handleSuccessfullVerification(
+            event.data.object.metadata.username,
+            event.data.object.id,
+            event.data.object.created,
+            event.data.object.status,
+            event.data.object.livemode,
+            handleSuccessfulVerificationApiKeySecret.value()
+          );
+        }
+
+        if (event.type === "identity.verification_session.requires_input") {
+          success = await handleReuqiresInputVerification(
+            event.data.object.metadata.username,
+            event.data.object.id,
+            event.data.object.created,
+            event.data.object.status,
+            event.data.object.livemode,
+            handleReuqiresInputVerificationApiKeySecret.value()
+          );
+        }
+      });
+
+      if (success) {
+        res.status(200).send("OK");
+      } else {
+        res.status(500).send("Internal Server Error");
+      }
+    } catch (error) {
+      console.error("Lock error: ", error);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
   }
-});
+);

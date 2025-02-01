@@ -1,7 +1,6 @@
 import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-import {getConfigObject} from "../../configs/getConfigObject";
+import {onRequest} from "firebase-functions/https";
+import {getRoutes} from "../../helpers/internalApiRoutes";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
@@ -9,11 +8,8 @@ import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {NewPostDocData, RatingData} from "../../types/Post";
 import {RateInteractionDocData} from "@/types/Interactions";
 
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+import {defineSecret} from "firebase-functions/params";
+const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -204,7 +200,8 @@ async function sendNotification(
   postDocPath: string,
   rateSender: string,
   postSender: string,
-  timestamp: number
+  timestamp: number,
+  notificationAPIKey: string
 ) {
   if (rateSender === postSender) return true;
 
@@ -216,21 +213,9 @@ async function sendNotification(
     timestamp
   );
 
-  if (!configObject) {
-    console.error("Config object is undefined.");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined from config file.");
-    return false;
-  }
-
   try {
     const response = await fetch(
-      internalAPIRoutes.notification.sendNotification,
+      getRoutes().notification.sendNotification,
       {
         method: "POST",
         headers: {
@@ -326,7 +311,8 @@ async function deleteNotification(
   postDocPath: string,
   rateSender: string,
   postSender: string,
-  previousRatingDocData: undefined | RatingData
+  previousRatingDocData: undefined | RatingData,
+  notificationAPIKey: string
 ) {
   if (rateSender === postSender) return true;
   if (!previousRatingDocData) return true;
@@ -339,21 +325,9 @@ async function deleteNotification(
     previousRatingDocData.timestamp
   );
 
-  if (!configObject) {
-    console.error("Config object is undefined.");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined fron config file.");
-    return false;
-  }
-
   try {
     const response = await fetch(
-      internalAPIRoutes.notification.deleteNotification,
+      getRoutes().notification.deleteNotification,
       {
         method: "POST",
         headers: {
@@ -386,18 +360,27 @@ async function handleNotification(
   postDocPath: string,
   rateSender: string,
   timestamp: number,
-  previousRatingResult: undefined | RatingData
+  previousRatingResult: undefined | RatingData,
+  notificationAPIKey: string
 ) {
   const postSender = await getPostSenderUsername(postDocPath);
   if (!postSender) return false;
 
   const [sendNotificationResult, removeNotificationResult] = await Promise.all([
-    sendNotification(rate, postDocPath, rateSender, postSender, timestamp),
+    sendNotification(
+      rate,
+      postDocPath,
+      rateSender,
+      postSender,
+      timestamp,
+      notificationAPIKey
+    ),
     deleteNotification(
       postDocPath,
       rateSender,
       postSender,
-      previousRatingResult
+      previousRatingResult,
+      notificationAPIKey
     ),
   ]);
 
@@ -409,6 +392,7 @@ const delay = (ms: number) => {
 };
 
 export const postRate = onRequest(
+  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {rating, postDocPath} = req.body;
@@ -467,7 +451,8 @@ export const postRate = onRequest(
       commonTimestamp,
       checkForPreviousRatingResult.isTherePreviousRating ?
         checkForPreviousRatingResult.previousRatingDocData :
-        undefined
+        undefined,
+      notificationAPIKeySecret.value()
     );
 
     // Ensure all request have been sent.

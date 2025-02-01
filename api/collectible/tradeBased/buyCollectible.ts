@@ -1,9 +1,8 @@
 import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {getConfigObject} from "../../../configs/getConfigObject";
+import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
+import {getRoutes} from "../../../helpers/internalApiRoutes";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CollectedCollectibleDocData,
@@ -23,15 +22,12 @@ import {
 import {ReceiptDocData} from "../../../types/Receipt";
 
 import {UserIdentityDoc} from "@/types/Identity";
-import {Environment} from "../../../types/Admin";
+import {isProduction} from "../../../helpers/projectVersioning";
 import {BalanceDocData} from "../../../types/Wallet";
-import AsyncLock = require("async-lock");
+import * as AsyncLock from "async-lock";
 
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+import {defineSecret} from "firebase-functions/params";
+const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -480,7 +476,8 @@ async function addDocToCollectedCollectiblesCollection(
     return newDocRef.path;
   } catch (error) {
     console.error(
-      "Error while adding doc to collected collectibles collection"
+      "Error while adding doc to collected collectibles collection: ",
+      error
     );
     return false;
   }
@@ -667,34 +664,20 @@ function createNotificationObject(
 }
 
 async function sendNotification(
-  notificationObject: ReceivedNotificationDocData
+  notificationObject: ReceivedNotificationDocData,
+  notificationAPIKey: string
 ) {
-  if (!configObject) {
-    console.error("Config object is undefined.");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined from config file.");
-    return false;
-  }
-
   try {
-    const response = await fetch(
-      internalAPIRoutes.notification.sendNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
+    const response = await fetch(getRoutes().notification.sendNotification, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "authorization": notificationAPIKey,
+      },
+      body: JSON.stringify({
+        notificationData: notificationObject,
+      }),
+    });
 
     if (!response.ok) {
       console.error(
@@ -882,7 +865,8 @@ async function rollback(
 
 async function processPayment(
   postDocPath: string,
-  authorization: string | undefined
+  authorization: string | undefined,
+  notificationAPIKey: string
 ) {
   const username = await handleAuthorization(authorization);
   if (!username) {
@@ -1063,7 +1047,10 @@ async function processPayment(
     postData.senderUsername
   );
 
-  const notificationResult = await sendNotification(notificationObject);
+  const notificationResult = await sendNotification(
+    notificationObject,
+    notificationAPIKey
+  );
   if (!notificationResult) {
     throw new Error("Internal Server Error: Notification can not be sent.");
   }
@@ -1072,10 +1059,11 @@ async function processPayment(
 const lock = new AsyncLock();
 
 export const buyCollectible = onRequest(
+  {
+    secrets: [notificationAPIKeySecret],
+  },
   appCheckMiddleware(async (req, res) => {
-    const environment = process.env.ENVIRONMENT as Environment;
-
-    if (!environment || environment === "PRODUCTION") {
+    if (isProduction()) {
       res.status(403).send("Forbidden");
       return;
     }
@@ -1087,7 +1075,11 @@ export const buyCollectible = onRequest(
 
     try {
       await lock.acquire(lockId, async () => {
-        await processPayment(postDocPath, authorization);
+        await processPayment(
+          postDocPath,
+          authorization,
+          notificationAPIKeySecret.value()
+        );
         res.status(200).send("Successfull");
       });
     } catch (error) {

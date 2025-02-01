@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {bucket, firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {NewPostDocData} from "../../types/Post";
@@ -165,7 +165,7 @@ async function createPostOnFirestore(postServerData: NewPostDocData) {
       id: createdPostDoc.id,
     };
   } catch (error) {
-    console.error("Error on creating post on Firestore Database.");
+    console.error("Error on creating post on Firestore Database: ", error);
     return false;
   }
 }

@@ -1,14 +1,12 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {firestore, auth} from "../../../../firebase/adminApp";
 import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
 import * as SG from "@sendgrid/mail";
-import {getConfigObject} from "../../../../configs/getConfigObject";
+import {defineSecret} from "firebase-functions/params";
 
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+const sendgridEmailServiceApiKey = defineSecret(
+  "SENDGRID_EMAIL_SERVICE_API_KEY"
+);
 
 function checkProps(email: string, password: string) {
   if (!email || !password) return false;
@@ -39,7 +37,7 @@ async function isEmailUnique(email: string) {
     console.error("Email is already taken");
     return false;
   } catch (error) {
-    console.log("Email is unique");
+    console.log("Email is unique: ", error);
     return true;
   }
 }
@@ -67,13 +65,12 @@ async function createVerificationDoc(email: string, code: number) {
   }
 }
 
-async function sendEmailVerificationCode(email: string, code: number) {
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const sgApiKey = configObject.SENDGRID_EMAIL_SERVICE_API_KEY;
+async function sendEmailVerificationCode(
+  email: string,
+  code: number,
+  sendgridServiceKey: string
+) {
+  const sgApiKey = sendgridServiceKey;
 
   try {
     SG.setApiKey(sgApiKey);
@@ -193,6 +190,7 @@ async function sendEmailVerificationCode(email: string, code: number) {
 }
 
 export const sendVerificationCode = onRequest(
+  {secrets: [sendgridEmailServiceApiKey]},
   appCheckMiddleware(async (req, res) => {
     const {email, password} = req.body;
 
@@ -221,7 +219,8 @@ export const sendVerificationCode = onRequest(
 
     const sendEmailVerificationCodeResult = await sendEmailVerificationCode(
       email,
-      code
+      code,
+      sendgridEmailServiceApiKey.value()
     );
     if (sendEmailVerificationCodeResult !== true) {
       res.status(500).send("Internal server error.");

@@ -1,29 +1,29 @@
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-import {onRequest} from "firebase-functions/v2/https";
+import {getRoutes} from "../../helpers/internalApiRoutes";
+import {onRequest} from "firebase-functions/https";
 import {RevenueCatNotificationPayload} from "../../types/IAP";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {ConfigObject, Environment} from "@/types/Admin";
+import {isProduction} from "../../helpers/projectVersioning";
+import {defineSecret} from "firebase-functions/params";
 
-const configObject = getConfigObject();
+const revenueCatWebhookAuthKeySecret = defineSecret(
+  "REVENUE_CAT_WEBHOOK_AUTH_KEY"
+);
+const successOnPaymentAPIAuthKeySecret = defineSecret(
+  "SUCCESS_ON_PAYMENT_API_AUTH_KEY"
+);
 
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+const refundAPIAuthKeySecret = defineSecret("REFUND_API_AUTH_KEY");
 
-function handleAuthorization(authorization: string | undefined) {
+function handleAuthorization(
+  authorization: string | undefined,
+  revenueCatWebhookAuthKey: string
+) {
   if (!authorization) {
     console.error("Authorization header is missing");
     return false;
   }
 
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
   return {
-    authResult: authorization === configObject.REVENUE_CAT_WEBHOOK_AUTH_KEY,
-    configObject: configObject,
+    authResult: authorization === revenueCatWebhookAuthKey,
   };
 }
 
@@ -34,10 +34,10 @@ function getTypeOfNotification(payload: RevenueCatNotificationPayload) {
 
 async function handleSuccessfullPayment(
   payload: RevenueCatNotificationPayload,
-  configObject: ConfigObject
+  successonPaymentAPIAuthKey: string
 ) {
-  const successOnPaymentAPIRoute = internalAPIRoutes.payment.successonPayment;
-  const apiKey = configObject.SUCCESS_ON_PAYMENT_API_AUTH_KEY;
+  const successOnPaymentAPIRoute = getRoutes().payment.successonPayment;
+  const apiKey = successonPaymentAPIAuthKey;
 
   try {
     const response = await fetch(successOnPaymentAPIRoute, {
@@ -71,10 +71,10 @@ async function handleSuccessfullPayment(
 
 async function handleRefund(
   payload: RevenueCatNotificationPayload,
-  configObject: ConfigObject
+  refundAPIAuthKey: string
 ) {
-  const refundApiRoute = internalAPIRoutes.payment.refund;
-  const refundApiKey = configObject.REFUND_API_AUTH_KEY;
+  const refundApiRoute = getRoutes().payment.refund;
+  const refundApiKey = refundAPIAuthKey;
 
   try {
     const response = await fetch(refundApiRoute, {
@@ -116,57 +116,68 @@ async function handleRefund(
   }
 }
 
-export const paymentNotificationHandler = onRequest(async (req, res) => {
-  const environment = process.env.ENVIRONMENT as Environment;
-  if (!environment || environment === "PRODUCTION") {
-    res.status(403).send("Forbidden");
-    return;
-  }
+export const paymentNotificationHandler = onRequest(
+  {
+    secrets: [
+      revenueCatWebhookAuthKeySecret,
+      successOnPaymentAPIAuthKeySecret,
+      refundAPIAuthKeySecret,
+    ],
+  },
+  async (req, res) => {
+    if (isProduction()) {
+      res.status(403).send("Forbidden");
+      return;
+    }
 
-  const {authorization} = req.headers;
+    const {authorization} = req.headers;
 
-  const {event} = req.body;
+    const {event} = req.body;
 
-  const authResult = handleAuthorization(authorization);
-  if (!authResult || !authResult.authResult) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
-
-  const type = getTypeOfNotification(event);
-
-  if (type === "NON_RENEWING_PURCHASE") {
-    const result = await handleSuccessfullPayment(
-      event,
-      authResult.configObject
+    const authResult = handleAuthorization(
+      authorization,
+      revenueCatWebhookAuthKeySecret.value()
     );
-    if (!result) {
-      res.status(500).send("Internal Server Error");
+    if (!authResult || !authResult.authResult) {
+      res.status(401).send("Unauthorized");
       return;
     }
-    res.status(200).send("OK");
-    return;
-  }
 
-  if (type === "CANCELLATION") {
-    const result = await handleRefund(event, authResult.configObject);
-    if (result.status === "failed") {
-      res.status(500).send(result.message);
+    const type = getTypeOfNotification(event);
+
+    if (type === "NON_RENEWING_PURCHASE") {
+      const result = await handleSuccessfullPayment(
+        event,
+        successOnPaymentAPIAuthKeySecret.value()
+      );
+      if (!result) {
+        res.status(500).send("Internal Server Error");
+        return;
+      }
+      res.status(200).send("OK");
       return;
     }
-    res.status(200).send("OK");
+
+    if (type === "CANCELLATION") {
+      const result = await handleRefund(event, refundAPIAuthKeySecret.value());
+      if (result.status === "failed") {
+        res.status(500).send(result.message);
+        return;
+      }
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (type === "TEST") {
+      console.log("Test notification received");
+      res.status(200).send("OK");
+      return;
+    }
+
+    console.log("Unknown notification type received");
+    console.log("Body: \n", event);
+
+    res.status(500).send("Internal Server Error");
     return;
   }
-
-  if (type === "TEST") {
-    console.log("Test notification received");
-    res.status(200).send("OK");
-    return;
-  }
-
-  console.log("Unknown notification type received");
-  console.log("Body: \n", event);
-
-  res.status(500).send("Internal Server Error");
-  return;
-});
+);

@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import {firestore} from "../../../firebase/adminApp";
 
@@ -94,7 +94,7 @@ export const updatePostStatus = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {id, senderUsername, reviewStatus} = req.body;
 
-  const authResult =await handleAdminAuthorization(authorization);
+  const authResult = await handleAdminAuthorization(authorization);
 
   if (!authResult) {
     res.status(401).send("Unauthorized");

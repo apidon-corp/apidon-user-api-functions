@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import getDisplayName from "../../../helpers/getDisplayName";
 
@@ -10,7 +10,8 @@ import {WithdrawRequestDocData} from "../../../types/Withdraw";
 
 import {UserIdentityDoc} from "../../../types/Identity";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
-import {Environment} from "@/types/Admin";
+
+import {isProduction} from "../../../helpers/projectVersioning";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -136,9 +137,7 @@ async function createPayoutRequestDoc(data: WithdrawRequestDocData) {
 
 export const requestWithdraw = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const environment = process.env.ENVIRONMENT as Environment;
-
-    if (!environment || environment === "PRODUCTION") {
+    if (isProduction()) {
       res.status(403).send("Forbidden");
       return;
     }

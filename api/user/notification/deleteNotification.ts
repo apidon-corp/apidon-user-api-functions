@@ -1,31 +1,17 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import {firestore} from "../../../firebase/adminApp";
-
-import {getConfigObject} from "../../../configs/getConfigObject";
 import {ReceivedNotificationDocData} from "../../../types/Notifications";
 
-const configObject = getConfigObject();
+import {defineSecret} from "firebase-functions/params";
+const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
 
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-function handleAuthorization(key: string | undefined) {
+function handleAuthorization(
+  key: string | undefined,
+  notificationAPIKey: string
+) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendNotification API.");
-    return false;
-  }
-
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key not found from .env file.");
     return false;
   }
 
@@ -61,24 +47,30 @@ async function deleteNotificationObject(
   }
 }
 
-export const deleteNotification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
-  const {notificationData} = req.body;
+export const deleteNotification = onRequest(
+  {secrets: [notificationAPIKeySecret]},
+  async (req, res) => {
+    const {authorization} = req.headers;
+    const {notificationData} = req.body;
 
-  const isAuthorized = handleAuthorization(authorization);
-  if (!isAuthorized) {
-    res.status(401).send("Unauthorized");
+    const isAuthorized = handleAuthorization(
+      authorization,
+      notificationAPIKeySecret.value()
+    );
+    if (!isAuthorized) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const deleteNotificationObjectResult = await deleteNotificationObject(
+      notificationData
+    );
+    if (!deleteNotificationObjectResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
     return;
   }
-
-  const deleteNotificationObjectResult = await deleteNotificationObject(
-    notificationData
-  );
-  if (!deleteNotificationObjectResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-  return;
-});
+);

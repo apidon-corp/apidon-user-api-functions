@@ -1,29 +1,23 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import {firestore} from "../../firebase/adminApp";
 import {FieldValue} from "firebase-admin/firestore";
 import {PaymentIntentTopUpDocData} from "../../types/IAP";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {Environment} from "@/types/Admin";
+import {isProduction} from "../../helpers/projectVersioning";
+import {defineSecret} from "firebase-functions/params";
 
-const configObject = getConfigObject();
+const refundAPIAuthKeySecret = defineSecret("REFUND_API_AUTH_KEY");
 
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-function handleAuthorization(authorization: string | undefined) {
+function handleAuthorization(
+  authorization: string | undefined,
+  refundAPIKeyAuthKey: string
+) {
   if (!authorization) {
     console.error("Authorization header is missing");
     return false;
   }
 
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  if (authorization !== configObject.REFUND_API_AUTH_KEY) {
+  if (authorization !== refundAPIKeyAuthKey) {
     console.error("Authorization key is invalid");
     return false;
   }
@@ -166,73 +160,77 @@ async function rollback(ref: FirebaseFirestore.DocumentReference) {
   }
 }
 
-export const refund = onRequest(async (req, res) => {
-  const environment = process.env.ENVIRONMENT as Environment;
-
-  if (!environment || environment === "PRODUCTION") {
-    res.status(403).send("Forbidden");
-    return;
-  }
-
-  const {authorization} = req.headers;
-  const {productId, customerId, transactionId} = req.body;
-
-  const authResult = handleAuthorization(authorization);
-  if (!authResult) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
-  const propsResult = checkProps(productId, customerId, transactionId);
-  if (!propsResult) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const revertedPaymentIntent = await getRevertedTopUpPaymentIntent(
-    customerId,
-    productId,
-    transactionId
-  );
-  if (!revertedPaymentIntent) {
-    res
-      .status(404)
-      .send("No such reverted top up payment intent found to make refund");
-    return;
-  }
-
-  const updatePaymentIntentResult = await updatePaymentIntent(
-    revertedPaymentIntent
-  );
-  if (!updatePaymentIntentResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const priceToDecreaseInUSDCreditFormat =
-    extractCreditCountFromProductId(productId);
-
-  if (!priceToDecreaseInUSDCreditFormat) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  const updateBalanceResult = await updateBalance(
-    customerId,
-    priceToDecreaseInUSDCreditFormat
-  );
-  if (!updateBalanceResult) {
-    const rollbackResult = await rollback(revertedPaymentIntent);
-    if (!rollbackResult) {
-      console.error("Error occured while rolling back payment intent");
-      res
-        .status(500)
-        .send(
-          "Error occured while rolling back payment intent. Also, Internal Server Error"
-        );
+export const refund = onRequest(
+  {secrets: [refundAPIAuthKeySecret]},
+  async (req, res) => {
+    if (isProduction()) {
+      res.status(403).send("Forbidden");
+      return;
     }
-    res.status(500).send("Internal Server Error");
-    return;
-  }
 
-  res.status(200).send("OK");
-});
+    const {authorization} = req.headers;
+    const {productId, customerId, transactionId} = req.body;
+
+    const authResult = handleAuthorization(
+      authorization,
+      refundAPIAuthKeySecret.value()
+    );
+    if (!authResult) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+    const propsResult = checkProps(productId, customerId, transactionId);
+    if (!propsResult) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const revertedPaymentIntent = await getRevertedTopUpPaymentIntent(
+      customerId,
+      productId,
+      transactionId
+    );
+    if (!revertedPaymentIntent) {
+      res
+        .status(404)
+        .send("No such reverted top up payment intent found to make refund");
+      return;
+    }
+
+    const updatePaymentIntentResult = await updatePaymentIntent(
+      revertedPaymentIntent
+    );
+    if (!updatePaymentIntentResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const priceToDecreaseInUSDCreditFormat =
+      extractCreditCountFromProductId(productId);
+
+    if (!priceToDecreaseInUSDCreditFormat) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const updateBalanceResult = await updateBalance(
+      customerId,
+      priceToDecreaseInUSDCreditFormat
+    );
+    if (!updateBalanceResult) {
+      const rollbackResult = await rollback(revertedPaymentIntent);
+      if (!rollbackResult) {
+        console.error("Error occured while rolling back payment intent");
+        res
+          .status(500)
+          .send(
+            "Error occured while rolling back payment intent. Also, Internal Server Error"
+          );
+      }
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
+  }
+);

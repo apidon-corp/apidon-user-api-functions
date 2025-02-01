@@ -1,30 +1,32 @@
-import {getConfigObject} from "../configs/getConfigObject";
+import {defineString} from "firebase-functions/params";
 
-const configObject = getConfigObject();
+const userAPIsBaseURLParam = defineString("USER_APIS_BASE_URL");
 
-if (!configObject) {
-  throw new Error("Config object is undefined to use for internalAPIRoutes.");
-}
-
-const userApisBaseUrl = configObject.USER_APIS_BASE_URL;
-
-if (!userApisBaseUrl) {
-  throw new Error("User APIs Base URL is undefined. on configObject");
-}
-
-export const internalAPIRoutes = {
+// Create a function that returns the routes with the current baseURL
+const getInternalAPIRoutes = (baseUrl: string) => ({
   notification: {
-    sendNotification: `${userApisBaseUrl}/user-Notification-sendNotification`,
-    deleteNotification: `${userApisBaseUrl}/user-Notification-deleteNotification`,
+    sendNotification: `${baseUrl}/user-Notification-sendNotification`,
+    deleteNotification: `${baseUrl}/user-Notification-deleteNotification`,
   },
   payment: {
-    successonPayment: `${userApisBaseUrl}/payment-successOnPayment`,
-    refund: `${userApisBaseUrl}/payment-refund`,
+    successonPayment: `${baseUrl}/payment-successOnPayment`,
+    refund: `${baseUrl}/payment-refund`,
   },
   identity: {
-    handleCreatedVerification: `${userApisBaseUrl}/identity-handleCreatedVerification`,
-    handleProcessingVerification: `${userApisBaseUrl}/identity-handleProcessingVerification`,
-    handleReuqiresInputVerification: `${userApisBaseUrl}/identity-handleRequiresInputVerification`,
-    handleSuccessfulVerification: `${userApisBaseUrl}/identity-handleSuccessfulVerification`,
+    handleCreatedVerification: `${baseUrl}/identity-handleCreatedVerification`,
+    handleProcessingVerification: `${baseUrl}/identity-handleProcessingVerification`,
+    handleReuqiresInputVerification: `${baseUrl}/identity-handleRequiresInputVerification`,
+    handleSuccessfulVerification: `${baseUrl}/identity-handleSuccessfulVerification`,
   },
+});
+
+// Export a function to get the routes instead of the routes directly
+export const getRoutes = () => {
+  const userApisBaseUrl = userAPIsBaseURLParam.value();
+
+  if (!userApisBaseUrl) {
+    throw new Error("User APIs Base URL is undefined from function params.");
+  }
+
+  return getInternalAPIRoutes(userApisBaseUrl);
 };

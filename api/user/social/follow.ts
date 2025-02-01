@@ -1,20 +1,13 @@
-import {onRequest} from "firebase-functions/v2/https";
-
+import {onRequest} from "firebase-functions/https";
 import {FieldValue} from "firebase-admin/firestore";
-import {internalAPIRoutes} from "../../../helpers/internalApiRoutes";
+import {getRoutes} from "../../../helpers/internalApiRoutes";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
 import {ReceivedNotificationDocData} from "../../../types/Notifications";
-import AsyncLock = require("async-lock");
-
-import {getConfigObject} from "../../../configs/getConfigObject";
+import * as AsyncLock from "async-lock";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
-
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+import {defineSecret} from "firebase-functions/params";
+const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -179,13 +172,15 @@ async function handleNotification(
   operationTo: string,
   action: number,
   ts: number,
-  followDocData: undefined | FirebaseFirestore.DocumentData
+  followDocData: undefined | FirebaseFirestore.DocumentData,
+  notificationAPIKey: string
 ) {
   if (action === 1) {
     const notificationSent = await sendNotification(
       operationTo,
       operationFrom,
-      ts
+      ts,
+      notificationAPIKey
     );
     if (!notificationSent) {
       console.error("Failed to send notification.");
@@ -197,7 +192,8 @@ async function handleNotification(
     const notificationDeleted = await deleteNotification(
       operationTo,
       operationFrom,
-      followDocData?.followTime || 0
+      followDocData?.followTime || 0,
+      notificationAPIKey
     );
     if (!notificationDeleted) {
       console.error("Failed to delete notification.");
@@ -211,7 +207,8 @@ async function handleNotification(
 async function sendNotification(
   operationTo: string,
   operationFrom: string,
-  timestamp: number
+  timestamp: number,
+  notificationAPIKey: string
 ) {
   const notificationObject = createNotificationData(
     operationTo,
@@ -219,32 +216,17 @@ async function sendNotification(
     timestamp
   );
 
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined in config file.");
-    return false;
-  }
-
   try {
-    const response = await fetch(
-      internalAPIRoutes.notification.sendNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
+    const response = await fetch(getRoutes().notification.sendNotification, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "authorization": notificationAPIKey,
+      },
+      body: JSON.stringify({
+        notificationData: notificationObject,
+      }),
+    });
 
     if (!response.ok) {
       console.error(
@@ -264,7 +246,8 @@ async function sendNotification(
 async function deleteNotification(
   operationTo: string,
   operationFrom: string,
-  timestamp: number
+  timestamp: number,
+  notificationAPIKey: string
 ) {
   const notificationObject = createNotificationData(
     operationTo,
@@ -272,32 +255,17 @@ async function deleteNotification(
     timestamp
   );
 
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined in config file.");
-    return false;
-  }
-
   try {
-    const response = await fetch(
-      internalAPIRoutes.notification.deleteNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
+    const response = await fetch(getRoutes().notification.deleteNotification, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "authorization": notificationAPIKey,
+      },
+      body: JSON.stringify({
+        notificationData: notificationObject,
+      }),
+    });
 
     if (!response.ok) {
       console.error(
@@ -321,6 +289,7 @@ const delay = async (ms: number) => {
 };
 
 export const follow = onRequest(
+  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {operationTo: operationToUsername, opCode} = req.body;
@@ -375,7 +344,8 @@ export const follow = onRequest(
           operationToUsername,
           opCode,
           ts,
-          followStatus.followDocData
+          followStatus.followDocData,
+          notificationAPIKeySecret.value()
         );
 
         // Ensuring all request has been sent.

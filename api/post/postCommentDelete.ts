@@ -1,19 +1,15 @@
 import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
+import {onRequest} from "firebase-functions/https";
+import {getRoutes} from "../../helpers/internalApiRoutes";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {CommentServerData, NewPostDocData} from "../../types/Post";
 
-import {getConfigObject} from "../../configs/getConfigObject";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+import {defineSecret} from "firebase-functions/params";
+const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -79,7 +75,7 @@ async function deleteCommentDoc(commentDocPath: string) {
     await firestore.doc(commentDocPath).delete();
     return true;
   } catch (error) {
-    console.error("Error while deleting comment doc.");
+    console.error("Error while deleting comment doc: ", error);
     return false;
   }
 }
@@ -92,7 +88,7 @@ async function decreaseCommentCount(postDocPath: string) {
     });
     return true;
   } catch (error) {
-    console.error("Error while decreasing comment count");
+    console.error("Error while decreasing comment count: ", error);
     return false;
   }
 }
@@ -149,7 +145,8 @@ function craeteNotificationObject(
 async function deleteNotification(
   postSender: string,
   commentObject: CommentServerData,
-  postDocPath: string
+  postDocPath: string,
+  notificationAPIKey: string
 ) {
   // No notification to yourself.
   if (postSender === commentObject.sender) return true;
@@ -162,21 +159,9 @@ async function deleteNotification(
     commentObject.ts
   );
 
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined fron config file.");
-    return false;
-  }
-
   try {
     const response = await fetch(
-      internalAPIRoutes.notification.deleteNotification,
+      getRoutes().notification.deleteNotification,
       {
         method: "POST",
         headers: {
@@ -205,6 +190,7 @@ async function deleteNotification(
 }
 
 export const postCommentDelete = onRequest(
+  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {postDocPath, commentObject} = req.body;
@@ -252,7 +238,8 @@ export const postCommentDelete = onRequest(
       deleteNotification(
         checkCanDeleteCommentResult.postDocData.senderUsername,
         commentObject,
-        postDocPath
+        postDocPath,
+        notificationAPIKeySecret.value()
       ),
     ]);
 

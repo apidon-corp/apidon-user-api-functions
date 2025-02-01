@@ -1,27 +1,24 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../firebase/adminApp";
 import {UserIdentityDoc} from "../../types/Identity";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {Environment} from "@/types/Admin";
 
-const configObject = getConfigObject();
+import {defineSecret} from "firebase-functions/params";
+import {isProduction} from "../../helpers/projectVersioning";
 
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+const handleCreatedVerificationAPIKeySecret = defineSecret(
+  "HANDLE_CREATED_VERIFICATION_API_KEY"
+);
 
-function handleAuthorization(key: string | undefined) {
+function handleAuthorization(
+  key: string | undefined,
+  handleCreatedVerificationAPIKeySecretSecret: string
+) {
   if (key === undefined) {
     console.error("Unauthorized attemp to handleCreatedVerification API.");
     return false;
   }
 
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  return key === configObject.HANDLE_CREATED_VERIFICATION_API_KEY;
+  return key === handleCreatedVerificationAPIKeySecretSecret;
 }
 
 function checkProps(
@@ -62,46 +59,50 @@ async function updateUserIdentitynDoc(
 
     return true;
   } catch (error) {
-    console.error("Error on updating identity doc.");
+    console.error("Error on updating identity doc: ", error);
     return false;
   }
 }
 
-export const handleCreatedVerification = onRequest(async (req, res) => {
-  const environment = process.env.ENVIRONMENT as Environment;
+export const handleCreatedVerification = onRequest(
+  {secrets: [handleCreatedVerificationAPIKeySecret]},
+  async (req, res) => {
+    if (isProduction()) {
+      res.status(403).send("Forbidden");
+      return;
+    }
 
-  if (!environment || environment === "PRODUCTION") {
-    res.status(403).send("Forbidden");
+    const {authorization} = req.headers;
+
+    const {username, id, created, status, livemode} = req.body;
+
+    const authResult = handleAuthorization(
+      authorization,
+      handleCreatedVerificationAPIKeySecret.value()
+    );
+    if (!authResult) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    if (!checkProps(username, id, created, status)) {
+      res.status(422).send("Invalid Request");
+      return;
+    }
+
+    const updateUserIdentitynDocResult = await updateUserIdentitynDoc(
+      username,
+      id,
+      created,
+      status,
+      livemode
+    );
+    if (!updateUserIdentitynDocResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    res.status(200).send("OK");
     return;
   }
-
-  const {authorization} = req.headers;
-
-  const {username, id, created, status, livemode} = req.body;
-
-  const authResult = handleAuthorization(authorization);
-  if (!authResult) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
-
-  if (!checkProps(username, id, created, status)) {
-    res.status(422).send("Invalid Request");
-    return;
-  }
-
-  const updateUserIdentitynDocResult = await updateUserIdentitynDoc(
-    username,
-    id,
-    created,
-    status,
-    livemode
-  );
-  if (!updateUserIdentitynDocResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-  return;
-});
+);

@@ -1,18 +1,13 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
+import {onRequest} from "firebase-functions/https";
 import getDisplayName from "../../helpers/getDisplayName";
+import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 
 import Stripe from "stripe";
-import {getConfigObject} from "../../configs/getConfigObject";
-import {Environment} from "@/types/Admin";
 
-const configObject = getConfigObject();
+import {defineSecret} from "firebase-functions/params";
+import {isProduction} from "../../helpers/projectVersioning";
 
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-const stripe = new Stripe(configObject.STRIPE_SECRET_KEY);
+const stripeSecretKeySecret = defineSecret("STRIPE_SECRET_KEY");
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -26,7 +21,7 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-async function getVerificationSession(username: string) {
+async function getVerificationSession(username: string, stripe: Stripe) {
   try {
     const verificationSession =
       await stripe.identity.verificationSessions.create({
@@ -51,7 +46,8 @@ async function getVerificationSession(username: string) {
 }
 
 async function createEphermalKey(
-  verificationSession: Stripe.Response<Stripe.Identity.VerificationSession>
+  verificationSession: Stripe.Response<Stripe.Identity.VerificationSession>,
+  stripe: Stripe
 ) {
   try {
     const ephemeralKey = await stripe.ephemeralKeys.create(
@@ -67,10 +63,9 @@ async function createEphermalKey(
 }
 
 export const createVerificationSession = onRequest(
+  {secrets: [stripeSecretKeySecret]},
   appCheckMiddleware(async (req, res) => {
-    const environment = process.env.ENVIRONMENT as Environment;
-
-    if (!environment || environment === "PRODUCTION") {
+    if (isProduction()) {
       res.status(403).send("Forbidden");
       return;
     }
@@ -83,13 +78,15 @@ export const createVerificationSession = onRequest(
       return;
     }
 
-    const verificationSession = await getVerificationSession(username);
+    const stripe = new Stripe(stripeSecretKeySecret.value());
+
+    const verificationSession = await getVerificationSession(username, stripe);
     if (!verificationSession) {
       res.status(500).send("Internal Server Error");
       return;
     }
 
-    const ephemeralKey = await createEphermalKey(verificationSession);
+    const ephemeralKey = await createEphermalKey(verificationSession, stripe);
     if (!ephemeralKey) {
       res.status(500).send("Internal Server Error");
       return;

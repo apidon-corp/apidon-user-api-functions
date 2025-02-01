@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import {firestore} from "../../../firebase/adminApp";
 
@@ -59,7 +59,7 @@ export const getAllPosts = onRequest(async (req, res) => {
 
   const {authorization} = req.headers;
 
-  const authResult =await handleAdminAuthorization(authorization);
+  const authResult = await handleAdminAuthorization(authorization);
   if (!authResult) {
     res.status(401).send("Unauthorized");
     return;

@@ -23,7 +23,7 @@ serviceAccount.json
 *.cer
 
 # Environment Variables File
-.env
+.env*
 
 # I don't know what is this.
 *.pem

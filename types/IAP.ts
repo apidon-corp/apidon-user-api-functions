@@ -29,8 +29,8 @@ export type RevenueCatNotificationPayload = {
   event_timestamp_ms: number;
   app_user_id: string;
   original_app_user_id: string;
-  aliases: any[];
-  subscriber_attributes: any[];
+  aliases: [];
+  subscriber_attributes: [];
   product_id: string;
   price: number;
   price_in_purchased_currency: number;

@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 import {auth, firestore} from "../../../firebase/adminApp";
@@ -47,9 +47,7 @@ async function getUsersPostDocPaths(username: string) {
       .where("senderUsername", "==", username)
       .get();
 
-    return query.docs.map(
-      (doc) => (doc.data() as NewPostDocData).postDocPath
-    );
+    return query.docs.map((doc) => (doc.data() as NewPostDocData).postDocPath);
   } catch (error) {
     console.error("Error getting user post doc paths", error);
     return false;
@@ -82,7 +80,7 @@ export const unBanUser = onRequest(async (req, res) => {
   const {authorization} = req.headers;
   const {username} = req.body;
 
-  const authResult =await handleAdminAuthorization(authorization);
+  const authResult = await handleAdminAuthorization(authorization);
 
   if (!authResult) {
     res.status(401).send("Unauthorized");

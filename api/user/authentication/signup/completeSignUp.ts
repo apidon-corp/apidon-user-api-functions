@@ -1,5 +1,5 @@
 import {WriteBatch} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {auth, firestore} from "../../../../firebase/adminApp";
 import {appCheckMiddleware} from "../../../../middleware/appCheckMiddleware";
 import {
@@ -8,7 +8,7 @@ import {
 } from "../../../../types/Notifications";
 import {UserInServer} from "../../../../types/User";
 import {BalanceDocData} from "../../../../types/Wallet";
-import AsyncLock = require("async-lock");
+import * as AsyncLock from "async-lock";
 
 /**
  * Handles the authorization by verifying the provided key.

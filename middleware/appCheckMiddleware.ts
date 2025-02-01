@@ -1,6 +1,7 @@
+import {Request, Response} from "express";
 import {firestore} from "firebase-admin";
 import {appCheck} from "../firebase/adminApp";
-import {Request, Response} from "express";
+import {isDevelopment, isEmulator} from "../helpers/projectVersioning";
 import {AccessConfigDocData} from "../types/Config";
 
 export function appCheckMiddleware(
@@ -55,6 +56,13 @@ const checkAppCheck = async (req: Request) => {
   if (!appchecktoken) {
     console.error("App Check Token is missing");
     return false;
+  }
+
+  if (isDevelopment() && isEmulator()) {
+    console.log(
+      "App Check Token is always valid for (local) development environment"
+    );
+    return true;
   }
 
   try {

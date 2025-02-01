@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import {handleAdminAuthorization} from "../../../helpers/handleAdminAuthorization";
 import {auth, firestore} from "../../../firebase/adminApp";

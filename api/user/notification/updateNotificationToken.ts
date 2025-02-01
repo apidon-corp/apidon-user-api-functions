@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 
 import getDisplayName from "../../../helpers/getDisplayName";
 import {firestore} from "../../../firebase/adminApp";

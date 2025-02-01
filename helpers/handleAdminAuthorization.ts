@@ -1,16 +1,8 @@
 import {firestore} from "firebase-admin";
-import {getConfigObject} from "../configs/getConfigObject";
+import {AccessConfigDocData, PasswordsDocData} from "@/types/Config";
 
-import * as dotenv from "dotenv";
-import {AccessConfigDocData} from "@/types/Config";
+import * as crypto from "crypto";
 
-dotenv.config();
-
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
 /**
  *
  * @returns true if admin access is allowed, otherwise false.
@@ -36,6 +28,31 @@ async function getAdminAccessRight() {
   }
 }
 
+async function getAdminPasswordHashFromDatabase() {
+  try {
+    const passwordsDoc = await firestore().doc("/config/passwords").get();
+    if (!passwordsDoc.exists) {
+      console.error("Passwords document does not exist");
+      return false;
+    }
+
+    const data = passwordsDoc.data() as PasswordsDocData;
+    if (!data) {
+      console.error("Passwords document data is undefined");
+      return false;
+    }
+
+    return data.admin;
+  } catch (error) {
+    console.error("Error getting admin password hash from database", error);
+    return false;
+  }
+}
+
+function createHashOfGivenPassword(input: string) {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
+
 /**
  * Handles the authorization of incoming requests.
  * @param authorization - The authorization header value.
@@ -56,10 +73,13 @@ export async function handleAdminAuthorization(
     return false;
   }
 
-  if (!configObject) {
-    console.error("Config object is undefined");
+  const hashOfAdminPassword = await getAdminPasswordHashFromDatabase();
+  if (!hashOfAdminPassword) {
+    console.error("Admin password hash is missing");
     return false;
   }
 
-  return authorization === configObject.ADMIN;
+  const hashOfAuth = createHashOfGivenPassword(authorization);
+
+  return hashOfAdminPassword === hashOfAuth;
 }

@@ -1,9 +1,9 @@
 import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
-import {Environment} from "../../../types/Admin";
+
 import {CollectibleDocData} from "../../../types/Collectible";
 import {CollectibleConfigDocData} from "../../../types/Config";
 import {TopUpPlansConfigDocData} from "../../../types/IAP";
@@ -11,6 +11,7 @@ import {UserIdentityDoc} from "../../../types/Identity";
 import {NewPostDocData} from "../../../types/Post";
 import {CreatedCollectibleDocData} from "../../../types/Trade";
 import {UserInServer} from "../../../types/User";
+import {isProduction} from "../../../helpers/projectVersioning";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -383,9 +384,7 @@ async function rollBackAddDocToCreatedCollectibles(path: string) {
 
 export const createCollectible = onRequest(
   appCheckMiddleware(async (req, res) => {
-    const environment = process.env.ENVIRONMENT as Environment;
-
-    if (!environment || environment === "PRODUCTION") {
+    if (isProduction()) {
       res.status(403).send("Forbidden");
       return;
     }

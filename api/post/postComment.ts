@@ -1,20 +1,15 @@
-import {onRequest} from "firebase-functions/v2/https";
-
+import {onRequest} from "firebase-functions/https";
 import {FieldValue} from "firebase-admin/firestore";
-import {internalAPIRoutes} from "../../helpers/internalApiRoutes";
-import {getConfigObject} from "../../configs/getConfigObject";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
+import {getRoutes} from "../../helpers/internalApiRoutes";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {CommentInteractionDocData} from "../../types/Interactions";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {CommentServerData, NewPostDocData} from "../../types/Post";
 
-const configObject = getConfigObject();
-
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
+import {defineSecret} from "firebase-functions/params";
+const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -146,7 +141,8 @@ async function sendNotification(
   username: string,
   postDocPath: string,
   comment: string,
-  ts: number
+  ts: number,
+  notificationAPIKey: string
 ) {
   const postSender = await getPostSender(postDocPath);
   if (!postSender) return false;
@@ -162,21 +158,9 @@ async function sendNotification(
     ts
   );
 
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key is undefined fron .env file.");
-    return false;
-  }
-
   try {
     const response = await fetch(
-      internalAPIRoutes.notification.sendNotification,
+      getRoutes().notification.sendNotification,
       {
         method: "POST",
         headers: {
@@ -209,6 +193,7 @@ const delay = (ms: number) => {
 };
 
 export const postComment = onRequest(
+  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {message, postDocPath} = req.body;
@@ -237,7 +222,8 @@ export const postComment = onRequest(
       username,
       postDocPath,
       commendData.message,
-      commendData.ts
+      commendData.ts,
+      notificationAPIKeySecret.value()
     );
 
     await delay(250);

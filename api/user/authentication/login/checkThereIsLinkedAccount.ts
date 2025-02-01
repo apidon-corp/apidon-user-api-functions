@@ -1,4 +1,4 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {auth, firestore} from "../../../../firebase/adminApp";
 import {UserInServer} from "../../../../types/User";
 

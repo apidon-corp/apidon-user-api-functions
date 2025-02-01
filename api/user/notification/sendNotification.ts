@@ -1,8 +1,5 @@
-import {onRequest} from "firebase-functions/v2/https";
-
+import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../../firebase/adminApp";
-
-import {getConfigObject} from "../../../configs/getConfigObject";
 import {
   ExpoPushMessage,
   NotificationsDocData,
@@ -10,27 +7,15 @@ import {
   ReceivedNotificationDocData,
 } from "../../../types/Notifications";
 
-const configObject = getConfigObject();
+import {defineSecret} from "firebase-functions/params";
+const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
 
-if (!configObject) {
-  throw new Error("Config object is undefined");
-}
-
-function handleAuthorization(key: string | undefined) {
+function handleAuthorization(
+  key: string | undefined,
+  notificationAPIKey: string
+) {
   if (key === undefined) {
     console.error("Unauthorized attemp to sendNotification API.");
-    return false;
-  }
-
-  if (!configObject) {
-    console.error("Config object is undefined");
-    return false;
-  }
-
-  const notificationAPIKey = configObject.NOTIFICATION_API_KEY;
-
-  if (!notificationAPIKey) {
-    console.error("Notification API key not found from .env file.");
     return false;
   }
 
@@ -254,61 +239,67 @@ async function sendPushNotification(
   }
 }
 
-export const sendNotification = onRequest(async (req, res) => {
-  const {authorization} = req.headers;
+export const sendNotification = onRequest(
+  {secrets: [notificationAPIKeySecret]},
+  async (req, res) => {
+    const {authorization} = req.headers;
 
-  const {notificationData} = req.body as {
-    notificationData: ReceivedNotificationDocData;
-  };
+    const {notificationData} = req.body as {
+      notificationData: ReceivedNotificationDocData;
+    };
 
-  const isAuthorized = handleAuthorization(authorization);
-  if (!isAuthorized) {
-    res.status(401).send("Unauthorized");
-    return;
-  }
+    const isAuthorized = handleAuthorization(
+      authorization,
+      notificationAPIKeySecret.value()
+    );
+    if (!isAuthorized) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
 
-  const addNotificationDocToRecipientResult =
-    await addNotificationDocToRecipient(notificationData);
-  if (!addNotificationDocToRecipientResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
+    const addNotificationDocToRecipientResult =
+      await addNotificationDocToRecipient(notificationData);
+    if (!addNotificationDocToRecipientResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
 
-  const userNotificationSettings = await getUserNotificationSettings(
-    notificationData
-  );
-  if (!userNotificationSettings) {
-    console.warn(
-      "Couldn't find notification token for user: ",
+    const userNotificationSettings = await getUserNotificationSettings(
+      notificationData
+    );
+    if (!userNotificationSettings) {
+      console.warn(
+        "Couldn't find notification token for user: ",
+        notificationData.target
+      );
+      res.status(200).send("OK");
+      return;
+    }
+
+    const notificationsDocData = await getNotificationsDocData(
       notificationData.target
     );
+    if (!notificationsDocData) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    const badgeCount =
+      (await badgeCountCalculate(
+        notificationsDocData,
+        notificationData.target
+      )) || 0;
+
+    const sendPushNotificationResult = await sendPushNotification(
+      notificationData,
+      userNotificationSettings.notificationToken,
+      badgeCount
+    );
+    if (!sendPushNotificationResult) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
     res.status(200).send("OK");
     return;
   }
-
-  const notificationsDocData = await getNotificationsDocData(
-    notificationData.target
-  );
-  if (!notificationsDocData) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-  const badgeCount =
-    (await badgeCountCalculate(
-      notificationsDocData,
-      notificationData.target
-    )) || 0;
-
-  const sendPushNotificationResult = await sendPushNotification(
-    notificationData,
-    userNotificationSettings.notificationToken,
-    badgeCount
-  );
-  if (!sendPushNotificationResult) {
-    res.status(500).send("Internal Server Error");
-    return;
-  }
-
-  res.status(200).send("OK");
-  return;
-});
+);

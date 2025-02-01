@@ -11,3 +11,7 @@ export type AccessConfigDocData = {
   admin: boolean;
   user: boolean;
 };
+
+export type PasswordsDocData = {
+  admin : string,
+}

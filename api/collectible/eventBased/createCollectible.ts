@@ -1,6 +1,6 @@
 import {CreatedCollectibleDocData} from "@/types/Trade";
 import {FieldValue} from "firebase-admin/firestore";
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
