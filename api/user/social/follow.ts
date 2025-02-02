@@ -1,13 +1,13 @@
-import {onRequest} from "firebase-functions/https";
-import {FieldValue} from "firebase-admin/firestore";
-import {getRoutes} from "../../../helpers/internalApiRoutes";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {ReceivedNotificationDocData} from "../../../types/Notifications";
-import * as AsyncLock from "async-lock";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
-import {defineSecret} from "firebase-functions/params";
-const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
+import {onRequest} from "firebase-functions/https";
+import {FieldValue} from "firebase-admin/firestore";
+import {FollowerDocData} from "../../../types/User";
+
+import * as AsyncLock from "async-lock";
+import {sendNotification} from "../../../helpers/notification/sendNotification";
+import {deleteNotification} from "../../../helpers/notification/deleteNotification";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -21,345 +21,283 @@ async function handleAuthorization(key: string | undefined) {
   return operationFromUsername;
 }
 
-function checkProps(operationTo: string, opCode: number) {
-  if (!operationTo || !opCode) {
-    console.error("Both operationTo and opCode is undefined.");
+function checkProps(operationTo: string) {
+  if (!operationTo) {
+    console.error("operationTo is undefined.");
     return false;
   }
-
-  if (!(opCode == -1 || opCode === 1)) {
-    console.error("Invalid action");
-    return false;
-  }
-
   return true;
 }
 
-function checkSelfFollowing(operationTo: string, operationFrom: string) {
-  return operationTo == operationFrom;
+function isFollowingOwn(requesterUsername: string, operationTo: string) {
+  return requesterUsername === operationTo;
 }
 
-async function checkFollowStatus(username: string, operationTo: string) {
+async function getCurrentFollowStatus(
+  requesterUsername: string,
+  operationTo: string
+): Promise<
+  | {
+      status: "following";
+      ts: number;
+    }
+  | {
+      status: "notFollowing";
+    }
+  | false
+> {
   try {
-    const followingsSnapshot = await firestore
-      .collection(`/users/${username}/followings`)
+    const possibleFollowingDoc = await firestore
+      .collection("users")
+      .doc(requesterUsername)
+      .collection("followings")
+      .doc(operationTo)
       .get();
 
-    const followingsUsernames = followingsSnapshot.docs.map((doc) => doc.id);
+    if (possibleFollowingDoc.exists) {
+      const ts = (possibleFollowingDoc.data() as FollowerDocData).followTime;
 
-    // Especailly to use delete notification. (We need follow timestamp).
-    const followDocData = followingsSnapshot.docs
-      .find((d) => d.id === operationTo)
-      ?.data();
-
-    return {
-      followStatus: followingsUsernames.includes(operationTo),
-      followDocData: followDocData,
-    };
+      return {
+        status: "following",
+        ts,
+      };
+    } else {
+      return {
+        status: "notFollowing",
+      };
+    }
   } catch (error) {
     console.error("Error while checking follow status", error);
     return false;
   }
 }
 
-function checkRequestValid(action: number, isFollowing: boolean) {
-  if (action === -1 && !isFollowing) return false;
-  if (action === 1 && isFollowing) return false;
-  return true;
+async function updateFollowNumberOfUser(
+  username: string,
+  field: "followingCount" | "followerCount",
+  increment: -1 | 1
+) {
+  try {
+    const userDocRef = firestore.collection("users").doc(username);
+
+    await userDocRef.update({
+      [field]: FieldValue.increment(increment),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error while updating follow count", error);
+    return false;
+  }
 }
 
-async function updateRequesterFollowings(
-  username: string,
+async function handleFollowCounts(
+  requesterUsername: string,
   operationTo: string,
-  action: number,
+  operation: "follow" | "unFollow"
+) {
+  try {
+    const results = await Promise.all([
+      updateFollowNumberOfUser(
+        requesterUsername,
+        "followingCount",
+        operation === "follow" ? 1 : -1
+      ),
+      updateFollowNumberOfUser(
+        operationTo,
+        "followerCount",
+        operation === "follow" ? 1 : -1
+      ),
+    ]);
+
+    if (results.every((result) => result)) {
+      return true;
+    } else {
+      console.error("Error while updating follow counts. See other logs.");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error while updating follow counts: ", error);
+    return false;
+  }
+}
+
+async function updateFollowCollectionOfUser(
+  username: string,
+  collectionName: "followings" | "followers",
+  operation: "add" | "delete",
+  target: string,
   ts: number
 ) {
   try {
-    if (action === -1) {
-      await firestore
-        .doc(`/users/${username}/followings/${operationTo}`)
-        .delete();
-    }
-    if (action === 1) {
-      await firestore.doc(`/users/${username}/followings/${operationTo}`).set({
-        followTime: ts,
-      });
+    const collectionRef = firestore
+      .collection("users")
+      .doc(username)
+      .collection(collectionName);
+
+    if (operation === "add") {
+      const newFollowDocData: FollowerDocData = {followTime: ts};
+      await collectionRef.doc(target).set(newFollowDocData);
+      return true;
     }
 
-    return true;
+    if (operation === "delete") {
+      await collectionRef.doc(target).delete();
+      return true;
+    }
+
+    console.error("Invalid operation.");
+    return false;
   } catch (error) {
-    console.error("Error while updating requester followings", error);
+    console.error("Error while updating follow collection: ", error);
     return false;
   }
 }
 
-async function updateOperationToFollowers(
+async function handleFollowDocs(
+  requesterUsername: string,
   operationTo: string,
-  operationFrom: string,
-  action: number,
+  operation: "follow" | "unFollow",
   ts: number
 ) {
   try {
-    if (action === -1) {
-      await firestore
-        .doc(`/users/${operationTo}/followers/${operationFrom}`)
-        .delete();
+    const results = await Promise.all([
+      updateFollowCollectionOfUser(
+        requesterUsername,
+        "followings",
+        operation === "follow" ? "add" : "delete",
+        operationTo,
+        ts
+      ),
+      updateFollowCollectionOfUser(
+        operationTo,
+        "followers",
+        operation === "follow" ? "add" : "delete",
+        requesterUsername,
+        ts
+      ),
+    ]);
+
+    if (results.every((result) => result)) {
+      return true;
+    } else {
+      console.error("Error while updating follow docs. See other logs.");
+      return false;
     }
-    if (action === 1) {
-      await firestore
-        .doc(`/users/${operationTo}/followers/${operationFrom}`)
-        .set({
-          followTime: ts,
-        });
-    }
-
-    return true;
   } catch (error) {
-    console.error("Error while updating operationTo followers", error);
+    console.error("Error while updating follow docs: ", error);
     return false;
   }
-}
-
-async function updateRequesterFollowingCount(username: string, action: number) {
-  try {
-    const requesterDocRef = firestore.doc(`/users/${username}`);
-    await requesterDocRef.update({
-      followingCount: FieldValue.increment(action),
-    });
-    return true;
-  } catch (error) {
-    console.error("Error while updating requester following count", error);
-    return false;
-  }
-}
-
-async function updateOperationToFollowerCount(
-  operationTo: string,
-  action: number
-) {
-  try {
-    const operationToDocRef = firestore.doc(`/users/${operationTo}`);
-    await operationToDocRef.update({
-      followerCount: FieldValue.increment(action),
-    });
-    return true;
-  } catch (error) {
-    console.error("Error while updating operationTo followers count", error);
-    return false;
-  }
-}
-
-function createNotificationData(
-  followTo: string,
-  username: string,
-  timestamp: number
-) {
-  const notificationData: ReceivedNotificationDocData = {
-    type: "follow",
-    params: {
-      followOperationTo: followTo,
-    },
-    source: username,
-    target: followTo,
-    timestamp: timestamp,
-  };
-
-  return notificationData;
 }
 
 async function handleNotification(
-  operationFrom: string,
+  requesterUsername: string,
   operationTo: string,
-  action: number,
-  ts: number,
-  followDocData: undefined | FirebaseFirestore.DocumentData,
-  notificationAPIKey: string
+  operation: "follow" | "unFollow",
+  ts: number
 ) {
-  if (action === 1) {
-    const notificationSent = await sendNotification(
-      operationTo,
-      operationFrom,
-      ts,
-      notificationAPIKey
-    );
-    if (!notificationSent) {
-      console.error("Failed to send notification.");
+  if (operation === "follow") {
+    const notificationResult = await sendNotification({
+      type: "follow",
+      timestamp: ts,
+      source: requesterUsername,
+      target: operationTo,
+      params: {
+        followOperationTo: operationTo,
+      },
+    });
+    if (!notificationResult) {
+      console.error("Error while sending notification. See other logs.");
       return false;
     }
-    return true;
   }
-  if (action === -1) {
-    const notificationDeleted = await deleteNotification(
-      operationTo,
-      operationFrom,
-      followDocData?.followTime || 0,
-      notificationAPIKey
-    );
-    if (!notificationDeleted) {
-      console.error("Failed to delete notification.");
+
+  if (operation === "unFollow") {
+    const notificationResult = await deleteNotification({
+      type: "follow",
+      target: operationTo,
+      source: requesterUsername,
+      params: {
+        followOperationTo: operationTo,
+      },
+      timestamp: ts,
+    });
+    if (!notificationResult) {
+      console.error("Error while deleting notification. See other logs.");
       return false;
     }
-    return true;
   }
-  return false;
+
+  return true;
 }
 
-async function sendNotification(
-  operationTo: string,
-  operationFrom: string,
-  timestamp: number,
-  notificationAPIKey: string
-) {
-  const notificationObject = createNotificationData(
-    operationTo,
-    operationFrom,
-    timestamp
+async function processFollow(requesterUsername: string, operationTo: string) {
+  if (!checkProps(operationTo)) {
+    throw new Error("Invalid Request");
+  }
+
+  if (isFollowingOwn(requesterUsername, operationTo)) {
+    throw new Error("Forbidden.");
+  }
+
+  const currentFollowStatus = await getCurrentFollowStatus(
+    requesterUsername,
+    operationTo
   );
 
-  try {
-    const response = await fetch(getRoutes().notification.sendNotification, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "authorization": notificationAPIKey,
-      },
-      body: JSON.stringify({
-        notificationData: notificationObject,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(
-        "Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending notification: ", error);
-    return false;
+  if (!currentFollowStatus) {
+    throw new Error("Internal Server Error");
   }
-}
 
-async function deleteNotification(
-  operationTo: string,
-  operationFrom: string,
-  timestamp: number,
-  notificationAPIKey: string
-) {
-  const notificationObject = createNotificationData(
+  // To Catch Notifications Especially
+  const commonTimestamp = Date.now();
+
+  handleFollowCounts(
+    requesterUsername,
     operationTo,
-    operationFrom,
-    timestamp
+    currentFollowStatus.status === "following" ? "unFollow" : "follow"
   );
 
-  try {
-    const response = await fetch(getRoutes().notification.deleteNotification, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "authorization": notificationAPIKey,
-      },
-      body: JSON.stringify({
-        notificationData: notificationObject,
-      }),
-    });
+  handleFollowDocs(
+    requesterUsername,
+    operationTo,
+    currentFollowStatus.status === "following" ? "unFollow" : "follow",
+    commonTimestamp
+  );
 
-    if (!response.ok) {
-      console.error(
-        "Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending notification: ", error);
-    return false;
-  }
+  handleNotification(
+    requesterUsername,
+    operationTo,
+    currentFollowStatus.status === "following" ? "unFollow" : "follow",
+    currentFollowStatus.status === "following" ?
+      currentFollowStatus.ts :
+      commonTimestamp
+  );
 }
 
 const lock = new AsyncLock();
 
-const delay = async (ms: number) => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-};
-
 export const follow = onRequest(
-  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
-    const {operationTo: operationToUsername, opCode} = req.body;
+    const {operationTo} = req.body;
 
-    const username = await handleAuthorization(authorization);
-    if (!username) {
+    const requesterUsername = await handleAuthorization(authorization);
+    if (!requesterUsername) {
       res.status(401).send("Unauthorized");
       return;
     }
 
-    const checkPropsResult = checkProps(operationToUsername, opCode);
-    if (!checkPropsResult) {
-      res.status(422).send("Invalid Request");
-      return;
-    }
-
-    if (checkSelfFollowing(operationToUsername, username)) {
-      res.status(403).send("Forbidden.");
-      return;
-    }
+    const lockId = `${requesterUsername}-${operationTo}`;
 
     try {
-      await lock.acquire(username, async () => {
-        const followStatus = await checkFollowStatus(
-          username,
-          operationToUsername
-        );
-        if (!followStatus) {
-          res.status(500).send("Internal Server Error");
-          return;
-        }
-
-        const checkRequestValidResult = checkRequestValid(
-          opCode,
-          followStatus.followStatus
-        );
-        if (!checkRequestValidResult) {
-          res.status(400).send("Invalid Request");
-          return;
-        }
-
-        const ts = Date.now();
-
-        updateOperationToFollowerCount(operationToUsername, opCode);
-        updateOperationToFollowers(operationToUsername, username, opCode, ts);
-
-        updateRequesterFollowingCount(username, opCode);
-        updateRequesterFollowings(username, operationToUsername, opCode, ts);
-
-        handleNotification(
-          username,
-          operationToUsername,
-          opCode,
-          ts,
-          followStatus.followDocData,
-          notificationAPIKeySecret.value()
-        );
-
-        // Ensuring all request has been sent.
-        await delay(250);
-
+      await lock.acquire(lockId, async () => {
+        await processFollow(requesterUsername, operationTo);
         res.status(200).send("OK");
-        return;
       });
     } catch (error) {
-      res.status(500).send("Internal Server Error");
-      return console.error(
-        "Error on acquiring lock for follow operation: \n",
-        error
-      );
+      console.error("Error while processing follow: ", error);
+      res.status(400).send(`${error}`);
     }
   })
 );

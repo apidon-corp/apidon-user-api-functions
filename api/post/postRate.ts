@@ -1,15 +1,13 @@
 import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/https";
-import {getRoutes} from "../../helpers/internalApiRoutes";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {NewPostDocData, RatingData} from "../../types/Post";
 import {RateInteractionDocData} from "@/types/Interactions";
-
-import {defineSecret} from "firebase-functions/params";
-const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
+import {sendNotification} from "../../helpers/notification/sendNotification";
+import {deleteNotification} from "../../helpers/notification/deleteNotification";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -195,13 +193,12 @@ function createNotificationObject(
   return notificationObject;
 }
 
-async function sendNotification(
+async function sendNotificationService(
   rate: number,
   postDocPath: string,
   rateSender: string,
   postSender: string,
-  timestamp: number,
-  notificationAPIKey: string
+  timestamp: number
 ) {
   if (rateSender === postSender) return true;
 
@@ -213,34 +210,12 @@ async function sendNotification(
     timestamp
   );
 
-  try {
-    const response = await fetch(
-      getRoutes().notification.sendNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        "Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending notification: ", error);
+  const sendNotificationResult = await sendNotification(notificationObject);
+  if (!sendNotificationResult) {
+    console.error("Error while sending notification. See other logs.");
     return false;
   }
+  return true;
 }
 
 async function addRateInteractionDoc(
@@ -307,12 +282,11 @@ async function handleInteraction(
   });
 }
 
-async function deleteNotification(
+async function deleteNotificationService(
   postDocPath: string,
   rateSender: string,
   postSender: string,
-  previousRatingDocData: undefined | RatingData,
-  notificationAPIKey: string
+  previousRatingDocData: undefined | RatingData
 ) {
   if (rateSender === postSender) return true;
   if (!previousRatingDocData) return true;
@@ -325,34 +299,12 @@ async function deleteNotification(
     previousRatingDocData.timestamp
   );
 
-  try {
-    const response = await fetch(
-      getRoutes().notification.deleteNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        "Delete Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while deleting notification: ", error);
+  const deleteNotificationResult = await deleteNotification(notificationObject);
+  if (!deleteNotificationResult) {
+    console.error("Error while deleting notification. See other logs.");
     return false;
   }
+  return true;
 }
 
 async function handleNotification(
@@ -360,39 +312,31 @@ async function handleNotification(
   postDocPath: string,
   rateSender: string,
   timestamp: number,
-  previousRatingResult: undefined | RatingData,
-  notificationAPIKey: string
+  previousRatingResult: undefined | RatingData
 ) {
   const postSender = await getPostSenderUsername(postDocPath);
   if (!postSender) return false;
 
   const [sendNotificationResult, removeNotificationResult] = await Promise.all([
-    sendNotification(
+    sendNotificationService(
       rate,
       postDocPath,
       rateSender,
       postSender,
-      timestamp,
-      notificationAPIKey
+      timestamp
     ),
-    deleteNotification(
+    deleteNotificationService(
       postDocPath,
       rateSender,
       postSender,
-      previousRatingResult,
-      notificationAPIKey
+      previousRatingResult
     ),
   ]);
 
   return sendNotificationResult && removeNotificationResult;
 }
 
-const delay = (ms: number) => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-};
-
 export const postRate = onRequest(
-  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {rating, postDocPath} = req.body;
@@ -451,15 +395,9 @@ export const postRate = onRequest(
       commonTimestamp,
       checkForPreviousRatingResult.isTherePreviousRating ?
         checkForPreviousRatingResult.previousRatingDocData :
-        undefined,
-      notificationAPIKeySecret.value()
+        undefined
     );
 
-    // Ensure all request have been sent.
-    await delay(250);
-
     res.status(200).send("Success");
-
-    return;
   })
 );

@@ -2,7 +2,6 @@ import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {getRoutes} from "../../../helpers/internalApiRoutes";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CodeDocData,
@@ -21,8 +20,7 @@ import {
 
 import * as AsyncLock from "async-lock";
 
-import {defineSecret} from "firebase-functions/params";
-const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
+import {sendNotification} from "../../../helpers/notification/sendNotification";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -382,7 +380,8 @@ async function addDocToCollectedCollectiblesCollection(
     return newDocRef.path;
   } catch (error) {
     console.error(
-      "Error while adding doc to collected collectibles collection: ", error
+      "Error while adding doc to collected collectibles collection: ",
+      error
     );
     return false;
   }
@@ -494,38 +493,24 @@ function createNotificationObject(
   return notificationObject;
 }
 
-async function sendNotification(
-  notificationObject: ReceivedNotificationDocData,
-  notificationAPIKey: string
+async function handleNotification(
+  postDocPath: string,
+  collectorUsername: string,
+  postSenderUsername: string
 ) {
-  try {
-    const response = await fetch(
-      getRoutes().notification.sendNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
+  const notificationObject = createNotificationObject(
+    postDocPath,
+    collectorUsername,
+    postSenderUsername
+  );
 
-    if (!response.ok) {
-      console.error(
-        "Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending notification: ", error);
+  const sendNotificationResult = await sendNotification(notificationObject);
+  if (!sendNotificationResult) {
+    console.error("Error while sending notification. See other logs.");
     return false;
   }
+
+  return true;
 }
 
 async function rollback(
@@ -647,8 +632,7 @@ async function rollback(
 
 async function processCollecting(
   code: string,
-  authorization: string | undefined,
-  notificationAPIKey: string
+  authorization: string | undefined
 ) {
   const collectorUsername = await handleAuthorization(authorization);
   if (!collectorUsername) {
@@ -799,19 +783,11 @@ async function processCollecting(
     throw new Error("Server Problem");
   }
 
-  const notificationObject = createNotificationObject(
+  await handleNotification(
     postDocPath,
     collectorUsername,
     postData.senderUsername
   );
-
-  const notificationResult = await sendNotification(
-    notificationObject,
-    notificationAPIKey
-  );
-  if (!notificationResult) {
-    throw new Error("Internal Server Error: Notification can not be sent.");
-  }
 
   return addDocToCollectedCollectiblesCollectionResult;
 }
@@ -819,7 +795,6 @@ async function processCollecting(
 const lock = new AsyncLock();
 
 export const collectCollectible = onRequest(
-  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {code} = req.body;
@@ -830,8 +805,7 @@ export const collectCollectible = onRequest(
       await lock.acquire(lockId, async () => {
         const newCollectedDocPath = await processCollecting(
           code,
-          authorization,
-          notificationAPIKeySecret.value()
+          authorization
         );
         res.status(200).send({
           collectedDocPath: newCollectedDocPath,

@@ -2,7 +2,6 @@ import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../../firebase/adminApp";
 import getDisplayName from "../../../helpers/getDisplayName";
-import {getRoutes} from "../../../helpers/internalApiRoutes";
 import {appCheckMiddleware} from "../../../middleware/appCheckMiddleware";
 import {
   CollectedCollectibleDocData,
@@ -22,12 +21,11 @@ import {
 import {ReceiptDocData} from "../../../types/Receipt";
 
 import {UserIdentityDoc} from "@/types/Identity";
+import * as AsyncLock from "async-lock";
 import {isProduction} from "../../../helpers/projectVersioning";
 import {BalanceDocData} from "../../../types/Wallet";
-import * as AsyncLock from "async-lock";
 
-import {defineSecret} from "firebase-functions/params";
-const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
+import {sendNotification} from "../../../helpers/notification/sendNotification";
 
 /**
  * Handles the authorization by verifying the provided key.
@@ -663,35 +661,26 @@ function createNotificationObject(
   return notificationObject;
 }
 
-async function sendNotification(
-  notificationObject: ReceivedNotificationDocData,
-  notificationAPIKey: string
+async function handleNotification(
+  postDocPath: string,
+  price: number,
+  username: string,
+  senderUsername: string
 ) {
-  try {
-    const response = await fetch(getRoutes().notification.sendNotification, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "authorization": notificationAPIKey,
-      },
-      body: JSON.stringify({
-        notificationData: notificationObject,
-      }),
-    });
+  const notificationObject = createNotificationObject(
+    postDocPath,
+    price,
+    username,
+    senderUsername
+  );
 
-    if (!response.ok) {
-      console.error(
-        "Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending notification: ", error);
+  const sendNotificationResult = await sendNotification(notificationObject);
+  if (!sendNotificationResult) {
+    console.error("Error while sending notification. See other logs.");
     return false;
   }
+
+  return true;
 }
 
 /**
@@ -865,8 +854,7 @@ async function rollback(
 
 async function processPayment(
   postDocPath: string,
-  authorization: string | undefined,
-  notificationAPIKey: string
+  authorization: string | undefined
 ) {
   const username = await handleAuthorization(authorization);
   if (!username) {
@@ -1040,28 +1028,17 @@ async function processPayment(
     );
   }
 
-  const notificationObject = createNotificationObject(
+  await handleNotification(
     postDocPath,
     price,
     username,
     postData.senderUsername
   );
-
-  const notificationResult = await sendNotification(
-    notificationObject,
-    notificationAPIKey
-  );
-  if (!notificationResult) {
-    throw new Error("Internal Server Error: Notification can not be sent.");
-  }
 }
 
 const lock = new AsyncLock();
 
 export const buyCollectible = onRequest(
-  {
-    secrets: [notificationAPIKeySecret],
-  },
   appCheckMiddleware(async (req, res) => {
     if (isProduction()) {
       res.status(403).send("Forbidden");
@@ -1075,11 +1052,7 @@ export const buyCollectible = onRequest(
 
     try {
       await lock.acquire(lockId, async () => {
-        await processPayment(
-          postDocPath,
-          authorization,
-          notificationAPIKeySecret.value()
-        );
+        await processPayment(postDocPath, authorization);
         res.status(200).send("Successfull");
       });
     } catch (error) {

@@ -1,15 +1,14 @@
-import {onRequest} from "firebase-functions/https";
 import {FieldValue} from "firebase-admin/firestore";
+import {onRequest} from "firebase-functions/https";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
-import {getRoutes} from "../../helpers/internalApiRoutes";
+
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
 import {CommentInteractionDocData} from "../../types/Interactions";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {CommentServerData, NewPostDocData} from "../../types/Post";
 
-import {defineSecret} from "firebase-functions/params";
-const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
+import {sendNotification} from "../../helpers/notification/sendNotification";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -137,12 +136,11 @@ async function getPostSender(postDocPath: string) {
   }
 }
 
-async function sendNotification(
+async function handleNotification(
   username: string,
   postDocPath: string,
   comment: string,
-  ts: number,
-  notificationAPIKey: string
+  ts: number
 ) {
   const postSender = await getPostSender(postDocPath);
   if (!postSender) return false;
@@ -158,42 +156,15 @@ async function sendNotification(
     ts
   );
 
-  try {
-    const response = await fetch(
-      getRoutes().notification.sendNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationObject,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        "Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while sending notification: ", error);
+  const sendNotificationResult = await sendNotification(notificationObject);
+  if (!sendNotificationResult) {
+    console.error("Error while sending notification. See other logs.");
     return false;
   }
+  return true;
 }
 
-const delay = (ms: number) => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-};
-
 export const postComment = onRequest(
-  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {message, postDocPath} = req.body;
@@ -210,26 +181,25 @@ export const postComment = onRequest(
       return;
     }
 
-    const commendData = createCommentData(message, username, Date.now());
+    const commentData = createCommentData(message, username, Date.now());
 
-    createCommentDoc(postDocPath, commendData);
-    increaseCommentCount(postDocPath);
-    addInteractionDocToCommentsCollection(
-      {creationTime: commendData.ts, postDocPath: postDocPath},
-      username
-    );
-    sendNotification(
-      username,
-      postDocPath,
-      commendData.message,
-      commendData.ts,
-      notificationAPIKeySecret.value()
-    );
-
-    await delay(250);
+    await Promise.all([
+      createCommentDoc(postDocPath, commentData),
+      increaseCommentCount(postDocPath),
+      addInteractionDocToCommentsCollection(
+        {creationTime: commentData.ts, postDocPath: postDocPath},
+        username
+      ),
+      handleNotification(
+        username,
+        postDocPath,
+        commentData.message,
+        commentData.ts
+      ),
+    ]);
 
     res.status(200).json({
-      commentData: commendData,
+      commentData: commentData,
     });
   })
 );

@@ -1,15 +1,12 @@
 import {FieldValue} from "firebase-admin/firestore";
 import {onRequest} from "firebase-functions/https";
-import {getRoutes} from "../../helpers/internalApiRoutes";
 import {firestore} from "../../firebase/adminApp";
 import getDisplayName from "../../helpers/getDisplayName";
 import {ReceivedNotificationDocData} from "../../types/Notifications";
 import {CommentServerData, NewPostDocData} from "../../types/Post";
 
 import {appCheckMiddleware} from "../../middleware/appCheckMiddleware";
-
-import {defineSecret} from "firebase-functions/params";
-const notificationAPIKeySecret = defineSecret("NOTIFICATION_API_KEY");
+import {deleteNotification} from "../../helpers/notification/deleteNotification";
 
 async function handleAuthorization(key: string | undefined) {
   if (key === undefined) {
@@ -142,11 +139,10 @@ function craeteNotificationObject(
   return notificationObject;
 }
 
-async function deleteNotification(
+async function handleNotification(
   postSender: string,
   commentObject: CommentServerData,
-  postDocPath: string,
-  notificationAPIKey: string
+  postDocPath: string
 ) {
   // No notification to yourself.
   if (postSender === commentObject.sender) return true;
@@ -159,38 +155,17 @@ async function deleteNotification(
     commentObject.ts
   );
 
-  try {
-    const response = await fetch(
-      getRoutes().notification.deleteNotification,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "authorization": notificationAPIKey,
-        },
-        body: JSON.stringify({
-          notificationData: notificationDataToDelete,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        "Delete Notification API response is not okay: ",
-        await response.text()
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error while deleting notification: ", error);
+  const deleteNotificationResult = await deleteNotification(
+    notificationDataToDelete
+  );
+  if (!deleteNotificationResult) {
+    console.error("Error while deleting notification. See other logs.");
     return false;
   }
+  return true;
 }
 
 export const postCommentDelete = onRequest(
-  {secrets: [notificationAPIKeySecret]},
   appCheckMiddleware(async (req, res) => {
     const {authorization} = req.headers;
     const {postDocPath, commentObject} = req.body;
@@ -235,11 +210,10 @@ export const postCommentDelete = onRequest(
         commentObject,
         postDocPath
       ),
-      deleteNotification(
+      handleNotification(
         checkCanDeleteCommentResult.postDocData.senderUsername,
         commentObject,
-        postDocPath,
-        notificationAPIKeySecret.value()
+        postDocPath
       ),
     ]);
 

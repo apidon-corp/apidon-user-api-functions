@@ -4,10 +4,6 @@ const userAPIsBaseURLParam = defineString("USER_APIS_BASE_URL");
 
 // Create a function that returns the routes with the current baseURL
 const getInternalAPIRoutes = (baseUrl: string) => ({
-  notification: {
-    sendNotification: `${baseUrl}/user-Notification-sendNotification`,
-    deleteNotification: `${baseUrl}/user-Notification-deleteNotification`,
-  },
   payment: {
     successonPayment: `${baseUrl}/payment-successOnPayment`,
     refund: `${baseUrl}/payment-refund`,
